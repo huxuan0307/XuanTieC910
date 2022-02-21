@@ -2,11 +2,11 @@ package Core.RTU
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object RobEntryMain extends App {
+object RobExceptMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new RobEntry)
+      ChiselGeneratorAnnotation(() => new RobExcept)
     )
   )
 }
