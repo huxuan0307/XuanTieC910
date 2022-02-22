@@ -22,34 +22,9 @@ trait ROBConfig {
   def NumRetireEntry  = 3
   def NumPopEntry     = 3
   def NumCommitEntry  = 3
-
-  def ROB_WIDTH           = 40
-  def ROB_VL_PRED         = 39
-  def ROB_VL              = 38
-  def ROB_VEC_DIRTY       = 30
-  def ROB_VSETVLI         = 29
-  def ROB_VSEW            = 28
-  def ROB_VLMUL           = 25
-  def ROB_NO_SPEC_MISPRED = 23
-  def ROB_NO_SPEC_MISS    = 22
-  def ROB_NO_SPEC_HIT     = 21
-  def ROB_LOAD            = 20
-  def ROB_FP_DIRTY        = 19
-  def ROB_INST_NUM        = 18
-  def ROB_BKPTB_INST      = 16
-  def ROB_BKPTA_INST      = 15
-  def ROB_BKPTB_DATA      = 14
-  def ROB_BKPTA_DATA      = 13
-  def ROB_STORE           = 12
-  def ROB_RAS             = 11
-  def ROB_PCFIFO          = 10
-  def ROB_BJU             = 9
-  def ROB_INTMASK         = 8
-  def ROB_SPLIT           = 7
-  def ROB_PC_OFFSET       = 6
-  def ROB_CMPLT_CNT       = 3
-  def ROB_CMPLT           = 1
-  def ROB_VLD             = 0
+  def RobPcOffsetBits = 3
+  // Todo: Num of complete
+  def NumCmpltBits    = 2
 }
 
 trait PipelineConfig {
@@ -69,9 +44,9 @@ trait ExceptionConfig {
 }
 
 trait VectorUnitConfig {
-  def VlmaxWidth = 8
-  def VlmulWidth = 3
-  def VsewWidth = 3
+  def VlmaxBits = 8
+  def VlmulBits = 3
+  def VsewBits = 3
 }
 
 object IntConfig extends IntConfig

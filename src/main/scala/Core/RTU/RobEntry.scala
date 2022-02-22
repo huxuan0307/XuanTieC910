@@ -2,252 +2,257 @@ package Core.RTU
 
 import chisel3._
 import chisel3.util._
-import Core.IntConfig._
 import Core.ROBConfig._
+import Core.VectorUnitConfig._
+import Core.PipelineConfig._
 
-class Cp0ToRtuBundle extends Bundle {
-  val rtu_icg_en : Bool = Bool()
-  val yy_clk_en : Bool = Bool()
+class RobEntryCtrlPath extends Bundle {
+  val valid       : Bool = Bool()
+  val cmpltCnt    : UInt = UInt(NumCmpltBits.W)
+  val cmpltValid  : Bool = Bool()
 }
 
-class Entry extends Bundle {
-  val reg : UInt = UInt(LogicRegsNumBits.W)
-  val iid : UInt = UInt(InstructionIdNumBits.W)
-  val preg : UInt = UInt(PhysicRegsNumBits.W)
+class RobEntryDataPath extends Bundle {
+  val vlPred          : Bool = Bool()
+  val vl              : UInt = UInt(VlmaxBits.W)
+  val vecDirty        : Bool = Bool()
+  val vsetvli         : Bool = Bool()
+  val vsew            : UInt = UInt(VsewBits.W)
+  val vlmul           : UInt = UInt(VlmulBits.W)
+  val noSpec          = new Bundle {
+    val mispred       : Bool = Bool()
+    val miss          : Bool = Bool()
+    val hit           : Bool = Bool()
+  }
+  val load            : Bool = Bool()
+  val fpDirty         : Bool = Bool()
+  // Todo: imm
+  val instNum         : UInt = UInt(2.W)
+  val breakpointBInst : Bool = Bool()
+  val breakpointAInst : Bool = Bool()
+  val breakpointBData : Bool = Bool()
+  val breakpointAData : Bool = Bool()
+  val store           : Bool = Bool()
+  val ras             : Bool = Bool()
+  val pcFifo          : Bool = Bool()
+  val bju             : Bool = Bool()
+  // Todo: figure out
+  val intMask         : Bool = Bool()
+  val split           : Bool = Bool()
+  val pcOffset        : UInt = UInt(RobPcOffsetBits.W)
 }
 
-class RetireControl(width: Int) extends Bundle {
-  val async_flush : Bool = Bool()
-  val retire_inst_preg_vld : Vec[Bool] = Vec(width, Bool())
-  val iid : Vec[ValidIO[UInt]] = Vec(width, ValidIO(UInt(InstructionIdNumBits.W)))
+class RobEntryData extends Bundle {
+  val ctrl = new RobEntryCtrlPath
+  val data = new RobEntryDataPath
+}
+
+class RobEntryPipe extends Bundle {
+  val wbBreakpointAData : Bool = Bool()
+  val wbBreakpointBData : Bool = Bool()
+  val wbNoSpecHit       : Bool = Bool()
+  val wbNoSpecMispred   : Bool = Bool()
+  val wbNoSpecMiss      : Bool = Bool()
 }
 
 class RobEntryInput extends Bundle {
-  val dealloc_vld_for_gateclk : Bool            = Bool()
-  val fromCp0                 : Cp0ToRtuBundle  = new Cp0ToRtuBundle
-  val iduToRtu                : Vec[Entry]      = Vec(NumCreateEntry, new Entry)
-  val ifu_xx_sync_reset       : Bool            = Bool()
-  val pad_yy_icg_scan_en      : Bool            = Bool()
-  val retireControl           : RetireControl   = new RetireControl(NumRetireEntry)
-  val rtu_yy_xx_flush         : Bool            = Bool()
-  val x_create_vld            : UInt            = UInt(NumCreateEntry.W)
-  val x_dealloc_mask          : Bool            = Bool()
-  val x_dealloc_vld           : Bool            = Bool()
-  val x_release_vld           : Bool            = Bool()
-  val x_reset_dst_reg         : UInt            = UInt(LogicRegsNumBits.W)
-  val x_reset_mapped          : Bool            = Bool()
-  val x_wb_vld                : Bool            = Bool()
+  val fromCp0 = new Bundle() {
+    val rtuIcgEn  : Bool = Bool()
+    val yyClkEn   : Bool = Bool()
+  }
+  val fromIdu = new Bundle() {
+    val createDataVec : Vec[RobEntryData] = Vec(NumCreateEntry, new RobEntryData)
+  }
+  val fromLsu = new Bundle() {
+    val miscCmpltGateClkEn : Bool = Bool()
+    val pipe3 = new RobEntryPipe
+    val pipe4 = new RobEntryPipe
+  }
+  val fromPad = new Bundle() {
+    val yyIcgScanEn : Bool = Bool()
+  }
+  val fromRetire = new Bundle() {
+    val flush         : Bool = Bool()
+    val flushGateClk  : Bool = Bool()
+  }
+  val x = new Bundle() {
+    val cmpltGateClkValid : Bool = Bool()
+    val cmpltValidVec     : Vec[Bool] = Vec(NumPipeline, Bool())
+    val createDpEn        : Bool = Bool()
+    val createEn          : Bool = Bool()
+    val createGateClkEn   : Bool = Bool()
+    val createSel         : Vec[Bool] = Vec(NumCreateEntry, Bool())
+    val popEn             : Bool = Bool()
+  }
 }
 
 class RobEntryOutput extends Bundle {
-  val empty : Bool = Bool()
-  val dreg_oh : UInt = UInt(LogicRegsNum.W)
-  val preg_oh : UInt = UInt(PhysicRegsNum.W)
-  val retired_released_wb : Bool = Bool()
+  val readData : RobEntryData = new RobEntryData
 }
 
 class RobEntryIO extends Bundle {
-  val in  : RobEntryInput = Input(new RobEntryInput)
-  val out : RobEntryOutput = Output(new RobEntryOutput)
+  val in  : RobEntryInput   = Input(new RobEntryInput)
+  val out : RobEntryOutput  = Output(new RobEntryOutput)
 }
 
 class RobEntry extends Module {
   val io : RobEntryIO = IO(new RobEntryIO)
 
-  object PregState {
-    def size = 5
-    val dealloc :: wf_alloc :: alloc :: retire :: release :: Nil = Enum(size)
-  }
+  // Todo: bind pipeline number dynamically
+  /**
+   * Regs
+   */
 
-  object WbState {
-    def size = 2
-    val idle :: wb :: Nil = Enum(size)
-  }
+  private val entryData   = RegInit(0.U.asTypeOf(new RobEntryData))
+  private val xCreateData = WireInit(0.U.asTypeOf(new RobEntryData))
 
-  // Todo: Instance of Gated Cell
+  //==========================================================
+  //                 Instance of Gated Cell
+  //==========================================================
 
-  private val lifecycle_cur_state = RegInit(PregState.dealloc)
-  private val lifecycle_next_state = RegInit(PregState.dealloc)
+  private val entryClkEn = io.in.fromRetire.flushGateClk ||
+    io.in.x.createGateClkEn ||
+    io.in.x.cmpltGateClkValid ||
+    io.in.x.popEn
 
-  private val wb_cur_state = RegInit(WbState.idle)
-  private val wb_next_state = RegInit(WbState.idle)
+  private val createClkEn = io.in.x.createGateClkEn
 
-  private val reset_lifecycle_state = Mux(io.in.x_reset_mapped, PregState.retire, PregState.dealloc)
-  private val wb_cur_state_wb = Wire(Bool())
-  private val wb_cur_state_wb_masked = Wire(Bool())
-  private val create_vld = WireInit(false.B)
-  private val retire_vld = Wire(Bool())
+  private val lsuCmpltClkEn = io.in.x.createGateClkEn || io.in.fromLsu.miscCmpltGateClkEn
 
-  when(io.in.ifu_xx_sync_reset) {
-    lifecycle_cur_state := reset_lifecycle_state
-  }.otherwise {
-    lifecycle_cur_state := lifecycle_next_state
-  }
+  // Todo: gated clk for entry, entry create, lsu cmplt
 
-  switch(lifecycle_cur_state) {
-    is(PregState.dealloc) {
-      when(io.in.x_dealloc_mask) {
-        lifecycle_next_state := PregState.wf_alloc
-      }.otherwise {
-        lifecycle_next_state := PregState.dealloc
-      }
-    }
-    is(PregState.wf_alloc) {
-      when(io.in.rtu_yy_xx_flush) {
-        lifecycle_next_state := PregState.dealloc
-      }.elsewhen(create_vld) {
-        lifecycle_next_state := PregState.alloc
-      }.otherwise {
-        lifecycle_next_state := PregState.wf_alloc
-      }
-    }
-    is(PregState.alloc) {
-      when(io.in.rtu_yy_xx_flush) {
-        lifecycle_next_state := PregState.dealloc
-      }.elsewhen(io.in.x_release_vld && wb_cur_state_wb_masked) {
-        lifecycle_next_state := PregState.dealloc
-      }.elsewhen(io.in.x_release_vld) {
-        lifecycle_next_state := PregState.release
-      }.elsewhen(retire_vld) {
-        lifecycle_next_state := PregState.retire
-      }.otherwise{
-        lifecycle_next_state := PregState.alloc
-      }
-    }
-    is(PregState.retire) {
-      when(io.in.x_release_vld && wb_cur_state_wb_masked) {
-        lifecycle_next_state := PregState.dealloc
-      }.elsewhen(io.in.x_release_vld) {
-        lifecycle_next_state := PregState.release
-      }.otherwise{
-        lifecycle_next_state := PregState.retire
-      }
-    }
-    is(PregState.release) {
-      when(wb_cur_state_wb_masked) {
-        lifecycle_next_state := PregState.dealloc
-      }.otherwise{
-        lifecycle_next_state := PregState.release
-      }
-    }
+  //==========================================================
+  //                      Create Port
+  //==========================================================
+
+  xCreateData := MuxLookup(io.in.x.createSel.asUInt, 0.U, Seq(
+    "b0001".U -> io.in.fromIdu.createDataVec(0).asUInt,
+    "b0010".U -> io.in.fromIdu.createDataVec(1).asUInt,
+    "b0100".U -> io.in.fromIdu.createDataVec(2).asUInt,
+    "b1000".U -> io.in.fromIdu.createDataVec(3).asUInt,
+  )).asTypeOf(new RobEntryData)
+
+  //==========================================================
+  //                      Entry Valid
+  //==========================================================
+
+  when(io.in.fromRetire.flush) {
+    entryData.ctrl.valid := false.B
+  }.elsewhen(io.in.x.createEn) {
+    entryData.ctrl.valid := xCreateData.ctrl.valid
+  }.elsewhen(io.in.x.popEn) {
+    entryData.ctrl.valid := false.B
   }
 
   //==========================================================
-  //               Preg Write Back State Machine
-  //==========================================================
-  private val reset_wb_state = Mux(io.in.x_reset_mapped, WbState.wb, WbState.idle)
-  //----------------------------------------------------------
-  //                 FSM of Preg write back
-  //----------------------------------------------------------
-  // State Description:
-  // idle       : preg is not written back
-  // wb         : preg is written back
-  when(io.in.retireControl.async_flush) {
-    wb_cur_state := WbState.wb
-  }.elsewhen(io.in.ifu_xx_sync_reset) {
-    wb_cur_state := reset_wb_state
-  }.elsewhen(create_vld) {
-    wb_cur_state := WbState.idle
-  }.otherwise{
-    wb_cur_state := wb_next_state
-  }
-
-  switch(wb_cur_state) {
-    is(WbState.idle) {
-      when(io.in.x_wb_vld) {
-        wb_next_state := WbState.wb
-      }.otherwise {
-        wb_next_state := WbState.idle
-      }
-    }
-    is(WbState.wb) {
-      when(lifecycle_cur_state === PregState.dealloc) {
-        wb_next_state := WbState.idle
-      }.otherwise{
-        wb_next_state := WbState.wb
-      }
-    }
-  }
-
-  //----------------------------------------------------------
-  //                    Control Siganls
-  //----------------------------------------------------------
-  wb_cur_state_wb         := wb_cur_state === WbState.wb
-  wb_cur_state_wb_masked  := wb_cur_state === WbState.wb && !io.in.x_dealloc_mask
-
-  //==========================================================
-  //                    Preg information
+  //               Cmplt counter and Cmplt bit
   //==========================================================
   //----------------------------------------------------------
-  //              Prepare allocate create data
+  //         Prepare cmplt cnt create and cmplt value
   //----------------------------------------------------------
-  create_vld := io.in.x_create_vld.asUInt.orR
 
-  private val create_entry = WireInit(0.U.asTypeOf(new Entry))
-  private val entry = RegInit(0.U.asTypeOf(new Entry))
-
-  create_entry := MuxLookup(io.in.x_create_vld, 0.U.asTypeOf(new Entry), Seq(
-    "b0001".U -> io.in.iduToRtu(0),
-    "b0010".U -> io.in.iduToRtu(1),
-    "b0100".U -> io.in.iduToRtu(2),
-    "b1000".U -> io.in.iduToRtu(3),
-  ))
-
-  //----------------------------------------------------------
-  //                  Information Register
-  //----------------------------------------------------------
-  when(io.in.ifu_xx_sync_reset) {
-    entry := 0.U.asTypeOf(new Entry)
-    entry.reg := io.in.x_reset_dst_reg
-  }.elsewhen(create_vld) {
-    entry := create_entry
-  }.otherwise {
-    entry := entry
-  }
-  //----------------------------------------------------------
-  //                Retire IID Match Register
-  //----------------------------------------------------------
-  // Todo: verilog: timing optimization: compare retire inst iid before retire
-
-  val retire_inst_iid_match = WireInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
-
-  when(io.in.ifu_xx_sync_reset) {
-    retire_inst_iid_match := 0.U(retire_inst_iid_match.getWidth.W).asBools
-  }.elsewhen(lifecycle_cur_state === PregState.alloc){
-    for (i <- 0 until NumRetireEntry) {
-      retire_inst_iid_match(i) := io.in.retireControl.iid(i).valid &&
-        io.in.retireControl.iid(i).bits === entry.iid
-    }
-  }
-
-  //==========================================================
-  //                       Retire signal
-  //==========================================================
-  retire_vld :=
-    VecInit(retire_inst_iid_match.zip(io.in.retireControl.retire_inst_preg_vld).map{
-      case(iid_match, wb_vld) => iid_match && wb_vld
-    }).asUInt.orR
-
-  //==========================================================
-  //                      Release signal
-  //==========================================================
-  io.out.preg_oh := Mux(lifecycle_cur_state === PregState.alloc && retire_vld, UIntToOH(entry.preg), 0.U)
-
-  //==========================================================
-  //              Rename Table Recovery signal
-  //==========================================================
-  io.out.dreg_oh := Mux(lifecycle_cur_state === PregState.retire, UIntToOH(entry.reg), 0.U)
-
-  //==========================================================
-  //          Fast Retired Instruction Write Back
-  //==========================================================
-  io.out.retired_released_wb := Mux(
-    lifecycle_cur_state === PregState.alloc && retire_vld ||
-      lifecycle_cur_state=== PregState.retire ||
-      lifecycle_cur_state=== PregState.release,
-    wb_cur_state === WbState.wb,
-    true.B
+  // Todo: imm
+  private val cmpltFoldValid = VecInit(
+    io.in.x.cmpltValidVec(0),
+    io.in.x.cmpltValidVec(1),
+    io.in.x.cmpltValidVec(5),
+    io.in.x.cmpltValidVec(6),
   )
-  io.out.empty := lifecycle_cur_state === PregState.dealloc
+  private val cmpltFoldValidCnt = cmpltFoldValid.count(b => b)
+  // Todo: imm
+  private val cmpltFoldValidCntOH = Wire(Vec(4, Bool()))
+  for (i <- 0 until 4) {
+    cmpltFoldValidCntOH(i) := cmpltFoldValidCnt === i.U
+  }
 
+  private val cmpltCntWithCreate = Wire(UInt(NumCmpltBits.W))
+  // Todo: figure out cmpltCntCmpltExist
+  // Todo: imm
+  private val cmpltCntCmpltExist =
+    // 2.1 0 inst cmplt
+    Fill(NumCmpltBits, !io.in.x.cmpltValidVec.asUInt(6,0).orR) & cmpltCntWithCreate |
+      // 2.2 1 fold inst cmplt
+      Fill(NumCmpltBits, cmpltFoldValidCntOH(1)) & (cmpltCntWithCreate - 1.U) |
+      // 2.3 2 fold inst cmplt
+      Fill(NumCmpltBits, cmpltFoldValidCntOH(2)) & (cmpltCntWithCreate - 2.U) |
+      // 2.4 3 fold inst cmplt
+      Fill(NumCmpltBits, cmpltFoldValidCntOH(3)) & 0.U(NumCmpltBits.W) |
+      // 2.5 other inst cmplt
+      Fill(NumCmpltBits, io.in.x.cmpltValidVec.asUInt(6,2).orR) & 0.U(NumCmpltBits.W)
+
+  //----------------------------------------------------------
+  //                        cmplt cnt
+  //----------------------------------------------------------
+  cmpltCntWithCreate := Mux(
+    io.in.x.createEn,
+    xCreateData.ctrl.cmpltCnt,
+    entryData.ctrl.cmpltCnt
+  )
+
+  when (io.in.x.cmpltValidVec.asUInt.orR) {
+    entryData.ctrl.cmpltCnt := cmpltCntCmpltExist
+  }.elsewhen (io.in.x.createEn) {
+    entryData.ctrl.cmpltCnt := xCreateData.ctrl.cmpltCnt
+  }
+
+  //----------------------------------------------------------
+  //         Prepare cmplt create and cmplt value
+  //----------------------------------------------------------
+  //1.if create to new or exist entry, cmplt will be 0
+  //2.if no create in and inst cmplt, cmplt will be 1
+  private val cmpltUpdate = Wire(Bool())
+  cmpltUpdate :=
+    (cmpltFoldValidCntOH(1) && cmpltCntWithCreate === 1.U) ||
+      (cmpltFoldValidCntOH(2) && cmpltCntWithCreate === 2.U) ||
+      cmpltFoldValidCntOH(3) ||
+      io.in.x.cmpltValidVec.asUInt(4,2).orR
+
+  //----------------------------------------------------------
+  //                         cmplt
+  //----------------------------------------------------------
+  when (io.in.x.cmpltValidVec.asUInt.orR) {
+    entryData.ctrl.cmpltValid := cmpltUpdate
+  }.elsewhen(io.in.x.createEn) {
+    entryData.ctrl.cmpltValid := xCreateData.ctrl.cmpltValid
+  }
+
+  //==========================================================
+  //              Instruction Complete Information
+  //==========================================================
+  //bkpta_data and bkptb_data can only from pipe3/4
+  // Todo : imm
+  private val breakpointADataUpdate =
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointAData ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointAData
+  private val breakpointBDataUpdate =
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointBData ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointBData
+  private val noSpecHitUpdate =
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecHit ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecHit
+  private val noSpecMissUpdate =
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecMiss ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecMiss
+  private val noSpecMispredUpdate =
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecMispred ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecMispred
+
+  //==========================================================
+  //              Instruction Create Information
+  //==========================================================
+
+  // first, accept completed signal from pipeline fu
+  // second, accept create signal from idu
+  when (io.in.x.cmpltValidVec.asUInt(4,3).orR) {
+    entryData.data.breakpointAData := breakpointADataUpdate
+    entryData.data.breakpointBData := breakpointBDataUpdate
+    entryData.data.noSpec.hit      := noSpecHitUpdate
+    entryData.data.noSpec.miss     := noSpecMissUpdate
+    entryData.data.noSpec.mispred  := noSpecMispredUpdate
+    // other signals maintain themselves
+  }.elsewhen (io.in.x.createDpEn) {
+    entryData.data := xCreateData.data
+  }
+
+  io.out.readData := entryData
 }
