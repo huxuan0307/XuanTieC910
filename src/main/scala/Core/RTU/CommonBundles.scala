@@ -8,14 +8,14 @@ import Core.IntConfig._
 import Core.ROBConfig._
 import Core.VectorUnitConfig._
 
-class Cp0ToRtuBundle extends Bundle {
+class RegEntryFromCp0Bundle extends Bundle {
   val rtuIcgEn : Bool = Bool()
   val yyClkEn : Bool = Bool()
 }
 
-class RetireControl(width: Int) extends Bundle {
+class PregFromRetire(width: Int) extends Bundle {
   val asyncFlush : Bool = Bool()
-  val retireInstPregValid : Vec[Bool] = Vec(width, Bool())
+  val wbRetireInstPregValid : Vec[Bool] = Vec(width, Bool())
 }
 
 class RobFromCp0Bundle extends Bundle {
@@ -216,4 +216,8 @@ class RobYyXx extends Bundle {
   // Todo: check
   val commitIid : Vec[ValidIO[UInt]] = Vec(NumCommitEntry, ValidIO(UInt(InstructionIdWidth.W)))
   val retire : Vec[Bool] = Vec(NumRetireEntry, Bool())
+}
+
+class RegEntryFromIfuBundle extends Bundle {
+  val xxSyncReset : Bool = Bool()
 }
