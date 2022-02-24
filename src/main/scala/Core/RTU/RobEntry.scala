@@ -28,10 +28,8 @@ class RobEntryDataPath extends Bundle {
   val fpDirty         : Bool = Bool()
   // Todo: imm
   val instNum         : UInt = UInt(2.W)
-  val breakpointBInst : Bool = Bool()
-  val breakpointAInst : Bool = Bool()
-  val breakpointBData : Bool = Bool()
-  val breakpointAData : Bool = Bool()
+  val breakpointData = new RobBreakpointDataBundle
+  val breakpointInst = new RobBreakpointInstBundle
   val store           : Bool = Bool()
   val ras             : Bool = Bool()
   val pcFifo          : Bool = Bool()
@@ -244,8 +242,8 @@ class RobEntry extends Module {
   // first, accept completed signal from pipeline fu
   // second, accept create signal from idu
   when (io.in.x.cmpltValidVec.asUInt(4,3).orR) {
-    entryData.data.breakpointAData := breakpointADataUpdate
-    entryData.data.breakpointBData := breakpointBDataUpdate
+    entryData.data.breakpointData.a := breakpointADataUpdate
+    entryData.data.breakpointData.b := breakpointBDataUpdate
     entryData.data.noSpec.hit      := noSpecHitUpdate
     entryData.data.noSpec.miss     := noSpecMissUpdate
     entryData.data.noSpec.mispred  := noSpecMispredUpdate

@@ -19,9 +19,9 @@ trait ROBConfig {
   def RobReadPtrNum   = 6
   def NumRobReadEntry = 3
   def NumCreateEntry  = 4
+  def NumCommitEntry  = 3
   def NumRetireEntry  = 3
   def NumPopEntry     = 3
-  def NumCommitEntry  = 3
   def RobPcOffsetBits = 3
   // Todo: Num of complete
   def NumCmpltBits    = 2
@@ -39,7 +39,7 @@ trait AddrConfig {
 
 trait ExceptionConfig {
   def ExceptionVecWidth = 5
-  def interruptVecWidth = 5
+  def InterruptVecWidth = 5
   def MtvalWidth = 32
 }
 

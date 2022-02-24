@@ -21,8 +21,7 @@ class PregFromRetire(width: Int) extends Bundle {
 class RobFromCp0Bundle extends Bundle {
   val icgEn : Bool = Bool()
   val xxIntB : Bool = Bool()
-  // Todo: Imm
-  val xxVec : UInt = UInt(5.W)
+  val xxVec : UInt = UInt(InterruptVecWidth.W)
   val yyClkEn : Bool = Bool()
 }
 
@@ -48,6 +47,7 @@ class RobFromPad extends Bundle {
 }
 
 abstract class RobFromRetire extends Bundle {
+  // Todo: check if need to rename -> interruptMask
   val asyncExceptionCommitMask : Bool = Bool()
   val ctcFLushReq : Bool = Bool()
   val debug = new Bundle() {
@@ -62,6 +62,7 @@ abstract class RobFromRetire extends Bundle {
   val instJmp : Vec[Bool] = Vec(3, Bool())
   val instFlush : Bool = Bool()
   val rtMask : Bool = Bool()
+  // flush of vector first only fault instruction
   val splitFofFlush : Bool = Bool()
   val srtEn : Bool = Bool()
 }
@@ -105,11 +106,11 @@ abstract class RobFromLsuPipeCommonBundle extends Bundle {
   }
 }
 
-abstract class RobToRetireInstBundle extends Bundle {
+class RobToRetireInstBundle extends Bundle {
   val valid : Bool = Bool()
   val bju : Bool = Bool()
-  val conditionalBranch : Bool = Bool()
-  val conditionalBranchTaken : Bool = Bool()
+  val condBranch : Bool = Bool()
+  val condBrTaken : Bool = Bool()
   val jmp : Bool = Bool()
   val load : Bool = Bool()
   val split : Bool = Bool()
@@ -118,15 +119,13 @@ abstract class RobToRetireInstBundle extends Bundle {
   val vsetvli : Bool = Bool()
   val fpDirty : Bool = Bool()
   val vecDirty : Bool = Bool()
-  val noSpecHit : Bool = Bool()
-  val noSpecMispred : Bool = Bool()
-  val noSpecMiss : Bool = Bool()
+  val noSpec = new RobNoSpecBundle
   val pstEregValid : Bool = Bool()
   val pstPregValid : Bool = Bool()
   val pstVregValid : Bool = Bool()
   // Todo: imm, figure out
   val checkIdx : UInt = UInt(8.W)
-  val pc : UInt = UInt(PcWidth.W)
+  val pcCur : UInt = UInt(PcWidth.W)
   val npc : UInt = UInt(PcWidth.W)
   // Todo: imm
   val pcOffset : UInt = UInt(RobPcOffsetBits.W)
@@ -137,12 +136,12 @@ abstract class RobToRetireInstBundle extends Bundle {
   val vsew : UInt = UInt(VsewBits.W)
 }
 
-abstract class RobToRetireInstExtraBundle extends RobToRetireInstBundle {
+class RobToRetireInstExtraBundle extends Bundle {
   val bhtMispred : Bool = Bool()
   val bjuIncPc : UInt = UInt(PcWidth.W)
   val breakPoint : Bool = Bool()
   val ctcFlush : Bool = Bool()
-  val dataBreakPoint : Bool = Bool()
+  val dataBreakpoint : Bool = Bool()
   val debugDisable : Bool = Bool()
   val efPcValid : Bool = Bool()
   val exceptionVec = ValidIO(UInt(ExceptionVecWidth.W))
@@ -151,7 +150,7 @@ abstract class RobToRetireInstExtraBundle extends RobToRetireInstBundle {
   val instMmuException : Bool = Bool()
   val instBreakPoint : Bool = Bool()
   val instFlush : Bool = Bool()
-  val interruptVec = ValidIO(UInt(interruptVecWidth.W))
+  val interruptVec = ValidIO(UInt(InterruptVecWidth.W))
   val interruptMask : Bool = Bool()
   val jmpMispred : Bool = Bool()
   val mtval : UInt = UInt(MtvalWidth.W)
@@ -168,11 +167,10 @@ abstract class RobToRetireInstExtraBundle extends RobToRetireInstBundle {
 
 abstract class RobToRetireBundle extends Bundle {
   // Todo: imm
-  val commit : Vec[Bool] = Vec(NumCommitEntry, Bool())
+  val commitValidVec : Vec[Bool] = Vec(NumCommitEntry, Bool())
   val ctcFlushSrtEn : Bool = Bool()
-  val inst0 : RobToRetireInstExtraBundle = new RobToRetireInstExtraBundle {}
-  val inst1 : RobToRetireInstBundle = new RobToRetireInstBundle {}
-  val inst2 : RobToRetireInstBundle = new RobToRetireInstBundle {}
+  val instVec = Vec(NumRetireEntry, new RobToRetireInstBundle)
+  val instExtra = new RobToRetireInstExtraBundle
   val robCurPc : UInt = UInt(PcWidth.W)
 }
 
@@ -182,15 +180,13 @@ class RobToCpu extends Bundle {
 
 class RobToHad extends Bundle {
   val breakpointDataSt : Bool = Bool()
-  val dataBreakpointAValid : Bool = Bool()
-  val dataBreakpointBValid : Bool = Bool()
+  val dataBreakpoint = new RobBreakpointDataBundle
+  val instBreakpoint = new RobBreakpointInstBundle
   val instBreakpointInstValid : Bool = Bool()
-  val instBreakpointAValid : Bool = Bool()
-  val instBreakpointBValid : Bool = Bool()
   val instExeDead : Bool = Bool()
-  val inseSplit : Bool = Bool()
+  val instSplit : Bool = Bool()
   // Todo: imm
-  val instNonIrvBreakpoint : Vec[UInt] = Vec(3, UInt(4.W))
+  val instNonIrvBreakpoint : Vec[RobBreakpointBundle] = Vec(3, new RobBreakpointBundle)
   val retireInstInfo : Vec[ValidIO[UInt]] = Vec(NumRetireEntry, ValidIO(UInt(NumRobEntry.W)))
   val robEmpty : Bool = Bool()
   val xxMBreakpointChangeFlow : Bool = Bool()
@@ -209,7 +205,8 @@ class RobToIu extends Bundle {
 }
 
 class RobToPad extends Bundle {
-  val retirePc : Vec[ValidIO[UInt]] = Vec(NumRetireEntry, ValidIO(UInt(PcWidth.W)))
+  // Todo: Figure out why width(retirePc) = PcWidth+1
+  val retirePc : Vec[ValidIO[UInt]] = Vec(NumRetireEntry, ValidIO(UInt((PcWidth+1).W)))
 }
 
 class RobYyXx extends Bundle {
@@ -220,4 +217,25 @@ class RobYyXx extends Bundle {
 
 class RegEntryFromIfuBundle extends Bundle {
   val xxSyncReset : Bool = Bool()
+}
+
+class RobNoSpecBundle extends Bundle {
+  val mispred     : Bool = Bool()
+  val miss        : Bool = Bool()
+  val hit         : Bool = Bool()
+}
+
+class RobBreakpointDataBundle extends Bundle {
+  val a           : Bool = Bool()
+  val b           : Bool = Bool()
+}
+
+class RobBreakpointInstBundle extends Bundle {
+  val a           : Bool = Bool()
+  val b           : Bool = Bool()
+}
+
+class RobBreakpointBundle extends Bundle {
+  val inst = new RobBreakpointInstBundle
+  val data = new RobBreakpointDataBundle
 }

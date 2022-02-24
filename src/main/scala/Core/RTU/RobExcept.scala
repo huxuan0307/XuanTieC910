@@ -30,13 +30,13 @@ protected trait RobExceptConfig {
 }
 
 class RobExceptEntryBundle extends Bundle {
-  val validUpdateVal  : Bool = Bool()
+  val validUpdate  : Bool = Bool()
   val iid             : UInt = UInt(InstructionIdWidth.W)
   val valid           : Bool = Bool()
 }
 
 class RobExceptEntry extends Bundle {
-  val vstart    : ValidIO[UInt] = ValidIO(UInt(VlmaxWidth.W))
+  val vstart    : ValidIO[UInt] = ValidIO(UInt(VlmaxBits.W))
   val vsetvl    : Bool = Bool()
   val efPcValid : Bool = Bool()
   val specFail  : Bool = Bool()
@@ -67,7 +67,7 @@ class RobExceptInput extends Bundle {
       val instMmuExcept : Bool = Bool()
       val mtval         : UInt = UInt(MtvalWidth.W)
       val vsetvl        : Bool = Bool()
-      val vstart        : ValidIO[UInt] = ValidIO(UInt(VlmaxWidth.W))
+      val vstart        : ValidIO[UInt] = ValidIO(UInt(VlmaxBits.W))
     }
     val pipe2 = new Bundle() {
       val iid         : UInt = UInt(InstructionIdWidth.W)
@@ -113,7 +113,7 @@ class RobExceptOutput extends Bundle {
       val specFailNoSsf   : Bool = Bool()
       val specFailSsf     : Bool = Bool()
       val vsetvl          : Bool = Bool()
-      val vstart          : ValidIO[UInt] = ValidIO(UInt(VlmaxWidth.W))
+      val vstart          : ValidIO[UInt] = ValidIO(UInt(VlmaxBits.W))
     }
     val splitSpecFailSrt  : Bool = Bool()
     val ssfIid            : UInt = UInt(InstructionIdWidth.W)
@@ -191,7 +191,7 @@ class RobExcept extends Module with RobExceptConfig {
   private val pipe2lt0 = CompareIidLess(pipe0Iid, pipe2Iid)
   private val pipe2lte = CompareIidLess(exceptIid, pipe2Iid)
   private val pipe0lte = CompareIidLess(exceptIid, pipe0Iid)
-  
+
   private val exceptEntryWriteSel = Wire(Vec(NumExceptSource, Bool()))
   // select oldest completed pipe
   exceptEntryWriteSel(0) := exceptEntryValid &&
@@ -297,7 +297,7 @@ class RobExcept extends Module with RobExceptConfig {
   //==========================================================
   //                     Except Complete Info
   //==========================================================
-  io.out.except.validUpdateVal := Mux(
+  io.out.except.validUpdate := Mux(
     exceptCmplt,
     exceptEntryDataUpdate.exceptVec.valid,
     exceptEntryData.exceptVec.valid
