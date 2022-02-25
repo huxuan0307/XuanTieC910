@@ -14,6 +14,7 @@ trait IntConfig {
   def NumFuHasDstReg : Int = NumAlu + NumLu + NumMu + NumDu + NumVfUnit
   def NumLogicRegs = 32
   def NumPhysicRegs = 96
+  def OpcodeBits = 32
   def NumInstructionId = 128
   def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
   def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)

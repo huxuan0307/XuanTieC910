@@ -21,6 +21,8 @@ trait DepRegEntryConfig {
   def vfpu0Idx = 5
 
   def vfpu1Idx = 6
+
+  def WbNum = 3
 }
 
 class DepRegEntryData extends Bundle {
@@ -47,7 +49,7 @@ class IqEntryFromCp0 extends Bundle {
   val yyClkEn : Bool = Bool()
 }
 
-class DepRegEntryInput extends Bundle {
+class DepRegEntryInput extends Bundle with DepRegEntryConfig {
   val fwdValid = new FwdValidBundle
   val fromCp0 = new IqEntryFromCp0
   /**
@@ -55,12 +57,10 @@ class DepRegEntryInput extends Bundle {
    */
   val fuDstPreg : Vec[ValidIO[UInt]] = Vec(NumFuHasDstReg, ValidIO(UInt(NumPhysicRegsBits.W)))
 
-  def wbNum = 3
-
   /**
    * Include pipe0,1,3 wb
    */
-  val wbPreg : Vec[ValidIO[UInt]] = Vec(wbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
+  val wbPreg : Vec[ValidIO[UInt]] = Vec(WbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
 
   val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
 
