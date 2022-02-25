@@ -6,9 +6,9 @@ import Core.IntConfig._
 import Core.ROBConfig._
 
 class PregEntryData extends Bundle {
-  val reg : UInt = UInt(LogicRegsNumBits.W)
+  val reg : UInt = UInt(NumLogicRegsBits.W)
   val iid : UInt = UInt(InstructionIdWidth.W)
-  val preg : UInt = UInt(PhysicRegsNumBits.W)
+  val preg : UInt = UInt(NumPhysicRegsBits.W)
 }
 
 class PregFromIduBundle extends Bundle {
@@ -32,15 +32,15 @@ class PregEntryInterconnectInput extends Bundle {
   val deallocMask   : Bool      = Bool()
   val deallocValid  : Bool      = Bool()
   val releaseValid  : Bool      = Bool()
-  val resetDestReg  : UInt      = UInt(LogicRegsNumBits.W)
+  val resetDestReg  : UInt      = UInt(NumLogicRegsBits.W)
   val resetMapped   : Bool      = Bool()
   val wbValid       : Bool      = Bool()
 }
 
 class PregEntryInterconnectOutput extends Bundle {
   val empty             : Bool      = Bool()
-  val destRegOH         : Vec[Bool] = Vec(LogicRegsNum, Bool())
-  val releasePregOH     : Vec[Bool] = Vec(PhysicRegsNum, Bool())
+  val destRegOH         : Vec[Bool] = Vec(NumLogicRegs, Bool())
+  val releasePregOH     : Vec[Bool] = Vec(NumPhysicRegs, Bool())
   val retiredReleasedWb : Bool      = Bool()
 }
 
@@ -294,7 +294,7 @@ class PregEntry extends Module {
   //==========================================================
   io.x.out.releasePregOH := VecInit(Mux(
     lifecycleStateCur === PregState.alloc && retireValid,
-    UIntToOH(entry.preg, PhysicRegsNum),
+    UIntToOH(entry.preg, NumPhysicRegs),
     0.U
   ).asBools)
 
@@ -303,7 +303,7 @@ class PregEntry extends Module {
   //==========================================================
   io.x.out.destRegOH := VecInit(Mux(
     lifecycleStateCur === PregState.retire,
-    UIntToOH(entry.reg, LogicRegsNum),
+    UIntToOH(entry.reg, NumLogicRegs),
     0.U
   ).asBools)
 

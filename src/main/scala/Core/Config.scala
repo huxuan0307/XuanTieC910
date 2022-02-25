@@ -3,12 +3,21 @@ package Core
 import chisel3.util._
 
 trait IntConfig {
-  def LogicRegsNum = 32
-  def PhysicRegsNum = 96
-  def InstructionIdNum = 128
-  def LogicRegsNumBits : Int = log2Up(LogicRegsNum)
-  def PhysicRegsNumBits : Int = log2Up(PhysicRegsNum)
-  def InstructionIdWidth : Int = log2Up(InstructionIdNum)
+  def NumAlu = 2
+  def NumLu = 1 // Load
+  def NumSu = 1 // Store
+  def NumMu = 1 // Mul
+  def NumDu = 1 // Div
+  def NumVfUnit = 2 // Vector and Float
+  def NumFu : Int = NumAlu + NumLu + NumSu +
+    NumMu + NumDu + NumVfUnit
+  def NumFuHasDstReg : Int = NumAlu + NumLu + NumMu + NumDu + NumVfUnit
+  def NumLogicRegs = 32
+  def NumPhysicRegs = 96
+  def NumInstructionId = 128
+  def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
+  def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)
+  def InstructionIdWidth : Int = log2Up(NumInstructionId)
 }
 
 trait ROBConfig {
