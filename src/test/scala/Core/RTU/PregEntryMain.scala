@@ -6,7 +6,7 @@ object PregEntryMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new PregEntry)
+      ChiselGeneratorAnnotation(() => new PstPregEntry)
     )
   )
 }
