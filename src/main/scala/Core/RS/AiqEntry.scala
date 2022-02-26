@@ -42,16 +42,39 @@ class AiqEntryInput extends Bundle
   with DepRegEntryConfig
   with EntryHasDiv {
   val fromCp0 = new IqEntryFromCp0
-  val fwdValid = new FwdValidBundle
+  val fwdValid : Vec[FwdValidBundle] = Vec(NumSrc, new FwdValidBundle)
   /**
-   * Include alu0, alu1, mul, div, load, vfpu0, vfpu1
+   * Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
+   * alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
+   *        dp_xx_rf_pipe0_dst_preg_dupx <br>
+   * alu1 : ctrl_xx_rf_pipe1_preg_lch_vld_dupx <br>
+   *        dp_xx_rf_pipe1_dst_preg_dupx <br>
+   * mult : iu_idu_ex2_pipe1_mult_inst_vld_dupx <br>
+   *        iu_idu_ex2_pipe1_preg_dupx <br>
+   * div  : iu_idu_div_inst_vld <br>
+   *        iu_idu_div_preg_dupx <br>
+   * load : lsu_idu_dc_pipe3_load_inst_vld_dupx <br>
+   *        lsu_idu_dc_pipe3_preg_dupx <br>
+   * vfpu0: vfpu_idu_ex1_pipe6_mfvr_inst_vld_dupx <br>
+   *        vfpu_idu_ex1_pipe6_preg_dupx <br>
+   * vfpu1: vfpu_idu_ex1_pipe7_mfvr_inst_vld_dupx <br>
+   *        vfpu_idu_ex1_pipe7_preg_dupx <br>
    */
   val fuDstPreg : Vec[ValidIO[UInt]] = Vec(NumFuHasDstReg, ValidIO(UInt(NumPhysicRegsBits.W)))
 
   /**
-   * Include pipe0,1,3 wb
+   * Include pipe0,1,3 wb <br>
+   * pipe0wb : iu_idu_ex2_pipe0_wb_preg_vld_dupx
+   * pipe1wb : iu_idu_ex2_pipe1_wb_preg_vld_dupx
+   * pipe3wb : lsu_idu_wb_pipe3_wb_preg_vld_dupx
    */
   val wbPreg : Vec[ValidIO[UInt]] = Vec(WbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
+
+  /**
+   * LSU reg Bypass
+   * lsu_idu_ag_pipe3_load_inst_vld
+   * lsu_idu_ag_pipe3_preg_dupx
+   */
   val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
 
   val rfPopValid : Bool = Bool()
@@ -194,7 +217,7 @@ class AiqEntry extends Module with AiqConfig {
     case (entry, i) =>
       val in = entry.io.in
       val out = entry.io.out
-      in.fwdValid := io.in.fwdValid
+      in.fwdValid := io.in.fwdValid(i)
       in.fromCp0  := io.in.fromCp0
       in.fuDstPreg:= io.in.fuDstPreg
       in.wbPreg   := io.in.wbPreg
