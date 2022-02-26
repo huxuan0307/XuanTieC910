@@ -5,28 +5,28 @@ import chisel3.util._
 import Core.IntConfig._
 import Core.ROBConfig._
 
-class PregEntryData extends Bundle {
+class PstPregEntryData extends Bundle {
   val reg : UInt = UInt(NumLogicRegsBits.W)
   val iid : UInt = UInt(InstructionIdWidth.W)
   val preg : UInt = UInt(NumPhysicRegsBits.W)
 }
 
-class PregFromIduBundle extends Bundle {
-  val instVec                 : Vec[PregEntryData] = Vec(NumCreateEntry, new PregEntryData)
+class PstPregFromIduBundle extends Bundle {
+  val instVec                 : Vec[PstPregEntryData] = Vec(NumCreateEntry, new PstPregEntryData)
 }
 
-class PregFromRobBundle extends Bundle {
+class PstPregFromRobBundle extends Bundle {
   val bits = Vec(NumRetireEntry, new Bundle() {
     val gateClkValid  : Bool = Bool()
     val iidUpdate     : UInt = UInt(InstructionIdWidth.W)
   })
 }
 
-class PregFromRtuBundle extends Bundle {
+class PstPregFromRtuBundle extends Bundle {
   val yyXxFlush : Bool = Bool()
 }
 
-class PregEntryInterconnectInput extends Bundle {
+class PstPregEntryInterconnectInput extends Bundle {
   val createValidOH : Vec[Bool] = Vec(NumCreateEntry, Bool())
   // Todo: figure out
   val deallocMask   : Bool      = Bool()
@@ -37,39 +37,39 @@ class PregEntryInterconnectInput extends Bundle {
   val wbValid       : Bool      = Bool()
 }
 
-class PregEntryInterconnectOutput extends Bundle {
+class PstPregEntryInterconnectOutput extends Bundle {
   val empty             : Bool      = Bool()
   val destRegOH         : Vec[Bool] = Vec(NumLogicRegs, Bool())
   val releasePregOH     : Vec[Bool] = Vec(NumPhysicRegs, Bool())
   val retiredReleasedWb : Bool      = Bool()
 }
 
-class PregEntryInterconnectBundle extends Bundle {
-  val in  : PregEntryInterconnectInput  = Input(new PregEntryInterconnectInput)
-  val out : PregEntryInterconnectOutput = Output(new PregEntryInterconnectOutput)
+class PstPregEntryInterconnectBundle extends Bundle {
+  val in  : PstPregEntryInterconnectInput  = Input(new PstPregEntryInterconnectInput)
+  val out : PstPregEntryInterconnectOutput = Output(new PstPregEntryInterconnectOutput)
 }
 
-class PregEntryInput extends Bundle {
+class PstPregEntryInput extends Bundle {
   val deallocValidGateClk     : Bool              = Bool()
   val fromCp0                 : RegEntryFromCp0Bundle    = new RegEntryFromCp0Bundle
-  val fromIdu                 : PregFromIduBundle = new PregFromIduBundle
+  val fromIdu                 : PstPregFromIduBundle = new PstPregFromIduBundle
   val fromIfu                 : RegEntryFromIfuBundle   = new RegEntryFromIfuBundle
   val fromPad = new RobFromPad
   val fromRetire           : PregFromRetire     = new PregFromRetire(NumRetireEntry)
-  val fromRob = new PregFromRobBundle
-  val fromRtu = new PregFromRtuBundle
+  val fromRob = new PstPregFromRobBundle
+  val fromRtu = new PstPregFromRtuBundle
 }
 
-class PregEntryOutput extends Bundle
+class PstPregEntryOutput extends Bundle
 
-class PregEntryIO extends Bundle {
-  val in  : PregEntryInput  = Input(new PregEntryInput)
-  val out : PregEntryOutput = Output(new PregEntryOutput)
-  val x   : PregEntryInterconnectBundle = new PregEntryInterconnectBundle
+class PstPregEntryIO extends Bundle {
+  val in  : PstPregEntryInput  = Input(new PstPregEntryInput)
+  val out : PstPregEntryOutput = Output(new PstPregEntryOutput)
+  val x   : PstPregEntryInterconnectBundle = new PstPregEntryInterconnectBundle
 }
 
-class PregEntry extends Module {
-  val io : PregEntryIO = IO(new PregEntryIO)
+class PstPregEntry extends Module {
+  val io : PstPregEntryIO = IO(new PstPregEntryIO)
 
   //----------------------------------------------------------
   //                  FSM of Preg lifecycle
@@ -103,8 +103,8 @@ class PregEntry extends Module {
   //                           Regs
   //==========================================================
 
-  private val entryCreate = RegInit(0.U.asTypeOf(new PregEntryData))
-  private val entry   = RegInit(0.U.asTypeOf(new PregEntryData))
+  private val entryCreate = RegInit(0.U.asTypeOf(new PstPregEntryData))
+  private val entry   = RegInit(0.U.asTypeOf(new PstPregEntryData))
   private val retireIidMatchVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
   private val lifecycleStateCur   = RegInit(PregState.dealloc)
   private val wbStateCur    = RegInit(WbState.idle)
@@ -249,7 +249,7 @@ class PregEntry extends Module {
   //              Prepare allocate create data
   //----------------------------------------------------------
 
-  entryCreate := MuxLookup(io.x.in.createValidOH.asUInt, 0.U.asTypeOf(new PregEntryData), Seq(
+  entryCreate := MuxLookup(io.x.in.createValidOH.asUInt, 0.U.asTypeOf(new PstPregEntryData), Seq(
     "b0001".U -> io.in.fromIdu.instVec(0),
     "b0010".U -> io.in.fromIdu.instVec(1),
     "b0100".U -> io.in.fromIdu.instVec(2),
@@ -260,7 +260,7 @@ class PregEntry extends Module {
   //                  Information Register
   //----------------------------------------------------------
   when(io.in.fromIfu.xxSyncReset) {
-    entry := 0.U.asTypeOf(new PregEntryData)
+    entry := 0.U.asTypeOf(new PstPregEntryData)
     entry.reg := io.x.in.resetDestReg
   }.elsewhen(createValid) {
     entry := entryCreate
