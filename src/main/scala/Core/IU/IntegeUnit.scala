@@ -1,6 +1,7 @@
 package Core.IU
 import Core.FuncOpType
 import Core.IU.Bju.{BhtPredDataForward, Bju}
+import Core.IU.Du.Du
 import chisel3._
 import chisel3.util._
 
@@ -67,6 +68,7 @@ class IntegeUnit extends Module{
   bju.io.in.rfPipe2 := io.idu_iu_rf_pipe2
 
 
+  special.io.bjuSpecialPc := bju.io.out.specialPc
 }
 
 

@@ -1,7 +1,8 @@
 package Core.IU
 
-import Core.utils._
-import Core.{Config, FuInPut, FuOutPut}
+
+import Core.IUConfig
+import Utils.{LookupTree, SignExt}
 import chisel3._
 import chisel3.util._
 
@@ -26,30 +27,50 @@ object ALUOpType {
   def isWordOp(func: UInt) = func(5)  //if 32bit
 }
 
-class AluOut extends Bundle with Config {
-  val data = UInt(XLEN.W)
+class AluOut extends Bundle {
+  val data = UInt(64.W)
   val data_vld = Bool()
-  val fwd_data = UInt(XLEN.W)
+  val fwd_data = UInt(64.W)
   val fwd_vld = Bool()
   val preg = UInt(7.W)
 }
 
-class AluIO extends Bundle with Config{
-  val in  = Input(new CtrlSignalIO)
+class AluIO extends Bundle{
+  val in  = Input(new IduRfPipe0)
+  val flush = Input(Bool())
   val out = Output(new AluOut)
 }
 
-class Alu extends Module with Config {
+class Alu extends Module with IUConfig{
   val io = IO(new AluIO)
-  val src1 = Wire(UInt(XLEN.W))
-  val src2 = Wire(UInt(XLEN.W))
-  src1 := io.in.src0
-  src2 := io.in.src1
-  val shamt = Mux(ALUOpType.isWordOp(io.in.func_op), src2(4, 0), src2(5, 0))
-  val res = LookupTree(io.in.func_op, List(
+  //----------------------------------------------------------
+  //              Pipe2 EX1 Instruction valid
+  //----------------------------------------------------------
+  val alu_ex1_inst_vld = RegInit(false.B)
+  val alu_ex1_fwd_vld  = RegInit(false.B)
+  val flush = io.flush
+  val fwd_vld = io.in.alu_short && io.in.sel && io.in.dstv_vld
+  when(flush){
+    alu_ex1_inst_vld := false.B
+    alu_ex1_fwd_vld  := false.B
+  }.otherwise{
+    alu_ex1_inst_vld := io.in.sel
+    alu_ex1_fwd_vld  := fwd_vld
+  }
+  //----------------------------------------------------------
+  //               Pipe2 EX1 Instruction Data
+  //----------------------------------------------------------
+  val ex1_pipe = RegEnable(io.in, alu_ex1_inst_vld)
+
+  val (src1, src2, op) = (io.in.src0,io.in.src1, io.in.opcode)
+  //----------------------------------------------------------
+  //                    add && shift TODO misc
+  //----------------------------------------------------------
+  val shamt = Mux(ALUOpType.isWordOp(op), src2(4, 0), src2(5, 0))
+  val res = LookupTree(op, List(
     ALUOpType.add   ->   (src1 + src2),
     ALUOpType.sll   ->   (src1 << shamt),
-    ALUOpType.slt   ->   (Cat(0.U((XLEN - 1).W), src1.asSInt() < src2.asSInt())),
+    ALUOpType.slt   ->   Cat(0.U((XLEN - 1).W), src1.asSInt < src2.asSInt),
     ALUOpType.sltu  ->   (src1 < src2),
     ALUOpType.xor   ->   (src1 ^ src2),
     ALUOpType.srl   ->   (src1 >> shamt),
@@ -61,13 +82,24 @@ class Alu extends Module with Config {
     ALUOpType.subw  ->   (src1 - src2),
     ALUOpType.sllw  ->   (src1 << shamt),
     ALUOpType.srlw  ->   (src1(31,0) >> shamt),
-    ALUOpType.sraw  ->   ((src1(31,0).asSInt() >> shamt).asUInt()),
-    ALUOpType.lui  ->    (src2)
+    ALUOpType.sraw  ->   (src1(31,0).asSInt >> shamt).asUInt,
+    ALUOpType.lui  ->    src2
   ))
+  //==========================================================
+  //                  Complete Bus signals
+  //==========================================================
+  // deal alu complete bus signal in cbus : ATTENSION  alu sel is en, means alu complete
 
-  io.out.data := Mux(ALUOpType.isWordOp(io.in.func_op), SignExt(res(31,0), 64), res)
-  io.out.data_vld := io.in.sel
-  io.out.fwd_data := Mux(ALUOpType.isWordOp(io.in.func_op), SignExt(res(31,0), 64), res)
-  io.out.fwd_vld := io.in.sel && io.in.dst_vld && io.in.alu_short
+  //==========================================================
+  //                   Result Bus signals
+  //==========================================================
+  //----------------------------------------------------------
+  //                      Result Bus
+  //----------------------------------------------------------
+  io.out.data_vld := ex1_pipe.dstv_vld && alu_ex1_inst_vld
+  io.out.fwd_vld  := alu_ex1_fwd_vld
+  io.out.fwd_data := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
+  io.out.preg     := ex1_pipe.dst_preg
+  io.out.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
 }
 
