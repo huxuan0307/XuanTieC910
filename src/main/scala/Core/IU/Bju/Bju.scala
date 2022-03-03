@@ -38,11 +38,21 @@ class IfuInterfaceSignal extends Bundle{
   val bhtCheckVld    = Bool()
   val bhtCondbrTaken = Bool()
 }
-
+class RtuReadSignal extends Bundle{
+  // length
+  val bhtPred    = Bool()
+  val bhtMispred = Bool()
+  val jmp        = Bool()
+  val pRet       = Bool()
+  val pCall      = Bool()
+  val condBr     = Bool()
+  val pc         = UInt(PcWidth.W)
+}
 class BjuOut extends Bundle{
   val toCbus = Output(new CmpltSignal)
   val toIdu  = Output(new IduCancelSignal)
   val toIfu = Output(new IfuInterfaceSignal)
+  val toRtu = Output(new RtuReadSignal)
   val allowPid = Vec(2, Output(UInt(5.W)))
 }
 class BjuIn extends Bundle{
@@ -203,8 +213,21 @@ class Bju extends Module{
   io.out.toIfu.bhtCheckVld    := ex2_pipe_conbr_vld
   io.out.toIfu.bhtCondbrTaken := ex2_pipe_is_br
   // EX3 - branch inst result write back
-  val rob_read_en = true.B
+  val ex3_pipe_en = RegInit(false.B)
+  when(flush){
+    ex3_pipe_en          := false.B
+  }.otherwise{
+    ex3_pipe_en          := ex2_pipe_en
+  }
+  val rob_read_en = ex3_pipe_en
 
+  io.out.toRtu.bhtPred     := pc_fifo.io.robRead.ifu_pred.bht_pred
+  io.out.toRtu.bhtMispred  := pc_fifo.io.robRead.bht_check.bht_mispred
+  io.out.toRtu.jmp         := pc_fifo.io.robRead.bht_check.jmp
+  io.out.toRtu.pRet        := pc_fifo.io.robRead.bht_check.pret
+  io.out.toRtu.pCall       := pc_fifo.io.robRead.bht_check.pcall
+  io.out.toRtu.condBr      := pc_fifo.io.robRead.bht_check.condbr
+  io.out.toRtu.pc          := pc_fifo.io.robRead.bht_check.pc
 
 
 }

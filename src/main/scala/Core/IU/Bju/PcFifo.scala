@@ -32,14 +32,14 @@ class BjuRwIO extends Bundle {
   val writePcfifo = Valid(Input(new PredCheckRes))
 }
 class RobReadIO extends Bundle{
-  val ifu_pred = Output(new BhtPredDataForward)
+  val ifu_pred = Output(new IfuPredStore)
   val bht_check = Output(new PredCheckRes)
-  val dealloPid = Input(UInt(5.W))
+  val dealloPid = Input(Bool())
 }
 class PcFifoIO extends Bundle{
   val iduWrite  = Valid(new IduWriteIO) // valid to out - pcfifo is full ? bht can not in : bht can in
   val bjuRw     = new BjuRwIO
-  val robRead   = DecoupledIO(new RobReadIO)
+  val robRead   = new RobReadIO
 }
 
 class PcFifo extends Module with HasCircularQueuePtrHelper{
@@ -74,9 +74,9 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
     fifo_tab_check(bju_write_pid) := io.bjuRw.writePcfifo.bits
   }
   // rob read & deallocate ptr
-  when(io.robRead.fire){
-    io.robRead.bits.bht_check :=  fifo_tab_check(tailPtr.value)
-    io.robRead.bits.ifu_pred  :=  fifo_tab_pred(tailPtr.value)
+  when(io.robRead.dealloPid){
+    io.robRead.bht_check :=  fifo_tab_check(tailPtr.value)
+    io.robRead.ifu_pred  :=  fifo_tab_pred(tailPtr.value)
     val tailPtrNext = tailPtr + 1.U
     tailPtr := tailPtrNext
   }
