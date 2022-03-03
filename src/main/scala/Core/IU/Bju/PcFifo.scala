@@ -1,5 +1,6 @@
 package Core.IU.Bju
 
+import Core.AddrConfig.PcWidth
 import Core.IUConfig.PcFifoLen
 import Utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 import chisel3._
@@ -30,6 +31,9 @@ class BjuRwIO extends Bundle {
   val readPcfifo  = Output(new IfuPredStore)
   val pid = new PidIO
   val writePcfifo = Valid(Input(new PredCheckRes))
+
+  val specialPid = Input(UInt(5.W))
+  val specialPc = Output(UInt(PcWidth.W))
 }
 class RobReadIO extends Bundle{
   val ifu_pred = Output(new IfuPredStore)
@@ -80,4 +84,9 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
     val tailPtrNext = tailPtr + 1.U
     tailPtr := tailPtrNext
   }
+
+  // Speical read, to Special Unit, auipc inst
+  io.bjuRw.specialPc  :=  fifo_tab_pred(io.bjuRw.specialPc).pc
+
+
 }

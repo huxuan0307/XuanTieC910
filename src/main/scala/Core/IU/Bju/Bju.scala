@@ -54,6 +54,7 @@ class BjuOut extends Bundle{
   val toIfu = Output(new IfuInterfaceSignal)
   val toRtu = Output(new RtuReadSignal)
   val allowPid = Vec(2, Output(UInt(5.W)))
+  val specialPc = Output(UInt(PcWidth.W))
 }
 class BjuIn extends Bundle{
   val flush = Input(Bool())
@@ -229,5 +230,6 @@ class Bju extends Module{
   io.out.toRtu.condBr      := pc_fifo.io.robRead.bht_check.condbr
   io.out.toRtu.pc          := pc_fifo.io.robRead.bht_check.pc
 
-
+  // special pc
+  io.out.specialPc := pc_fifo.io.bjuRw.specialPc
 }
