@@ -1,8 +1,5 @@
 package Core.IU.Csr
 
-import Core.Define.Exceptions.ExceptionVec
-import Core.TrapIO
-import Core.Define.Exceptions._
 import chisel3._
 import chisel3.internal.firrtl.Width
 import chisel3.util._
