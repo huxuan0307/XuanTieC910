@@ -19,6 +19,7 @@ trait IntConfig {
   def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
   def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)
   def InstructionIdWidth : Int = log2Up(NumInstructionId)
+  def XLEN = 64
 }
 
 trait ROBConfig {
