@@ -1,4 +1,4 @@
-package Core.RS
+package Core.IS
 
 import chisel3._
 import chisel3.util._
@@ -6,7 +6,6 @@ import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Core.PipelineConfig._
 import Core.IntConfig._
-import Utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 
 trait AiqConfig {
   def NumAiqEntry = 8
