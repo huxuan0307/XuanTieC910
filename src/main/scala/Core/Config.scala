@@ -1,6 +1,24 @@
 package Core
 
+import chisel3._
 import chisel3.util._
+
+object FuncOpType {
+  def width = 7.W
+  def uwidth = UInt(width)
+}
+
+object FuncType {
+  def typeSize = 6
+  def alu = 0.U
+  def lsu = 1.U
+  def mdu = 2.U
+  def csr = 3.U
+  def mou = 4.U
+  def bru = 5.U
+  def width = log2Up(typeSize).W
+  def uwidth = UInt(width)
+}
 
 trait IntConfig {
   def NumAlu = 2
@@ -59,9 +77,38 @@ trait VectorUnitConfig {
   def VsewBits = 3
 }
 
+trait IUConfig {
+  def XLEN = 64
+  def PcFifoLen = 32
+  def IuPipeNum = 3
+}
+
+
+object MDUOpType {
+  def mul    = "b0000".U
+  def mulh   = "b0001".U
+  def mulhsu = "b0010".U
+  def mulhu  = "b0011".U
+  def div    = "b0100".U
+  def divu   = "b0101".U
+  def rem    = "b0110".U
+  def remu   = "b0111".U
+
+  def mulw   = "b1000".U
+  def divw   = "b1100".U
+  def divuw  = "b1101".U
+  def remw   = "b1110".U
+  def remuw  = "b1111".U
+
+  def isDiv(op: UInt) = op(2)
+  def isDivSign(op: UInt) = isDiv(op) && !op(0)
+  def isW(op: UInt) = op(3)
+  def isRem(op: UInt) = op(2) && op(1)
+}
 object IntConfig extends IntConfig
 object ROBConfig extends ROBConfig
 object PipelineConfig extends PipelineConfig
 object AddrConfig extends AddrConfig
 object ExceptionConfig extends ExceptionConfig
 object VectorUnitConfig extends VectorUnitConfig
+object IUConfig extends IUConfig
