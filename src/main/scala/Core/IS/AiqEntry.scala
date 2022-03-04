@@ -22,13 +22,13 @@ class AiqEntryData extends Bundle with AiqConfig {
   val div : Bool = Bool()
   val highHwExcept : Bool = Bool()
   val exceptVec = ValidIO(UInt(ExceptionVecWidth.W))
-  val srcVec : Vec[DepRegEntryData] = Vec(NumSrc, new DepRegEntryData)
+  val srcVec : Vec[DepRegEntryData] = Vec(NumSrcArith, new DepRegEntryData)
   // Todo: imm
   val dstVreg : UInt = UInt(7.W)
   val dstPreg : UInt = UInt(NumPhysicRegsBits.W)
   val dstVValid : Bool = Bool()
   val dstValid : Bool = Bool()
-  val srcValid : Vec[Bool] = Vec(NumSrc, Bool())
+  val srcValid : Vec[Bool] = Vec(NumSrcArith, Bool())
   val iid : UInt = UInt(InstructionIdWidth.W)
   val opcode : UInt = UInt(OpcodeBits.W)
 }
@@ -42,7 +42,7 @@ class AiqEntryInput extends Bundle
   with DepRegEntryConfig
   with EntryHasDiv {
   val fromCp0 = new IqEntryFromCp0
-  val fwdValid : Vec[FwdValidBundle] = Vec(NumSrc, new FwdValidBundle)
+  val fwdValid : Vec[FwdValidBundle] = Vec(NumSrcArith, new FwdValidBundle)
   /**
    * Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
    * alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
@@ -78,12 +78,9 @@ class AiqEntryInput extends Bundle
   val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
 
   val rfPopValid : Bool = Bool()
-  val rfReadyClr : Vec[Bool] = Vec(NumSrc, Bool())
+  val rfReadyClr : Vec[Bool] = Vec(NumSrcArith, Bool())
   val stall : Bool = Bool()
-  val flush = new Bundle {
-    val fe : Bool = Bool()
-    val is : Bool = Bool()
-  }
+  val fromRtu = new EntryFromRtu
   val create = new Bundle {
     val ageVec : Vec[Bool] = Vec(NumAiqEntry - 1, Bool())
     val data = new AiqEntryData
@@ -115,8 +112,9 @@ class AiqEntry extends Module with AiqConfig {
   val io : AiqEntryIO = IO(new AiqEntryIO)
 
   private val create = io.in.create
+  private val rtu = io.in.fromRtu
 
-  private val srcEntry = Seq.fill(NumSrc)(Module(new DepRegEntry))
+  private val srcEntry = Seq.fill(NumSrcArith)(Module(new DepRegEntry))
 
   // Todo: check if need extra dataInit
   private val data = RegInit(0.U.asTypeOf(Output(new AiqEntryData)))
@@ -126,26 +124,24 @@ class AiqEntry extends Module with AiqConfig {
 
   // Todo: gated clk
 
-  when(io.in.flush.fe || io.in.flush.is) {
+  when(rtu.flush.fe || rtu.flush.is) {
     valid := false.B
-    freeze := false.B
-    ageVec := 0.U.asTypeOf(chiselTypeOf(ageVec))
   }.elsewhen(io.in.create.en) {
     valid := true.B
+  }.elsewhen(io.in.rfPopValid && io.in.popCurEntry) {
+    valid := false.B
+  }
+  when(create.en) {
     freeze := create.freeze
+  }.elsewhen(io.in.issueEn) {
+    freeze := true.B
+  }.elsewhen(io.in.freezeClr) {
+    freeze := false.B
+  }
+  when(create.en) {
     ageVec := create.ageVec
-  }.otherwise {
-    when(io.in.rfPopValid && io.in.popCurEntry) {
-      valid := false.B
-    }
-    when(io.in.issueEn) {
-      freeze := true.B
-    }.elsewhen(io.in.freezeClr) {
-      freeze := false.B
-    }
-    when(io.in.rfPopValid) {
-      ageVec := VecInit((ageVec.asUInt & ~io.in.popOtherEntry.asUInt).asBools)
-    }
+  }.elsewhen(io.in.rfPopValid) {
+    ageVec := VecInit((ageVec.asUInt & ~io.in.popOtherEntry.asUInt).asBools)
   }
 
   when(create.dpEn) {
@@ -197,21 +193,21 @@ class AiqEntry extends Module with AiqConfig {
   //              Source Dependency Information
   //==========================================================
 
-  private val createSrcDataVec = Wire(Vec(NumSrc, new DepRegEntryCreateData))
+  private val createSrcDataVec = Wire(Vec(NumSrcArith, new DepRegEntryCreateData))
   createSrcDataVec.zipWithIndex.foreach{
     case (data, i) =>
       data := io.in.create.data.srcVec(i)
   }
-  private val createSrcGateClkVec = Wire(Vec(NumSrc, Bool()))
+  private val createSrcGateClkVec = Wire(Vec(NumSrcArith, Bool()))
   createSrcGateClkVec.zipWithIndex.foreach{
     case (bool, i) => bool := io.in.create.gateClkEn && io.in.create.data.srcValid(i)
   }
-  private val srcReadyClearVec = Wire(Vec(NumSrc, Bool()))
-  (0 until NumSrc).foreach{
+  private val srcReadyClearVec = Wire(Vec(NumSrcArith, Bool()))
+  (0 until NumSrcArith).foreach{
     case idx =>
       srcReadyClearVec(idx) := io.in.freezeClr && io.in.rfReadyClr(idx)
   }
-  private val readSrcDataVec = Wire(Vec(NumSrc, new DepRegEntryReadData))
+  private val readSrcDataVec = Wire(Vec(NumSrcArith, new DepRegEntryReadData))
 
   srcEntry.zipWithIndex.foreach {
     case (entry, i) =>
@@ -222,7 +218,7 @@ class AiqEntry extends Module with AiqConfig {
       in.fuDstPreg:= io.in.fuDstPreg
       in.wbPreg   := io.in.wbPreg
       in.loadPreg := io.in.loadPreg
-      in.flush    := io.in.flush
+      in.flush    := io.in.fromRtu.flush
       in.createData := createSrcDataVec(i)
       in.gateClkIdxWen := createSrcGateClkVec(i)
       in.gateClkWen := create.gateClkEn
