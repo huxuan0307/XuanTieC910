@@ -11,9 +11,11 @@ trait AiqConfig {
   def NumAiqEntry = 8
   def NumBiqEntry = 12 // Todo: move
   def NumFwdPath = 2
-  def NumSrc = 3
+  def NumSrcArith = 3
   def NumAiqCreatePort = 2
 }
+
+object AiqConfig extends AiqConfig
 
 class InstQueFromCp0 extends Bundle {
   val icgEn           : Bool = Bool()
@@ -28,7 +30,7 @@ class InstQueCtrlInput(numEntry: Int) extends Bundle with AiqConfig{
   val createSel : UInt = UInt(NumAiqCreatePort.W)
   // Todo: figure out
   val rfLaunchFailValid : Bool = Bool()
-  val rfAluRegFwdValid : Vec[Vec[UInt]] = Vec(NumAlu, Vec(numEntry, UInt(NumSrc.W)))
+  val rfAluRegFwdValid : Vec[Vec[UInt]] = Vec(NumAlu, Vec(numEntry, UInt(NumSrcArith.W)))
   val rfPopDlbValid : Bool = Bool()
   val rfPopValid : Bool = Bool()
   val stall : Bool = Bool()
@@ -38,11 +40,11 @@ class InstQueDataInput(numEntry: Int) extends Bundle with AiqConfig {
   val bypassData : AiqEntryData = Output(new AiqEntryData)
   val createData : Vec[AiqEntryData] = Vec(NumAiqCreatePort, new AiqEntryData)
   val createDiv : Bool = Bool()
-  val srcReadyForBypass : Vec[Bool] = Vec(NumSrc, Bool())
+  val srcReadyForBypass : Vec[Bool] = Vec(NumSrcArith, Bool())
   val rfLaunchEntry : Vec[Bool] = Vec(numEntry, Bool())
-  val rfReadyClr : Vec[Bool] = Vec(NumSrc, Bool())
+  val rfReadyClr : Vec[Bool] = Vec(NumSrcArith, Bool())
   // dispatch num: 4, src num: 3
-  val dispatchInstSrcPregVec : Vec[Vec[UInt]] = Vec(NumCreateEntry, Vec(NumSrc, UInt(NumPhysicRegsBits.W)))
+  val dispatchInstSrcPregVec : Vec[Vec[UInt]] = Vec(NumCreateEntry, Vec(NumSrcArith, UInt(NumPhysicRegsBits.W)))
   val sdiqCreateSrcSelVec : Vec[Bool] = Vec(NumAiqCreatePort, Bool())
   // Todo: more bundles
 }
@@ -64,8 +66,8 @@ class InstQueDataOutput extends Bundle with AiqConfig {
 }
 
 class ArithInstQueueInput extends Bundle with AiqConfig with DepRegEntryConfig {
-  val aiqEntryCreateVec = Vec(2, UInt(NumAiqEntry.W))
-  val biqEntryCreateVec = Vec(2, UInt(NumBiqEntry.W))
+  val aiqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumAiqEntry.W))
+  val biqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumBiqEntry.W))
   val fromCp0 = new InstQueFromCp0
   val ctrl = new Bundle {
     // 0, 1: arith, 2: biq, 3: lsiq, 4: sdiq
@@ -313,7 +315,7 @@ class ArithInstQueue extends Module with AiqConfig {
   //==========================================================
   //----------------Pipe0 Launch Ready Signals----------------
 
-  private val entryAluRegFwdValid = Wire(Vec(NumAlu, Vec(this.NumAiqEntry, UInt(NumSrc.W))))
+  private val entryAluRegFwdValid = Wire(Vec(NumAlu, Vec(this.NumAiqEntry, UInt(NumSrcArith.W))))
 
   entryAluRegFwdValid := ctrlAiq0.rfAluRegFwdValid
 //  for (idxAlu <- 0 to NumAlu) {
@@ -406,8 +408,8 @@ class ArithInstQueue extends Module with AiqConfig {
       in.rfPopValid := ctrlAiq0.rfPopValid
       in.rfReadyClr := dataAiq0.rfReadyClr
       in.stall      := ctrlAiq0.stall
-      in.flush.is   := rtu.flushIs
-      in.flush.fe   := rtu.flushFe
+      in.fromRtu.flush.is   := rtu.flushIs
+      in.fromRtu.flush.fe   := rtu.flushFe
       in.create.ageVec    := entryCreateAgeVec(i)
       in.create.data      := entryCreateDataVec(i)
       in.create.dpEn      := entryCreateDpEnVec(i)
