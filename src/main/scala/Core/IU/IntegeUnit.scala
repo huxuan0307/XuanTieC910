@@ -55,19 +55,30 @@ class IntegerUnitIO extends Bundle{
 
 class IntegeUnit extends Module{
   val io = IO(new IntegerUnitIO)
-  // pipeline 0 - alu0, special, div
+  //==========================================================
+  //                Pipeline 0 - alu0, special, div
+  //==========================================================
   val alu0 = Module(new Alu)
   val special = Module(new Special)
   val du = Module(new Du)
   alu0.io.in    := io.idu_iu_rf_pipe0
   special.io.in := io.idu_iu_rf_pipe0
   du.io.in      := io.idu_iu_rf_pipe0
-  // pipeline 2 - bju
+  //==========================================================
+  //                Pipeline 1 - alu1, mult
+  //==========================================================
+  val alu1 = Module(new Alu)
+  val mul = Module(new Mu)
+  alu1.io.in := io.idu_iu_rf_pipe1
+  mul.io.in  := io.idu_iu_rf_pipe1
+  //==========================================================
+  //                Pipeline 2 - bju
+  //==========================================================
   val bju = Module(new Bju)
   bju.io.in.ifuForward := io.ifuForward
   bju.io.in.rfPipe2 := io.idu_iu_rf_pipe2
 
-
+  // special pc io should be below Module 'bju' & 'special', because 'Suspicious forward reference'
   special.io.bjuSpecialPc := bju.io.out.specialPc
 }
 
