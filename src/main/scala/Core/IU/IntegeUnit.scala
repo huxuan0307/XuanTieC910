@@ -28,11 +28,13 @@ class IduRfPipe0 extends CtrlSignalHasDestIO{
   val exptVec = UInt(5.W)
   val exptVld = Bool()
   val highHwExpt = Bool()
+  val divSel = Input(Bool())
 }
 class IduRfPipe1 extends CtrlSignalHasDestIO{
   val mult_func = UInt(8.W)
   val mla_src2_preg = UInt(7.W)
   val mla_src2_vld = Bool()
+  val mulSel = Input(Bool())
 }
 class IduRfPipe2 extends CtrlSignalIO{
   val pid = UInt(5.W)
@@ -77,9 +79,20 @@ class IntegeUnit extends Module{
   val bju = Module(new Bju)
   bju.io.in.ifuForward := io.ifuForward
   bju.io.in.rfPipe2 := io.idu_iu_rf_pipe2
-
   // special pc io should be below Module 'bju' & 'special', because 'Suspicious forward reference'
   special.io.bjuSpecialPc := bju.io.out.specialPc
+  //==========================================================
+  //                Cbus - Iu complete signal process
+  //==========================================================
+  val cbus = Module(new Cbus)
+  cbus.io.norm_in.div_sel   := io.idu_iu_rf_pipe0.bits.divSel
+  cbus.io.norm_in.pipe0_sel := io.idu_iu_rf_pipe0.bits.sel
+  cbus.io.norm_in.pipe0_iid := io.idu_iu_rf_pipe0.bits.iid
+  cbus.io.norm_in.mult_sel  := io.idu_iu_rf_pipe1.mulSel
+  cbus.io.norm_in.pipe1_sel := io.idu_iu_rf_pipe1.sel
+  cbus.io.norm_in.pipe1_iid := io.idu_iu_rf_pipe1.iid
+  cbus.io.bju_in            := bju.io.out.toCbus
+
 }
 
 
