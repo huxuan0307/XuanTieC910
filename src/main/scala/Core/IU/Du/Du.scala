@@ -6,7 +6,7 @@ import Utils.{HasCircularQueuePtrHelper, LookupTree, SignExt, ZeroExt}
 import chisel3._
 import chisel3.util._
 class DuOut extends Bundle {
-  val pipe0_data_vld = Bool()
+  val pipe0DataVld = Bool()
   val preg = UInt(7.W)
   val data = UInt(64.W)
 }
@@ -200,9 +200,9 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   //==========================================================
   //                 Write Back to Rbus
   //==========================================================
-  io.out.bits.pipe0_data_vld := div.io.out.valid
+  io.out.bits.pipe0DataVld := div.io.out.valid
   io.out.valid               := div.io.out.valid
-  io.out.bits.preg           := ex1_pipe.bits.dst_preg
+  io.out.bits.preg           := ex1_pipe.bits.dstPreg
   io.out.bits.data           := Mux(divby0,divby0res,Mux(isRem,remres,quotres))
 
   //  printf("DU0v in.valid %d uop %x instr %x,  \nDU0v io.out %d %x %x\n",io.in.valid,io.in.bits.uop.cf.pc,io.in.bits.uop.cf.instr,io.out.valid,io.out.bits.uop.cf.pc,io.out.bits.uop.cf.instr)

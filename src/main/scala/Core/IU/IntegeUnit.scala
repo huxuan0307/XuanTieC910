@@ -13,11 +13,10 @@ class CtrlSignalIO extends Bundle{
 }
 
 class CtrlSignalHasDestIO extends CtrlSignalIO{
-  val alu_short = Bool()
-  val dst_preg = UInt(7.W)
-  val dst_vreg = UInt(7.W)
-  val dstv_vld = Bool()
-  val src1_no_imm = UInt(64.W)
+  val aluShort = Bool()
+  val dstPreg = UInt(7.W)
+  val dstVld = Bool()
+  val src1NoImm = UInt(64.W)
   val src2 = UInt(64.W)
   val imm = UInt(7.W)
   val sel = Bool()
@@ -31,9 +30,9 @@ class IduRfPipe0 extends CtrlSignalHasDestIO{
   val divSel = Input(Bool())
 }
 class IduRfPipe1 extends CtrlSignalHasDestIO{
-  val mult_func = UInt(8.W)
-  val mla_src2_preg = UInt(7.W)
-  val mla_src2_vld = Bool()
+  val multFunc = UInt(8.W)
+  val mlaSrc2Preg = UInt(7.W)
+  val mlaSrc2Vld = Bool()
   val mulSel = Input(Bool())
 }
 class IduRfPipe2 extends CtrlSignalIO{
@@ -85,13 +84,13 @@ class IntegeUnit extends Module{
   //                Cbus - Iu pipes complete signal process
   //==========================================================
   val cbus = Module(new Cbus)
-  cbus.io.norm_in.div_sel   := io.idu_iu_rf_pipe0.bits.divSel
-  cbus.io.norm_in.pipe0_sel := io.idu_iu_rf_pipe0.bits.sel
-  cbus.io.norm_in.pipe0_iid := io.idu_iu_rf_pipe0.bits.iid
-  cbus.io.norm_in.mult_sel  := io.idu_iu_rf_pipe1.mulSel
-  cbus.io.norm_in.pipe1_sel := io.idu_iu_rf_pipe1.sel
-  cbus.io.norm_in.pipe1_iid := io.idu_iu_rf_pipe1.iid
-  cbus.io.bju_in            := bju.io.out.toCbus
+  cbus.io.normIn.divSel   := io.idu_iu_rf_pipe0.bits.divSel
+  cbus.io.normIn.pipe0Sel := io.idu_iu_rf_pipe0.bits.sel
+  cbus.io.normIn.pipe0Iid := io.idu_iu_rf_pipe0.bits.iid
+  cbus.io.normIn.multSel  := io.idu_iu_rf_pipe1.mulSel
+  cbus.io.normIn.pipe1Sel := io.idu_iu_rf_pipe1.sel
+  cbus.io.normIn.pipe1Iid := io.idu_iu_rf_pipe1.iid
+  cbus.io.bjuIn            := bju.io.out.toCbus
 
   //==========================================================
   //                Rbus - Iu pipes data process

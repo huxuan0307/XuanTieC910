@@ -30,7 +30,7 @@ object MDUOpType {
 
 
 class MuOut extends Bundle with IUConfig {
-  val data_vld = Bool() // TODO fatal diferent, XT910 has 2 valid, in ex2 & ex3, but there only has 1 valid ,which means mu done
+  val dataVld = Bool() // TODO fatal diferent, XT910 has 2 valid, in ex2 & ex3, but there only has 1 valid ,which means mu done
   val preg     = UInt(7.W)
   val data     = UInt(XLEN.W)
 }
@@ -147,8 +147,8 @@ class Mu extends Module with IUConfig {
   //                        Result
   //==========================================================
   io.out.bits.data     := Mux(isW, SignExt(res(31,0), 64), res)//all val about out need RegEnable
-  io.out.bits.data_vld := mul.io.out.valid
-  io.out.bits.preg     := ex1_pipe.bits.dst_preg
+  io.out.bits.dataVld := mul.io.out.valid
+  io.out.bits.preg     := ex1_pipe.bits.dstPreg
   io.out.valid         := mul.io.out.valid//RegNext(io.in.valid && !io.flush) && mul.io.out.valid //做了冗余
   //  printf("MU0v in.valid %d pc %x instr %x, io.out %d %x %x\n",io.in.valid,io.in.bits.uop.cf.pc,io.in.bits.uop.cf.instr,io.out.valid,io.out.bits.uop.cf.pc,io.out.bits.uop.cf.instr)
   //  printf("MU1in src1 %d src2 %d, funcOpType %d,lastOp %d\n",src1,src2,funcOpType,lastOp)

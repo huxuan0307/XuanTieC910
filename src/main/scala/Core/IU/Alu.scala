@@ -29,9 +29,9 @@ object ALUOpType {
 
 class AluOut extends Bundle {
   val data = UInt(64.W)
-  val data_vld = Bool()
-  val fwd_data = UInt(64.W)
-  val fwd_vld = Bool()
+  val dataVld = Bool()
+  val fwdData = UInt(64.W)
+  val fwdVld = Bool()
   val preg = UInt(7.W)
 }
 
@@ -49,7 +49,7 @@ class Alu extends Module with IUConfig{
   val alu_ex1_inst_vld = RegInit(false.B)
   val alu_ex1_fwd_vld  = RegInit(false.B)
   val flush = io.flush
-  val fwd_vld = io.in.alu_short && io.in.sel && io.in.dstv_vld
+  val fwd_vld = io.in.aluShort && io.in.sel && io.in.dstVld
   when(flush){
     alu_ex1_inst_vld := false.B
     alu_ex1_fwd_vld  := false.B
@@ -97,10 +97,10 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   //                      Result Bus
   //----------------------------------------------------------
-  io.out.data_vld := ex1_pipe.dstv_vld && alu_ex1_inst_vld
-  io.out.fwd_vld  := alu_ex1_fwd_vld
-  io.out.fwd_data := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
-  io.out.preg     := ex1_pipe.dst_preg
+  io.out.dataVld := ex1_pipe.dstVld && alu_ex1_inst_vld
+  io.out.fwdVld  := alu_ex1_fwd_vld
+  io.out.fwdData := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
+  io.out.preg     := ex1_pipe.dstPreg
   io.out.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
 }
 

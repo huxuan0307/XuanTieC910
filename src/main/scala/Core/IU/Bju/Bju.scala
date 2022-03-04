@@ -73,10 +73,10 @@ class Bju extends Module{
   io.in.ifuForward.ready := pc_fifo.io.iduWrite.valid // valid to out - pcfifo is full ? bht can not in : bht can in
   when(io.in.ifuForward.fire){
     for(i<- 0 to 1) {
-      pc_fifo.io.iduWrite.bits.writePcfifo(i).pc          := Mux(io.in.ifuForward.bits(i).jalr, io.in.ifuForward.bits(i).tar_pc, io.in.ifuForward.bits(i).cur_pc) // BHT data go in through, to pc_fifo
-      pc_fifo.io.iduWrite.bits.writePcfifo(i).chk_idx     := io.in.ifuForward.bits(i).pred_store.chk_idx
-      pc_fifo.io.iduWrite.bits.writePcfifo(i).bht_pred    := io.in.ifuForward.bits(i).pred_store.bht_pred
-      pc_fifo.io.iduWrite.bits.writePcfifo(i).jmp_mispred := io.in.ifuForward.bits(i).pred_store.jmp_mispred
+      pc_fifo.io.iduWrite.bits.writePcfifo(i).pc          := Mux(io.in.ifuForward.bits(i).jalr, io.in.ifuForward.bits(i).tarPc, io.in.ifuForward.bits(i).curPc) // BHT data go in through, to pc_fifo
+      pc_fifo.io.iduWrite.bits.writePcfifo(i).chkIdx     := io.in.ifuForward.bits(i).predStore.chkIdx
+      pc_fifo.io.iduWrite.bits.writePcfifo(i).bhtPred    := io.in.ifuForward.bits(i).predStore.bhtPred
+      pc_fifo.io.iduWrite.bits.writePcfifo(i).jmpMispred := io.in.ifuForward.bits(i).predStore.jmpMispred
     }
   }
   io.out.allowPid := pc_fifo.io.iduWrite.bits.alloPid
@@ -128,7 +128,7 @@ class Bju extends Module{
   //                      BHT Check
   //---------------------------------------------------------- @732 XOR
 
-  val bju_bht_mispred = bj_taken ^ ex1_pipe_pcfifo_read.bht_pred
+  val bju_bht_mispred = bj_taken ^ ex1_pipe_pcfifo_read.bhtPred
 
   //----------------------------------------------------------
   //                Indirect Jump / RAS Check
@@ -183,7 +183,7 @@ class Bju extends Module{
   //                 Write Result to PCFIFO
   //----------------------------------------------------------
   val bju_write = 0.U.asTypeOf(new PredCheckRes)
-  bju_write.bht_mispred := ex2_pipe_bht_mispred
+  bju_write.bhtMispred := ex2_pipe_bht_mispred
   bju_write.jmp         := ex2_pipe_is_jmp
   bju_write.pcall       := DontCare
   bju_write.pret        := DontCare
@@ -209,8 +209,8 @@ class Bju extends Module{
   io.out.toIfu.chgflwVld      := ex2_pipe_chgflw_vld
   io.out.toIfu.chgflwPc       := ex2_pipe_tar_pc
   io.out.toIfu.curPc          := ex2_pipe_pcfifo_read.pc
-  io.out.toIfu.bhtPred        := ex2_pipe_pcfifo_read.bht_pred
-  io.out.toIfu.chkIdx         := ex2_pipe_pcfifo_read.chk_idx
+  io.out.toIfu.bhtPred        := ex2_pipe_pcfifo_read.bhtPred
+  io.out.toIfu.chkIdx         := ex2_pipe_pcfifo_read.chkIdx
   io.out.toIfu.bhtCheckVld    := ex2_pipe_conbr_vld
   io.out.toIfu.bhtCondbrTaken := ex2_pipe_is_br
   // EX3 - branch inst result write back
@@ -222,8 +222,8 @@ class Bju extends Module{
   }
   val rob_read_en = ex3_pipe_en
 
-  io.out.toRtu.bhtPred     := pc_fifo.io.robRead.ifu_pred.bht_pred
-  io.out.toRtu.bhtMispred  := pc_fifo.io.robRead.bht_check.bht_mispred
+  io.out.toRtu.bhtPred     := pc_fifo.io.robRead.ifu_pred.bhtPred
+  io.out.toRtu.bhtMispred  := pc_fifo.io.robRead.bht_check.bhtMispred
   io.out.toRtu.jmp         := pc_fifo.io.robRead.bht_check.jmp
   io.out.toRtu.pRet        := pc_fifo.io.robRead.bht_check.pret
   io.out.toRtu.pCall       := pc_fifo.io.robRead.bht_check.pcall

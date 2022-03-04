@@ -24,8 +24,8 @@ class RbusIO extends Bundle {
 class Rbus extends Module with IUConfig {
   val io = IO(new RbusIO)
   val pipe_rslt_vld = Seq.fill(IuPipeNum)(Wire(Bool()))
-  pipe_rslt_vld.head := io.in.aluIn(0).data_vld || io.in.duIn.pipe0_data_vld || io.in.specialIn.data_vld
-  pipe_rslt_vld(1)  := io.in.aluIn(1).data_vld || io.in.muIn.data_vld
+  pipe_rslt_vld.head := io.in.aluIn(0).dataVld || io.in.duIn.pipe0DataVld || io.in.specialIn.dataVld
+  pipe_rslt_vld(1)   := io.in.aluIn(1).dataVld || io.in.muIn.dataVld
   //----------------------------------------------------------
   //                   Write Back Valid
   //----------------------------------------------------------
@@ -43,7 +43,7 @@ class Rbus extends Module with IUConfig {
   //----------------------------------------------------------
   //                         Pipe 0
   //----------------------------------------------------------
-  val pipe0_select = Cat(io.in.aluIn(0).data_vld ,io.in.duIn.pipe0_data_vld ,io.in.specialIn.data_vld) // TODO add CP0
+  val pipe0_select = Cat(io.in.aluIn(0).dataVld ,io.in.duIn.pipe0DataVld ,io.in.specialIn.dataVld) // TODO add CP0
   val pipe0_rslt_preg = RegInit(0.U(7.W))
   switch(pipe0_select){
     is("b100".U){
@@ -76,7 +76,7 @@ class Rbus extends Module with IUConfig {
   //----------------------------------------------------------
   //                         Pipe 1
   //----------------------------------------------------------
-  val pipe1_select = Cat(io.in.aluIn(1).data_vld ,io.in.muIn.data_vld) // TODO add CP0
+  val pipe1_select = Cat(io.in.aluIn(1).dataVld ,io.in.muIn.dataVld) // TODO add CP0
   val pipe1_rslt_preg = RegInit(0.U(7.W))
   switch(pipe1_select){
     is("b10".U){

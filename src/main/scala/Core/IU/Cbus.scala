@@ -6,88 +6,88 @@ import Core.IUConfig
 import chisel3._
 import chisel3.util._
 class CbusOut2Rtu extends Bundle with IUConfig {
-val pipe0_abnormal = Bool()
-val pipe0_bkpt = Bool()
-val pipe0_cmplt = Bool()
-val pipe0_efpc = UInt(PcWidth.W)
-val pipe0_efpc_vld = Bool()
-val pipe0_expt_vec = UInt(5.W)
-val pipe0_expt_vld = Bool()
-val pipe0_flush = Bool()
-val pipe0_high_hw_expt = Bool()
-val pipe0_iid = UInt(7.W)
-val pipe0_mtval = Bool()
-val pipe1_cmplt = Bool()
-val pipe1_iid = Bool()
-val pipe2_abnormal = Bool()
-val pipe2_bht_mispred = Bool()
-val pipe2_cmplt = Bool()
-val pipe2_iid = UInt(7.W)
-val pipe2_jmp_mispred = Bool()
+val pipe0Abnormal = Bool()
+val pipe0Bkpt = Bool()
+val pipe0Cmplt = Bool()
+val pipe0Efpc = UInt(PcWidth.W)
+val pipe0EfpcVld = Bool()
+val pipe0ExptVec = UInt(5.W)
+val pipe0ExptVld = Bool()
+val pipe0Flush = Bool()
+val pipe0HighHwExpt = Bool()
+val pipe0Iid = UInt(7.W)
+val pipe0Mtval = Bool()
+val pipe1Cmplt = Bool()
+val pipe1Iid = Bool()
+val pipe2Abnormal = Bool()
+val pipe2BhtMispred = Bool()
+val pipe2Cmplt = Bool()
+val pipe2Iid = UInt(7.W)
+val pipe2JmpMispred = Bool()
 }
 
 class CbusNoEcep extends Bundle with IUConfig{
-  val div_sel = Bool()
-  val mult_sel = Bool()
-  val pipe0_iid = UInt(7.W)
-  val pipe0_sel = Bool()
-  val pipe1_iid = UInt(7.W)
-  val pipe1_sel = Bool()
+  val divSel = Bool()
+  val multSel = Bool()
+  val pipe0Iid = UInt(7.W)
+  val pipe0Sel = Bool()
+  val pipe1Iid = UInt(7.W)
+  val pipe1Sel = Bool()
 }
 
 class Cp0In extends Bundle with IUConfig{
   val abnormal = Bool()
   val efpc = UInt(PcWidth.W)
-  val efpc_vld = Bool()
-  val expt_vec = UInt(5.W)
-  val expt_vld = Bool()
+  val efpcVld = Bool()
+  val exptVec = UInt(5.W)
+  val exptVld = Bool()
   val flush = Bool()
   val iid = UInt(7.W)
-  val inst_vld = Bool()
+  val instVld = Bool()
   val mtval = UInt(32.W)
   val en = Bool()
 }
 
 class CbusIO extends Bundle with IUConfig{
-  val norm_in = Input(new CbusNoEcep)
-  val special_in = Input(new SpecialOut)
-  val cp0_in = Input(new Cp0In)
+  val normIn = Input(new CbusNoEcep)
+  val specialIn = Input(new SpecialOut)
+  val cp0In = Input(new Cp0In)
   val out = Output(new CbusOut2Rtu)
-  val bju_in = Input(new BjuOut)
+  val bjuIn = Input(new BjuOut)
 }
 
 class Cbus extends Module with IUConfig{
   val io = IO(new CbusIO)
   val flush = false.B
-  val cbus_pipe0_cmplt = io.norm_in.pipe0_sel || io.norm_in.div_sel || io.special_in.inst_vld || io.cp0_in.inst_vld
+  val cbus_pipe0_cmplt = io.normIn.pipe0Sel || io.normIn.divSel || io.specialIn.instVld || io.cp0In.instVld
   val cbus_pipe0_inst_vld = RegInit(cbus_pipe0_cmplt ,!flush)
 
   // pipe 0
   // Mux the iid - to Rob
-  val cbus_pipe0_src_iid = (Cat(Fill(7, io.norm_in.pipe0_sel)) & io.norm_in.pipe0_iid) |
-    (Cat(Fill(7, io.norm_in.div_sel)) & io.norm_in.pipe0_iid)|
-    (Cat(Fill(7, io.special_in.inst_vld)) & io.special_in.iid)|
-    (Cat(Fill(7, io.cp0_in.inst_vld)) & io.cp0_in.iid)
+  val cbus_pipe0_src_iid = (Cat(Fill(7, io.normIn.pipe0Sel)) & io.normIn.pipe0Iid) |
+    (Cat(Fill(7, io.normIn.divSel)) & io.normIn.pipe0Iid)|
+    (Cat(Fill(7, io.specialIn.instVld)) & io.specialIn.iid)|
+    (Cat(Fill(7, io.cp0In.instVld)) & io.cp0In.iid)
 
-  val cbus_pipe0_src_abnormal = (io.special_in.inst_vld && io.special_in.abnormal) || (io.cp0_in.abnormal && io.cp0_in.inst_vld)
+  val cbus_pipe0_src_abnormal = (io.specialIn.instVld && io.specialIn.abnormal) || (io.cp0In.abnormal && io.cp0In.instVld)
 
-  val cbus_pipe0_src_expt_vld = (io.special_in.inst_vld && io.special_in.expt_vld) || (io.cp0_in.expt_vld && io.cp0_in.inst_vld)
+  val cbus_pipe0_src_expt_vld = (io.specialIn.instVld && io.specialIn.exptVld) || (io.cp0In.exptVld && io.cp0In.instVld)
 
-  val cbus_pipe0_src_expt_vec = (Cat(Fill(7, io.special_in.inst_vld)) & io.special_in.expt_vec) |
-    (Cat(Fill(7, io.cp0_in.inst_vld)) & io.cp0_in.expt_vec)
+  val cbus_pipe0_src_expt_vec = (Cat(Fill(7, io.specialIn.instVld)) & io.specialIn.exptVec) |
+    (Cat(Fill(7, io.cp0In.instVld)) & io.cp0In.exptVec)
 
-  val cbus_pipe0_src_high_hw_expt = io.special_in.inst_vld && io.special_in.high_hw_expt
+  val cbus_pipe0_src_high_hw_expt = io.specialIn.instVld && io.specialIn.highHwExpt
 
-  val cbus_pipe0_src_bkpt = io.special_in.inst_vld && io.special_in.bkpt
+  val cbus_pipe0_src_bkpt = io.specialIn.instVld && io.specialIn.bkpt
 
-  val cbus_pipe0_src_mtval = (Cat(Fill(7, io.special_in.inst_vld)) & io.special_in.mtval)|
-    (Cat(Fill(7, io.cp0_in.inst_vld)) & io.cp0_in.mtval)
+  val cbus_pipe0_src_mtval = (Cat(Fill(7, io.specialIn.instVld)) & io.specialIn.mtval)|
+    (Cat(Fill(7, io.cp0In.instVld)) & io.cp0In.mtval)
 
-  val cbus_pipe0_src_flush = (io.cp0_in.inst_vld && io.cp0_in.flush) || (io.special_in.inst_vld && io.special_in.flush)
+  val cbus_pipe0_src_flush = (io.cp0In.instVld && io.cp0In.flush) || (io.specialIn.instVld && io.specialIn.flush)
 
-  val cbus_pipe0_src_efpc_vld =  io.cp0_in.inst_vld && io.cp0_in.efpc_vld
+  val cbus_pipe0_src_efpc_vld =  io.cp0In.instVld && io.cp0In.efpcVld
 
-  val cbus_pipe0_src_efpc = Cat(Fill(PcWidth, io.cp0_in.inst_vld)) & io.cp0_in.efpc
+  val cbus_pipe0_src_efpc = Cat(Fill(PcWidth, io.cp0In.instVld)) & io.cp0In.efpc
 
 
   val cbus_pipe0_expt_vld      = RegEnable( cbus_pipe0_src_expt_vld, cbus_pipe0_cmplt)
@@ -101,28 +101,28 @@ class Cbus extends Module with IUConfig{
   val cbus_pipe0_iid           = RegEnable( cbus_pipe0_src_iid, cbus_pipe0_cmplt) // TODO CLK is different  @ct_iu_cbus @439
   val cbus_pipe0_abnormal      = RegEnable( cbus_pipe0_abnormal, cbus_pipe0_cmplt)
   // out put
-  io.out.pipe0_cmplt := cbus_pipe0_cmplt
-  io.out.pipe0_iid           := cbus_pipe0_iid
-  io.out.pipe0_abnormal      := cbus_pipe0_abnormal
-  io.out.pipe0_expt_vld      := cbus_pipe0_expt_vld
-  io.out.pipe0_expt_vec      := cbus_pipe0_expt_vec
-  io.out.pipe0_high_hw_expt  := cbus_pipe0_high_hw_expt
-  io.out.pipe0_bkpt          := cbus_pipe0_bkpt
-  io.out.pipe0_mtval         := cbus_pipe0_mtval
-  io.out.pipe0_flush         := cbus_pipe0_flush
-  io.out.pipe0_efpc_vld      := cbus_pipe0_efpc_vld
-  io.out.pipe0_efpc          := cbus_pipe0_efpc
+  io.out.pipe0Cmplt         := cbus_pipe0_cmplt
+  io.out.pipe0Iid           := cbus_pipe0_iid
+  io.out.pipe0Abnormal      := cbus_pipe0_abnormal
+  io.out.pipe0ExptVld       := cbus_pipe0_expt_vld
+  io.out.pipe0ExptVec       := cbus_pipe0_expt_vec
+  io.out.pipe0HighHwExpt    := cbus_pipe0_high_hw_expt
+  io.out.pipe0Bkpt          := cbus_pipe0_bkpt
+  io.out.pipe0Mtval         := cbus_pipe0_mtval
+  io.out.pipe0Flush         := cbus_pipe0_flush
+  io.out.pipe0EfpcVld       := cbus_pipe0_efpc_vld
+  io.out.pipe0Efpc          := cbus_pipe0_efpc
 
 
   // pipe 1
 
-  val cbus_pipe1_cmplt  = io.norm_in.pipe1_sel  || io.norm_in.mult_sel
+  val cbus_pipe1_cmplt    = io.normIn.pipe1Sel  || io.normIn.multSel
   val cbus_pipe1_inst_vld = RegInit(cbus_pipe1_cmplt ,!flush)
-  val cbus_pipe1_src_iid = io.norm_in.pipe1_iid
-  val cbus_pipe1_iid = RegEnable(cbus_pipe1_src_iid,cbus_pipe1_cmplt)
-  io.out.pipe1_iid     := cbus_pipe1_iid
-  io.out.pipe2_abnormal    := io.bju_in.toCbus.sel
-  io.out.pipe2_bht_mispred := io.bju_in.toCbus.abnormal
-  io.out.pipe2_cmplt       := io.bju_in.toCbus.jmpMispred
-  io.out.pipe2_jmp_mispred := io.bju_in.toCbus.bhtMispred
+  val cbus_pipe1_src_iid  = io.normIn.pipe1Iid
+  val cbus_pipe1_iid      = RegEnable(cbus_pipe1_src_iid,cbus_pipe1_cmplt)
+  io.out.pipe1Iid         := cbus_pipe1_iid
+  io.out.pipe2Abnormal    := io.bjuIn.toCbus.sel
+  io.out.pipe2BhtMispred  := io.bjuIn.toCbus.abnormal
+  io.out.pipe2Cmplt       := io.bjuIn.toCbus.jmpMispred
+  io.out.pipe2JmpMispred  := io.bjuIn.toCbus.bhtMispred
 }

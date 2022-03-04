@@ -17,16 +17,16 @@ object SpecialOpType {
 class SpecialOut extends Bundle {
   val abnormal = Bool()
   val bkpt = Bool()
-  val expt_vec = UInt(5.W)
-  val expt_vld = Bool()
+  val exptVec = UInt(5.W)
+  val exptVld = Bool()
   val flush = Bool()
-  val high_hw_expt = Bool()
+  val highHwExpt = Bool()
   val iid = UInt(7.W)
-  val immu_expt = Bool()
-  val inst_vld = Bool()
+  val immuExpt = Bool()
+  val instVld = Bool()
   val mtval = UInt(32.W)
   val data = UInt(64.W)
-  val data_vld = Bool()
+  val dataVld = Bool()
   val preg = UInt(7.W)
 }
 
@@ -77,23 +77,23 @@ class Special extends Module{
   //==========================================================
   //               RF stage Complete Bus signals
   //==========================================================
-  io.out.inst_vld         := special_ex1_inst_vld
+  io.out.instVld         := special_ex1_inst_vld
   io.out.abnormal         := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
   io.out.bkpt             := (io.in.opcode === SpecialOpType.EBREAK)
   io.out.iid              := ex1_pipe.iid
   //----------------------------------------------------------
   //                     Exception
   //----------------------------------------------------------
-  io.out.expt_vec := LookupTree(io.in.opcode, List(
+  io.out.exptVec := LookupTree(io.in.opcode, List(
     SpecialOpType.NOP           -> io.in.exptVec,
     SpecialOpType.ECALL         -> special_ex1_ecall_expt_vec,
     SpecialOpType.EBREAK        -> "b00011".U,
   ))
-  io.out.expt_vld := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
+  io.out.exptVld := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
   //==========================================================
   //                    Result Bus signals
   //==========================================================
-  io.out.data_vld := special_ex1_inst_vld
-  io.out.preg := ex1_pipe.dst_preg
+  io.out.dataVld := special_ex1_inst_vld
+  io.out.preg := ex1_pipe.dstPreg
   io.out.data := special_auipc_rslt
 }
