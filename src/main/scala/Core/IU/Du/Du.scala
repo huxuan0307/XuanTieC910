@@ -2,16 +2,20 @@ package Core.IU.Du
 
 import Core.IU.IduRfPipe0
 import Core.{IUConfig, MDUOpType}
-import Utils.{HasCircularQueuePtrHelper, LookupTree, ZeroExt}
+import Utils.{HasCircularQueuePtrHelper, LookupTree, SignExt, ZeroExt}
 import chisel3._
 import chisel3.util._
+class DuOut extends Bundle {
+  val pipe0_data_vld = Bool()
+  val preg = UInt(7.W)
+  val data = UInt(64.W)
+}
 
-
-class DUIO extends Bundle {
+class DuIO extends Bundle {
   val in  = Flipped(DecoupledIO(new IduRfPipe0))
-  val out = ValidIO(new FuOutPut)
+  val out = ValidIO(new DuOut)
   val flush = Input(Bool())//l/d会改变数据，所以必须确认存在分支的位置，需要补充一个predict.ROBIdx，而其它EXU只需关注是否在mispred.ROBIdx之后
-  val mispred_robPtr = Input(new ROBPtr)
+  val mispred_robPtr = Input(UInt(5.W))
   //val DivIdle = Output(Bool())
 }
 
@@ -26,8 +30,6 @@ class DivIO(val len: Int) extends Bundle {
 
 class Radix8Divider(len: Int = 64) extends Module {
   val io = IO(new DivIO(len))
-
-
   val s_idle :: s_shift :: s_compute ::  Nil = Enum(3)
   val state = RegInit(s_idle)
   //io.in.ready := (state === s_idle)
@@ -109,16 +111,21 @@ class Radix8Divider(len: Int = 64) extends Module {
 }
 
 class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
-  val io   = IO(new DUIO)
+  val io   = IO(new DuIO)
   val div  = Module(new Radix8Divider(XLEN))
-  val (src1,src2,funcOpType) = (io.in.bits.src0, io.in.bits.src1, io.in.bits.func)
+  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  //----------------------------------------------------------
+  //               Pipe0 EX1 Instruction Data
+  //----------------------------------------------------------
+  val ex1_pipe = RegEnable(io.in, pipe1_en)
+  val (src1,src2,funcOpType) = (ex1_pipe.bits.src0, ex1_pipe.bits.src1, ex1_pipe.bits.func)
   val isDiv = RegInit(false.B)
   val isW = RegInit(false.B)
   val isDivSign = RegInit(false.B)
   val isRem = RegInit(false.B)
   val src = new MDUbit(UInt(XLEN.W))
   //val ROBIdx = Reg(new ROBPtr)
-  val uop  = RegEnable(io.in.bits.uop,io.in.fire())
+  val iid  = RegEnable(io.in.bits.iid,io.in.fire)
   when(io.in.fire){
     isDiv     := MDUOpType.isDiv(funcOpType)
     isW       := MDUOpType.isW(funcOpType)
@@ -127,13 +134,11 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   }
   //in RS_DU, ensure that when io.in.valid, last is done
 
-  src1 := io.in.bits.src(0)
-  src2 := io.in.bits.src(1)
   def isMinus64(x:UInt):Bool = x(XLEN-1)  //通过补码判断是否为负数
   def isMinus32(x:UInt):Bool = x(32-1)
 
   div.io.in.valid := io.in.valid
-  div.io.flush := io.flush && isAfter(uop.ROBIdx,io.mispred_robPtr)
+  div.io.flush := io.flush// TODO rob ptr judge && isAfter(iid,io.mispred_robPtr)
 
   val quotMinus = RegInit(false.B)
   val remMinus = RegInit(false.B)
@@ -189,12 +194,16 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   val quotres = Mux(isW, SignExt(quot(31,0), 64), quot)
   val remres  = Mux(isW, SignExt(rem(31,0),64),rem)
   //io.out.bits.res := Mux(div0w0,res0w0,Mux(divby0 && !div0w0,divby0res,Mux(isDiv,quotres,remres)))
-  io.out.bits.res := Mux(divby0,divby0res,Mux(isRem,remres,quotres))
 
-  io.out.bits.uop := uop
-  io.out.valid    := div.io.out.valid
   //是flush当拍直接kill，不会给出div.io.out.valid
   io.in.ready   := div.io.in.ready//为了以防万一，停一拍
+  //==========================================================
+  //                 Write Back to Rbus
+  //==========================================================
+  io.out.bits.pipe0_data_vld := div.io.out.valid
+  io.out.valid               := div.io.out.valid
+  io.out.bits.preg           := ex1_pipe.bits.dst_preg
+  io.out.bits.data           := Mux(divby0,divby0res,Mux(isRem,remres,quotres))
 
   //  printf("DU0v in.valid %d uop %x instr %x,  \nDU0v io.out %d %x %x\n",io.in.valid,io.in.bits.uop.cf.pc,io.in.bits.uop.cf.instr,io.out.valid,io.out.bits.uop.cf.pc,io.out.bits.uop.cf.instr)
   //  printf("DU1in src1 %d src2 %d, funcOpType %d, divby0 %d, divby0res %x,iores %x,isW %d,isDiv %d\n",src1,src2,funcOpType,divby0,divby0res,io.out.bits.res,isW,isDiv)

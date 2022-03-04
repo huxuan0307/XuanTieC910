@@ -55,7 +55,8 @@ class Special extends Module{
   //----------------------------------------------------------
   //               Pipe2 EX1 Instruction Data
   //----------------------------------------------------------
-  val ex1_pipe = RegEnable(io.in, special_ex1_inst_vld)
+  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val ex1_pipe = RegEnable(io.in, pipe1_en)
   val ex1_pipe_pc = io.bjuSpecialPc
   //==========================================================
   //                  Instruction Selection

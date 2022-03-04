@@ -60,7 +60,8 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   //               Pipe2 EX1 Instruction Data
   //----------------------------------------------------------
-  val ex1_pipe = RegEnable(io.in, alu_ex1_inst_vld)
+  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val ex1_pipe = RegEnable(io.in, pipe1_en)
 
   val (src1, src2, op) = (io.in.src0,io.in.src1, io.in.opcode)
   //----------------------------------------------------------
