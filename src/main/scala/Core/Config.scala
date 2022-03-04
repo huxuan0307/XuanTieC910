@@ -80,6 +80,7 @@ trait VectorUnitConfig {
 trait IUConfig {
   def XLEN = 64
   def PcFifoLen = 32
+  def IuPipeNum = 3
 }
 
 
