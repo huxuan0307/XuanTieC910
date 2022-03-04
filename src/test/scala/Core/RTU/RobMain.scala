@@ -1,12 +1,12 @@
-package Core.RS
+package Core.RTU
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object DepRegEntryMain extends App {
+object RobMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new DepRegEntry)
+      ChiselGeneratorAnnotation(() => new Rob)
     )
   )
 }
