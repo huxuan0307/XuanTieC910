@@ -82,7 +82,7 @@ class IntegeUnit extends Module{
   // special pc io should be below Module 'bju' & 'special', because 'Suspicious forward reference'
   special.io.bjuSpecialPc := bju.io.out.specialPc
   //==========================================================
-  //                Cbus - Iu complete signal process
+  //                Cbus - Iu pipes complete signal process
   //==========================================================
   val cbus = Module(new Cbus)
   cbus.io.norm_in.div_sel   := io.idu_iu_rf_pipe0.bits.divSel
@@ -92,6 +92,13 @@ class IntegeUnit extends Module{
   cbus.io.norm_in.pipe1_sel := io.idu_iu_rf_pipe1.sel
   cbus.io.norm_in.pipe1_iid := io.idu_iu_rf_pipe1.iid
   cbus.io.bju_in            := bju.io.out.toCbus
+
+  //==========================================================
+  //                Rbus - Iu pipes data process
+  //==========================================================
+  val rbus = Module(new Rbus)
+  rbus.io.in.aluIn(0) := alu0.io.out
+  rbus.io.in.aluIn(1) := alu1.io.out
 
 }
 
