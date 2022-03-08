@@ -58,6 +58,8 @@ trait VectorUnitConfig {
   def VlmaxBits = 8
   def VlmulBits = 3
   def VsewBits = 3
+  def VregNum = 64
+  def VregNumBits : Int = log2Up(VregNum)
 }
 
 trait FuTypeConfig {
