@@ -78,11 +78,7 @@ class ArithInstQueueInput extends Bundle with AiqConfig with DepRegEntryConfig {
     val xxRfPipe1PregLaunchValidDupx : Bool = Bool()
   }
   val data : InstQueDataInput = Flipped(Output(new InstQueDataInput(NumAiqEntry)))
-  val fromRtu = new Bundle {
-    val flushFe : Bool = Bool()
-    val flushIs : Bool = Bool()
-    val yyXXFlush : Bool = Bool()
-  }
+  val fromRtu = new InstQueFromRtu
   val fromIu = new Bundle {
     val div = new Bundle {
       val busy : Bool = Bool()
@@ -221,6 +217,7 @@ class ArithInstQueue extends Module with AiqConfig {
   io.out.ctrl.entryCntUpdate.bits  := entryCnt + entryCntCreate - ctrlAiq0.rfPopDlbValid.asUInt
 
   //--------------------aiq0 entry full-----------------------
+  // Todo: check
   private val fullUpdate = entryCntUpdate === entries.length.U
   private val oneLeftUpdate = entryCntUpdate === (entries.length - 1).U
   io.out.ctrl.fullUpdate := fullUpdate
@@ -330,8 +327,8 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryIssueEnVec = Wire(Vec(this.NumAiqEntry, Bool()))
   entryIssueEnVec := VecInit((entryReadyVec.asUInt & ~olderEntryReadyVec.asUInt).asBools)
 
-  // Todo: typo
   //-----------------issue entry indiction--------------------
+  // Todo: figure out
   io.out.data.issueEntryVec := Mux(
     createBypassEmpty,
     enq0OH,
