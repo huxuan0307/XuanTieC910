@@ -8,8 +8,7 @@ import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
-import Utils.RingShiftLeft
-
+import Utils.Bits.RingShiftLeft
 
 
 class RobInput extends Bundle {
@@ -301,16 +300,16 @@ class Rob extends Module {
     }
   }.elsewhen(robCreatePtrAdd(4)) {
     // Todo: need function ring shift
-    robCreatePtr := RingShiftLeft(robCreatePtr, 4)
+    robCreatePtr := Utils.Bits.RingShiftLeft(robCreatePtr, 4)
     robCreateIidVec.foreach(iid => iid := iid + 4.U)
   }.elsewhen(robCreatePtrAdd(3)) {
-    robCreatePtr := RingShiftLeft(robCreatePtr, 3)
+    robCreatePtr := Utils.Bits.RingShiftLeft(robCreatePtr, 3)
     robCreateIidVec.foreach(iid => iid := iid + 3.U)
   }.elsewhen(robCreatePtrAdd(2)) {
-    robCreatePtr := RingShiftLeft(robCreatePtr, 2)
+    robCreatePtr := Utils.Bits.RingShiftLeft(robCreatePtr, 2)
     robCreateIidVec.foreach(iid => iid := iid + 2.U)
   }.elsewhen(robCreatePtrAdd(1)) {
-    robCreatePtr := RingShiftLeft(robCreatePtr, 1)
+    robCreatePtr := Utils.Bits.RingShiftLeft(robCreatePtr, 1)
     robCreateIidVec.foreach(iid => iid := iid + 1.U)
   }.otherwise {
     robCreatePtr := robCreatePtr
@@ -577,19 +576,19 @@ class Rob extends Module {
       robReadIidVec(i) := i.U
     }
   }.elsewhen(robReadPtrAddVec(3)) {
-    robReadPtr := RingShiftLeft(robReadPtr, 3)
+    robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 3)
     // Todo: imm
     for (i <- 0 until 6) {
       robReadIidVec(i) := robReadIidVec(i) + 3.U
     }
   }.elsewhen(robReadPtrAddVec(2)) {
-    robReadPtr := RingShiftLeft(robReadPtr, 2)
+    robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 2)
     // Todo: imm
     for (i <- 0 until 6) {
       robReadIidVec(i) := robReadIidVec(i) + 2.U
     }
   }.elsewhen(robReadPtrAddVec(3)) {
-    robReadPtr := RingShiftLeft(robReadPtr, 1)
+    robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 1)
     // Todo: imm
     for (i <- 0 until 6) {
       robReadIidVec(i) := robReadIidVec(i) + 1.U
@@ -601,7 +600,7 @@ class Rob extends Module {
 
   robReadPtrVec(0) := robReadPtr
   for (i <- 1 until RobReadPtrNum) {
-    robReadPtrVec(i) := RingShiftLeft(robReadPtr, i)
+    robReadPtrVec(i) := Utils.Bits.RingShiftLeft(robReadPtr, i)
   }
 
   // Todo: imm
