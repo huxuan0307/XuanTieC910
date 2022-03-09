@@ -6,6 +6,7 @@ import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Core.PipelineConfig._
 import Core.IntConfig._
+import Utils.Bits._
 
 trait AiqConfig {
   def NumAiqEntry = 8
@@ -283,20 +284,6 @@ class ArithInstQueue extends Module with AiqConfig {
   // Todo: timing optimization
   private val entryCreateSel : UInt = Fill(this.NumAiqEntry, ctrlAiq0.createEn(1)) &
     enq1OH.asUInt
-
-  def DropBit(src: UInt, idx: Int): UInt = {
-    val width = src.getWidth
-    if (idx == 0)
-      src(width-1, 1)
-    else if(idx == width - 1)
-      src(width-2, 0)
-    else if(idx > 0 && idx < width - 1)
-      Cat(src(width-1, idx+1), src(idx-1, 0))
-    else {
-      assert(cond = false, "idx out of width of src")
-      0.U
-    }
-  }
 
   for (i <- 0 until this.NumAiqEntry) {
     when(entryCreateSel(i) === 0.U) {

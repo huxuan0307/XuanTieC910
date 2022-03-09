@@ -1,10 +1,10 @@
-package Utils
+package Utils.Bits
 
-import chisel3._
-import chisel3.util._
+import chisel3.util.Cat
+import chisel3.{UInt, assert}
 
 object RingShiftLeft {
-  def apply(src: UInt, offset: Int) : UInt = {
+  def apply(src : UInt, offset : Int) : UInt = {
     assert(offset >= 0)
     if (offset == 0)
       src
@@ -12,4 +12,3 @@ object RingShiftLeft {
       Cat(src(src.getWidth - offset - 1, 0), src(src.getWidth - 1, src.getWidth - offset))
   }
 }
-
