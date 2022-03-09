@@ -9,6 +9,7 @@ import chisel3.util._
 trait BiqConfig {
   def NumSrcBr = 2
   def NumBiqEntry = 12
+  def NumBiqCreatePort = 2
 }
 
 object BiqConfig extends BiqConfig
