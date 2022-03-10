@@ -79,7 +79,13 @@ trait VectorUnitConfig {
 
 trait IUConfig {
   def XLEN = 64
+  def CSR_OPCODE_WIDTH = 32
+  def CSR_ADDR_WIDTH = 12
+  def CSR_UIMM_WIDTH = 5
+  def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
   def PcFifoLen = 32
+  def PcFifoAddr: Int = log2Up(PcFifoLen)
+  def PcOffsetWidth = 21
   def IuPipeNum = 3
 }
 

@@ -3,6 +3,7 @@ package Core.IU
 import Core.AddrConfig.PcWidth
 import Core.IU.Bju.BjuOut
 import Core.IUConfig
+import Core.IntConfig.InstructionIdWidth
 import chisel3._
 import chisel3.util._
 class CbusOut2Rtu extends Bundle with IUConfig {
@@ -15,23 +16,23 @@ val pipe0ExptVec = UInt(5.W)
 val pipe0ExptVld = Bool()
 val pipe0Flush = Bool()
 val pipe0HighHwExpt = Bool()
-val pipe0Iid = UInt(7.W)
+val pipe0Iid = UInt(InstructionIdWidth.W)
 val pipe0Mtval = Bool()
 val pipe1Cmplt = Bool()
-val pipe1Iid = Bool()
+val pipe1Iid = UInt(InstructionIdWidth.W)
 val pipe2Abnormal = Bool()
 val pipe2BhtMispred = Bool()
 val pipe2Cmplt = Bool()
-val pipe2Iid = UInt(7.W)
+val pipe2Iid = UInt(InstructionIdWidth.W)
 val pipe2JmpMispred = Bool()
 }
 
 class CbusNoEcep extends Bundle with IUConfig{
   val divSel = Bool()
   val multSel = Bool()
-  val pipe0Iid = UInt(7.W)
+  val pipe0Iid = UInt(InstructionIdWidth.W)
   val pipe0Sel = Bool()
-  val pipe1Iid = UInt(7.W)
+  val pipe1Iid = UInt(InstructionIdWidth.W)
   val pipe1Sel = Bool()
 }
 
@@ -42,7 +43,7 @@ class Cp0In extends Bundle with IUConfig{
   val exptVec = UInt(5.W)
   val exptVld = Bool()
   val flush = Bool()
-  val iid = UInt(7.W)
+  val iid = UInt(InstructionIdWidth.W)
   val instVld = Bool()
   val mtval = UInt(32.W)
   val en = Bool()
@@ -99,7 +100,7 @@ class Cbus extends Module with IUConfig{
   val cbus_pipe0_efpc_vld      = RegEnable( cbus_pipe0_src_efpc_vld, cbus_pipe0_cmplt)
   val cbus_pipe0_efpc          = RegEnable( cbus_pipe0_src_efpc, cbus_pipe0_cmplt)
   val cbus_pipe0_iid           = RegEnable( cbus_pipe0_src_iid, cbus_pipe0_cmplt) // TODO CLK is different  @ct_iu_cbus @439
-  val cbus_pipe0_abnormal      = RegEnable( cbus_pipe0_abnormal, cbus_pipe0_cmplt)
+  val cbus_pipe0_abnormal      = RegEnable( cbus_pipe0_src_abnormal, cbus_pipe0_cmplt)
   // out put
   io.out.pipe0Cmplt         := cbus_pipe0_cmplt
   io.out.pipe0Iid           := cbus_pipe0_iid
