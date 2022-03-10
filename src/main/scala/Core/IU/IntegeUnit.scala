@@ -1,18 +1,17 @@
 package Core.IU
 import Core.{FuncOpType, FuncType, IUConfig}
-import Core.IU.Bju.{ Bju, ifuDataForward}
+import Core.IU.Bju.{Bju, ifuDataForward}
 import Core.IU.Du.Du
 import Core.IUConfig.{PcFifoAddr, PcOffsetWidth}
 import Core.IntConfig.InstructionIdWidth
+import Core.VectorUnitConfig._
 import chisel3._
 import chisel3.util._
 
-
-
 trait hasVecExtends extends Bundle {
-  val vl    = UInt(8.W)
-  val vlmul = UInt(2.W)
-  val vsew  = UInt(3.W)
+  val vl    = UInt(VlmaxBits.W)
+  val vlmul = UInt(VlmulBits.W)
+  val vsew  = UInt(VsewBits.W)
 }
 class unitSel extends Bundle {
   val sel = Bool()

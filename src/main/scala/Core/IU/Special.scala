@@ -1,42 +1,46 @@
 package Core.IU
 
 import Core.AddrConfig.PcWidth
+import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
+import Core.IUConfig
+import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
 import chisel3.util._
 import Utils.LookupTree
 
 object SpecialOpType {
-  def NOP           = "b00000".U
-  def ECALL         = "b00010".U
-  def EBREAK        = "b00011".U
-  def AUIPC         = "b00100".U
-  def PSEUDO_AUIPC  = "b00101".U
-  def VSETVLI       = "b00110".U
+  def NOP            = "b00000".U
+  def ECALL          = "b00010".U
+  def EBREAK         = "b00011".U
+  def AUIPC          = "b00100".U
+  def PSEUDO_AUIPC   = "b00101".U
+  def VSETVLI        = "b00110".U
+  def VSETVL         = "b00111".U
 }
 
-class SpecialOut extends Bundle {
-  val abnormal = Bool()
-  val bkpt = Bool()
-  val exptVec = UInt(5.W)
-  val exptVld = Bool()
-  val flush = Bool()
+class SpecialOut extends Bundle with IUConfig{
+  val abnormal   = Bool()
+  val bkpt       = Bool()
+  val exptVec    = UInt(ExceptionVecWidth.W)
+  val exptVld    = Bool()
+  val flush      = Bool()
   val highHwExpt = Bool()
-  val iid = UInt(7.W)
-  val immuExpt = Bool()
-  val instVld = Bool()
-  val mtval = UInt(32.W)
-  val data = UInt(64.W)
-  val dataVld = Bool()
-  val preg = UInt(7.W)
+  val iid        = UInt(InstructionIdWidth.W)
+  val immuExpt   = Bool()
+  val instVld    = Bool()
+  val mtval      = UInt(MtvalWidth.W)
+  val data       = UInt(XLEN.W)
+  val dataVld    = Bool()
+  val preg       = UInt(NumPhysicRegsBits.W)
 }
 
 class SpecialIO extends Bundle{
-  val in = Input(new IduRfPipe0)
-  val bjuSpecialPc = Input(UInt(PcWidth.W))
-  val flush = Input(Bool())
-  val bju_special_pc = UInt(PcWidth.W)
-  val cp0_yy_priv_mode = UInt(2.W)
-  val out = Output(new SpecialOut)
+  val sel              = Input(new unitSel)
+  val in               = Input(new IduRfPipe0)
+  val bjuSpecialPc     = Input(UInt(PcWidth.W))
+  val flush            = Input(Bool())
+  val cp0_yy_priv_mode = Input(UInt(2.W))   // TODO cp0 in
+  val out              = Output(new SpecialOut)
 }
 
 class Special extends Module{
@@ -55,7 +59,7 @@ class Special extends Module{
   //----------------------------------------------------------
   //               Pipe2 EX1 Instruction Data
   //----------------------------------------------------------
-  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val pipe1_en = io.sel.gateSel
   val ex1_pipe = RegEnable(io.in, pipe1_en)
   val ex1_pipe_pc = io.bjuSpecialPc
   //==========================================================
@@ -96,4 +100,8 @@ class Special extends Module{
   io.out.dataVld := special_ex1_inst_vld
   io.out.preg := ex1_pipe.dstPreg
   io.out.data := special_auipc_rslt
+  io.out.highHwExpt := ex1_pipe.highHwExpt
+  io.out.mtval := DontCare
+  io.out.flush := DontCare // this is vector flush
+  io.out.immuExpt := DontCare
 }

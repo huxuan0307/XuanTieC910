@@ -1,5 +1,9 @@
 package Core.IU.Csr
 
+import Core.IU.Csr.Define.Exceptions._
+import Core.IUConfig.XLEN
+import Core.{FuncOpType, FuncType, IUConfig}
+import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
 import chisel3.internal.firrtl.Width
 import chisel3.util._
@@ -121,44 +125,85 @@ trait Config{
   }
 }
 
-class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to define
-  class CSRIO extends Bundle with Config{
-    val in         = Flipped(Valid(new FuInPut))
-    val out       : Valid[FuOutPut] = Valid(new FuOutPut)
-    val jmp       : Valid[RedirectIO]     = Valid(new RedirectIO)
-    val bpu_update = ValidIO(new BPU_Update)
-    val trapvalid  = Output(Bool())
-    val skip       = Output(Bool())
+class rfToCp0 extends Bundle with IUConfig{
+  val iid     = UInt(InstructionIdWidth.W)
+  val opcode  = new Bundle {
+    val addr   = UInt(CSR_ADDR_WIDTH.W)
+    val uimm   = UInt(CSR_UIMM_WIDTH.W)
+    val others = UInt(CSR_OTHERS_WIDTH.W) // TODO temp name others, because these bits unname in CT
   }
-  val io = IO(new CSRIO())
+  // TODO different with CT910, opcode in CT is 32
+  // opcode[31:20] is addr, opcode[19:15] is uimm @ct_cp0_iui, 793,796,797
+  val preg    = UInt(NumPhysicRegsBits.W)
+  val src0    = UInt(XLEN.W)
+  val func    = FuncType.uwidth
+  val sel     = Bool()
+}
+
+class Cp0In extends Bundle {
+  val rfIn = Input(new rfToCp0)
+}
+
+//class cp0ToIu extends Bundle with IUConfig{
+//  val div_entry_disable      =
+//  val div_entry_disable_clr  =
+//  val ex3_abnormal           =
+//  val ex3_efpc               =
+//  val ex3_efpc_vld           =
+//  val ex3_expt_vec           =
+//  val ex3_expt_vld           =
+//  val ex3_flush              =
+//  val ex3_iid                =
+//  val ex3_inst_vld           =
+//  val ex3_mtval              =
+//  val ex3_rslt_data          =
+//  val ex3_rslt_preg          =
+//  val ex3_rslt_vld           =
+//}
+
+
+
+
+class Cp0Out extends Bundle {
+  val toIu = Output(new cp0ToIu)
+}
+class Cp0IO extends Bundle {
+  val in = Input(new Cp0In)
+  val flush = Input(Bool())
+  val out = Output(Vec(3, new Cp0Out))
+}
+
+
+class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to define
+  val io = IO(new Cp0IO())
   // working mode define
   private val mode_u::mode_s::mode_h::mode_m::Nil = Enum(4)
   private val currentPriv = RegInit(UInt(2.W), mode_m)
   // input decode data prepare
-  private val (ena, src, csrAddr, op) = (
-    io.in.valid,
-    io.in.bits.src(0),
-    io.in.bits.uop.data.imm(CSR_ADDR_LEN - 1, 0),
-    io.in.bits.uop.ctrl.funcOpType
+  private val (ena, src, csrAddr, func) = (
+    io.in.rfIn.sel,
+    io.in.rfIn.src0,
+    io.in.rfIn.opcode.addr,
+    io.in.rfIn.func
   )
   // read Core.csr regs
   private val rdata = MuxLookup(csrAddr, 0.U(MXLEN.W), readOnlyMap++readWriteMap)
   // write Core.csr regs, may need to cover the old value
-  private val wdata = MuxLookup(op, 0.U, Array(
+  private val wdata = MuxLookup(func, 0.U, Array(
     CsrOpType.RW  ->  src,                        // read & write
     CsrOpType.RWI ->  src,
     CsrOpType.RS  ->  (rdata | src),              // read & set
     CsrOpType.RSI ->  (rdata | src),
-    CsrOpType.RC  ->  (rdata & (~src).asUInt()),  // read & clean
-    CsrOpType.RCI ->  (rdata & (~src).asUInt())
+    CsrOpType.RC  ->  (rdata & (~src).asUInt),  // read & clean
+    CsrOpType.RCI ->  (rdata & (~src).asUInt)
   ))
-  private val is_jmp    : Bool = CsrOpType.isJmp(op)
-  private val is_ret    : Bool = CsrOpType.isRet(op)     && is_jmp
-  private val is_mret   : Bool = CsrOpType.MRET === op   && is_jmp
-  private val is_sret   : Bool = CsrOpType.SRET === op   && is_jmp
-  private val is_uret   : Bool = CsrOpType.URET === op   && is_jmp
-  private val is_ebreak : Bool = CsrOpType.EBREAK === op && is_jmp
-  private val is_ecall  : Bool = CsrOpType.isCall(op)
+  private val is_jmp    : Bool = CsrOpType.isJmp(func)
+  private val is_ret    : Bool = CsrOpType.isRet(func)     && is_jmp
+  private val is_mret   : Bool = CsrOpType.MRET === func   && is_jmp
+  private val is_sret   : Bool = CsrOpType.SRET === func   && is_jmp
+  private val is_uret   : Bool = CsrOpType.URET === func   && is_jmp
+  private val is_ebreak : Bool = CsrOpType.EBREAK === func && is_jmp
+  private val is_ecall  : Bool = CsrOpType.isCall(func)
 
   private val trap_valid    = ena && is_jmp
   private val mstatus_en    = ena && !is_jmp && (csrAddr === CsrAddr.mstatus)
@@ -210,7 +255,7 @@ class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to defi
 
 
   val isIllegalAddr = rdata === 0.U // TODO the list is not complele, if check all addr should make a new map
-  val isIllegalAccess
+  // val isIllegalAccess
   val isIllegalPrivOp = illegalMret || illegalSret || illegalSModeSret // TODO assigned to nowhere in XS?
 
   when(ena && is_mret && !illegalMret){
@@ -256,14 +301,11 @@ class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to defi
     ))
   }
 
-
 private val trap = WireInit(0.U.asTypeOf(new TrapIO))
   BoringUtils.addSink(trap, "ROBTrap")
-
   private val interruptVec = mie(11, 0) & mip.asUInt()(11,0) & Fill(12, trap.mstatus.asTypeOf(new StatusStruct).IE.M)
   private val interruptValid = interruptVec.asUInt.orR()
   BoringUtils.addSource(interruptVec, "interruptVec")
-
   private val curInterruptPc = real_tvec(mtvec_mode)
   private val curInterruptNo = Mux(trap.interruptValid, PriorityEncoder(trap.interruptVec), 0.U)
   private val curInterruptCause = (trap.interruptValid.asUInt << (XLEN - 1).U).asUInt | curInterruptNo
