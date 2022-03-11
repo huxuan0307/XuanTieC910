@@ -1,12 +1,12 @@
-package Core.RS
+package Core.RF
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object AiqEntryMain extends App {
+object PrfMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new AiqEntry)
+      ChiselGeneratorAnnotation(() => new Prf)
     )
   )
 }

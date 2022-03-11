@@ -1,12 +1,12 @@
-package Core.RS
+package Core.IS
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object DepRegEntryMain extends App {
+object LsiqEntryMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new DepRegEntry)
+      ChiselGeneratorAnnotation(() => new LsiqEntry)
     )
   )
 }
