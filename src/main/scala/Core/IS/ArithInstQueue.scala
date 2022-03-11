@@ -18,7 +18,7 @@ trait AiqConfig {
 
 object AiqConfig extends AiqConfig
 
-class InstQueFromCp0 extends Bundle {
+class IqFromCp0 extends Bundle {
   val icgEn           : Bool = Bool()
   val iqBypassDisable : Bool = Bool()
   val yyClkEn         : Bool = Bool()
@@ -69,7 +69,7 @@ class InstQueDataOutput extends Bundle with AiqConfig {
 class ArithInstQueueInput extends Bundle with AiqConfig with DepRegEntryConfig {
   val aiqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumAiqEntry.W))
   val biqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumBiqEntry.W))
-  val fromCp0 = new InstQueFromCp0
+  val fromCp0 = new IqFromCp0
   val ctrl = new Bundle {
     // 0, 1: arith, 2: biq, 3: lsiq, 4: sdiq
     val createVec : Vec[InstQueCtrlInput] = Vec(5, new InstQueCtrlInput(NumAiqEntry))

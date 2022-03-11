@@ -11,17 +11,34 @@ trait LsiqConfig {
   def NumSrcLs = 3 // src0/1,src_vm
   def NumSrcLsX = 2
   def NumSrcLsV = 1
-  def NumEntryLs = 12
-  def NumEntrySd = 12
-  def BarTypeBits = 4
+  def NumLsiqEntry = 12
+  def NumLsiqCreatePort = 2
 }
 
 object LsiqConfig extends LsiqConfig
 
+class BarType extends Bundle {
+  val aftStore = Bool()
+  val aftLoad = Bool()
+  val befStore = Bool()
+  val befLoad = Bool()
+}
+
+class OtherBundle extends Bundle with LsiqConfig with SdiqConfig {
+  val aftLoadVec : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val aftStoreVec : Vec[Bool] = Vec(NumSdiqEntry - 1, Bool())
+  val barVec : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val freeze : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val load : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val noSpec : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val rawReady : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
+  val store : Vec[Bool] = Vec(NumSdiqEntry - 1, Bool())
+}
+
 class BreakpointDataBundle extends RobBreakpointDataBundle
 class BreakpointDataSetBundle extends BreakpointDataBundle
 
-class LsiqEntryData extends Bundle with LsiqConfig {
+class LsiqEntryData extends Bundle with LsiqConfig with SdiqConfig{
   val vmb : Bool = Bool()
   // Todo: imm
   val splitNum : UInt = UInt(7.W)
@@ -53,7 +70,7 @@ class LsiqEntryData extends Bundle with LsiqConfig {
   val dstVreg : UInt = UInt(VregNumBits.W)
 
   val breakpointData = new BreakpointDataBundle
-  val ageVecAll : Vec[Bool] = Vec(this.NumEntryLs - 1, Bool())
+  val ageVecAll : Vec[Bool] = Vec(this.NumLsiqEntry - 1, Bool())
   /**
    * already data accessed
    */
@@ -63,13 +80,18 @@ class LsiqEntryData extends Bundle with LsiqConfig {
   // Todo: figure out
   val specFail : Bool = Bool()
 
-  val sdEntry : Vec[Bool] = Vec(NumEntrySd, Bool())
+  val sdEntry : Vec[Bool] = Vec(NumSdiqEntry, Bool())
   // Todo: figure out
-  val barType : UInt = UInt(BarTypeBits.W)
+  val barType = new BarType
 }
 
 class LsiqFromPad extends Bundle {
-  val icgScanEn : Bool = Bool()
+  val yyIcgScanEn : Bool = Bool()
+}
+
+class IqEntryFwdBundle(NumSrc: Int) extends Bundle {
+  val alu = Vec(NumSrc, Vec(NumAlu, Bool()))
+  val load = Vec(NumLu, Bool())
 }
 
 class LsiqEntryInput extends Bundle with LsiqConfig with DepRegEntryConfig {
@@ -80,7 +102,7 @@ class LsiqEntryInput extends Bundle with LsiqConfig with DepRegEntryConfig {
    * alu1: x_alu1_reg_fwd_vld
    * load: lsu_idu_dc_pipe3_load_fwd_inst_vld_dupx
    */
-  val fwdValid : Vec[FwdValidBundle] = Vec(NumSrcLsX, new FwdValidBundle)
+  val fwdValid = new IqEntryFwdBundle(this.NumSrcLsX)
   // Todo: vload fwd
   /**
    * Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
@@ -120,9 +142,9 @@ class LsiqEntryInput extends Bundle with LsiqConfig with DepRegEntryConfig {
   val readyClr : Vec[Bool] = Vec(NumSrcLs, Bool())
   val fromRtu = new EntryFromRtu
   val create = new Bundle {
-    val ageVec : Vec[Bool] = Vec(NumEntryLs - 1, Bool())
+    val ageVec : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
     // Todo: figure out
-    val ageVecAll : Vec[Bool] = Vec(NumEntryLs - 1, Bool())
+    val ageVecAll : Vec[Bool] = Vec(NumLsiqEntry - 1, Bool())
     val data = new LsiqEntryData
     val dpEn : Bool = Bool()
     val en : Bool = Bool()
@@ -132,15 +154,15 @@ class LsiqEntryInput extends Bundle with LsiqConfig with DepRegEntryConfig {
   val freezeClr : Bool = Bool()
   val issueEn : Bool = Bool()
   val popCurEntry : Bool = Bool()
-  val popOtherEntry : Vec[Bool] = Vec(this.NumEntryLs - 1, Bool())
+  val popOtherEntry : Vec[Bool] = Vec(this.NumLsiqEntry - 1, Bool())
 
   // clk
-  val lqFullClk : Bool = Bool()
-  val rbFullClk : Bool = Bool()
-  val sqFullClk : Bool = Bool()
-  val tlbBusyClk : Bool = Bool()
-  val waitFenceClk : Bool = Bool()
-  val waitOldClk : Bool = Bool()
+  val lqFullClk : Clock = Clock()
+  val rbFullClk : Clock = Clock()
+  val sqFullClk : Clock = Clock()
+  val tlbBusyClk : Clock = Clock()
+  val waitFenceClk : Clock = Clock()
+  val waitOldClk : Clock = Clock()
 
   // Todo: figure out
   val lsiqBarMode : Bool = Bool()
@@ -163,16 +185,7 @@ class LsiqEntryInput extends Bundle with LsiqConfig with DepRegEntryConfig {
   val tlbBusySet : Bool = Bool()
   val tlbWakeUp : Bool = Bool()
 
-  val other = new Bundle {
-    val afterLoadVec : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val afterStoreVec : Vec[Bool] = Vec(NumEntrySd, Bool())
-    val barVec : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val freeze : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val load : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val noSpec : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val rawReady : Vec[Bool] = Vec(NumEntryLs, Bool())
-    val store : Vec[Bool] = Vec(NumEntrySd, Bool())
-  }
+  val other = new OtherBundle
 
   val unalignGateClkEn : Bool = Bool()
   // force set signal
@@ -188,7 +201,7 @@ class LsiqEntryOutput extends Bundle with LsiqConfig {
   val validWithFreeze : Bool = Bool()
 
   val bar : Bool = Bool()
-  val barType : UInt = UInt(BarTypeBits.W)
+  val barType = new BarType
 
   val freeze : Bool = Bool()
   val freezeValid : Bool = Bool()
@@ -225,7 +238,7 @@ class LsiqEntry extends Module with LsiqConfig {
 
   private val data = RegInit(0.U.asTypeOf(Output(new LsiqEntryData)))
   private val valid = RegInit(false.B)
-  private val ageVec = RegInit(VecInit(Seq.fill(this.NumEntryLs - 1)(false.B)))
+  private val ageVec = RegInit(VecInit(Seq.fill(this.NumLsiqEntry - 1)(false.B)))
   private val freeze = RegInit(false.B)
   private val tlbBusy = RegInit(false.B)
   private val waitFence = RegInit(false.B)
@@ -351,16 +364,16 @@ class LsiqEntry extends Module with LsiqConfig {
     barCheck := false.B
   }
 
-  private val befLoad = data.barType(0)
-  private val befStore = data.barType(1)
+  private val befLoad = data.barType.befLoad
+  private val befStore = data.barType.befStore
 
   barCheckWakeUp :=
     //1.  lsiq exit or no bar mode
     !io.in.lsiqBarMode ||
     //2.  if older entry is bar with after load (no matter raw ready), not clear bar frz
-    data.load && (!(other.barVec.asUInt & data.ageVecAll.asUInt & other.afterLoadVec.asUInt).orR) ||
+    data.load && (!(other.barVec.asUInt & data.ageVecAll.asUInt & other.aftLoadVec.asUInt).orR) ||
     //3.  if older entry is bar with after store (no matter raw ready), not clear bar frz
-    data.store && (!(other.barVec.asUInt & data.ageVecAll.asUInt & other.afterStoreVec.asUInt).orR) ||
+    data.store && (!(other.barVec.asUInt & data.ageVecAll.asUInt & other.aftStoreVec.asUInt).orR) ||
     //4.1 if older entry is load and cur entry is bar with before load, not ready
     data.bar && ((!(other.load.asUInt & data.ageVecAll.asUInt).orR) && befLoad || !befLoad) &&
     //4.2 if older entry is store and cur entry is bar with before store, not ready
@@ -487,7 +500,8 @@ class LsiqEntry extends Module with LsiqConfig {
     case (entry, i) =>
       val in  = entry.io.in
       val out = entry.io.out
-      in.fwdValid := io.in.fwdValid(i)
+      in.fwdValid.alu := io.in.fwdValid.alu(i)
+      in.fwdValid.load := io.in.fwdValid.load
       in.fromCp0  := io.in.fromCp0
       in.fuDstPreg:= io.in.fuDstPreg
       in.wbPreg   := io.in.wbPreg

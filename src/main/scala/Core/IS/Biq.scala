@@ -42,7 +42,7 @@ class BiqDataInput extends Bundle
 class BiqInput extends Bundle
   with BiqConfig
   with DepRegEntryConfig {
-  val fromCp0 = new InstQueFromCp0
+  val fromCp0 = new IqFromCp0
   val ctrl = new BiqCtrlInput
   val data = new BiqDataInput
   /**

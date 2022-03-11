@@ -7,7 +7,7 @@ import chisel3.util._
 trait SdiqConfig {
   def NumSrcSd = 2
   def NumSrcSdX = 1
-  def NumEntrySd = 12
+  def NumSdiqEntry = 12
 }
 
 object SdiqConfig extends SdiqConfig
@@ -26,11 +26,11 @@ class SdiqEntryData extends Bundle with SdiqConfig {
 }
 
 class SdiqEntryInput
-  extends IqEntryInput(SdiqConfig.NumEntrySd, SdiqConfig.NumSrcSd, SdiqConfig.NumSrcSdX)
-    with IqHasVectorInputBundle
+  extends IqEntryInput(SdiqConfig.NumSdiqEntry, SdiqConfig.NumSrcSd, SdiqConfig.NumSrcSdX)
+    with IqEntryHasVectorInputBundle
     with SdiqConfig with DepRegEntryConfig {
   val create = new Bundle {
-    val ageVec : Vec[Bool] = Vec(NumEntrySd - 1, Bool())
+    val ageVec : Vec[Bool] = Vec(NumSdiqEntry - 1, Bool())
     val data = new SdiqEntryData
     val dpEn : Bool = Bool()
     val en : Bool = Bool()
@@ -53,7 +53,7 @@ class SdiqEntryInput
 }
 
 class SdiqEntryOutput
-  extends IqEntryOutput(SdiqConfig.NumEntrySd)
+  extends IqEntryOutput(SdiqConfig.NumSdiqEntry)
     with SdiqConfig with DepRegEntryConfig {
   val readData = new SdiqEntryData
   val src0PregOH : UInt = UInt(NumPhysicRegsBits.W)
@@ -81,7 +81,7 @@ class SdiqEntry extends Module with SdiqConfig {
    */
 
   private val valid = RegInit(false.B)
-  private val ageVec = RegInit(VecInit(Seq.fill(this.NumEntrySd - 1)(false.B)))
+  private val ageVec = RegInit(VecInit(Seq.fill(this.NumSdiqEntry - 1)(false.B)))
   private val freeze = RegInit(false.B)
   private val stAddr0Ready = RegInit(false.B)
   private val stAddr1Ready = RegInit(false.B)
