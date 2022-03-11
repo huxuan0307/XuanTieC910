@@ -21,19 +21,19 @@ object BRUOpType {
   def isJmp(func: UInt): Bool = func(6)
   def isBr(func: UInt): Bool = func(6,4) === "b001".U
 }
-class bjuCmpltSignal extends Bundle{
+class BjuCmpltSignal extends Bundle{
   val abnormal = Bool()
   val bhtMispred = Bool()
   val jmpMispred = Bool()
   val iid = UInt(InstructionIdWidth.W)
   val sel = Bool()
 }
-class iduFeedbackSignal extends Bundle{
+class IduFeedbackSignal extends Bundle{
   val misPredStall = (Bool())
   val cancel   = (Bool())
   val allowPid = Vec(2, (UInt(PcFifoAddr.W)))
 }
-class ifuChangeFlow extends Bundle{
+class IfuChangeFlow extends Bundle{
   val bhtCheckVld    = Bool()
   val bhtCondbrTaken = Bool()
   val bhtPred        = Bool()
@@ -45,7 +45,7 @@ class ifuChangeFlow extends Bundle{
   val pcFifoFull     = Bool()
  // TODO with trait hasVecExtends
 }
-class rtuReadSignal extends Bundle{
+class RtuReadSignal extends Bundle{
   // length
   val bhtPred    = Bool()
   val bhtMispred = Bool()
@@ -55,11 +55,11 @@ class rtuReadSignal extends Bundle{
   val condBr     = Bool()
   val pc         = UInt(PcWidth.W)
 }
-class isuAllowFifo extends Bundle{
+class IsuAllowFifo extends Bundle{
  val instNum = UInt(3.W) // temp define 3, indicate how many inst can store in PCfifo
  val instVld = Bool()
 }
-class rtuControl extends Bundle{
+class RtuControl extends Bundle{
   val flushChgflwMask = Bool()
   val flushFe = Bool() // TODO whats this?
   val robReadPcfifovld = Vec(NumRobReadEntry,Bool())
@@ -69,18 +69,18 @@ class rtuControl extends Bundle{
 
 
 class BjuIn extends Bundle{
-  val rtuIn      = Input(new rtuControl)
-  val isIn       = Input(new isuAllowFifo)
+  val rtuIn      = Input(new RtuControl)
+  val isIn       = Input(new IsuAllowFifo)
   val rfPipe2    = Input(new IduRfPipe2)
   val sel        = Input(new unitSel)
   val ifuForward = Input(Vec(2,new ifuDataForward))
   val specialPid = Input(UInt(PcFifoAddr.W))
 }
 class BjuOut extends Bundle{
-  val toCbus    = Output(new bjuCmpltSignal)
-  val toIdu     = Output(new iduFeedbackSignal)
-  val toIfu     = Output(new ifuChangeFlow)
-  val toRtu     = Output(new rtuReadSignal)
+  val toCbus    = Output(new BjuCmpltSignal)
+  val toIdu     = Output(new IduFeedbackSignal)
+  val toIfu     = Output(new IfuChangeFlow)
+  val toRtu     = Output(new RtuReadSignal)
   val specialPc = Output(UInt(PcWidth.W))
 }
 class BjuIO extends Bundle{

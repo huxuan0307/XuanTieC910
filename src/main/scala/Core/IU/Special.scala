@@ -18,7 +18,7 @@ object SpecialOpType {
   def VSETVLI        = "b00110".U
   def VSETVL         = "b00111".U
 }
-class specialCmpltSignal extends Bundle with IUConfig{
+class SpecialCmpltSignal extends Bundle with IUConfig{
   val abnormal   = Bool()
   val bkpt       = Bool()
   val exptVec    = UInt(ExceptionVecWidth.W)
@@ -30,14 +30,14 @@ class specialCmpltSignal extends Bundle with IUConfig{
   val instVld    = Bool()
   val mtval      = UInt(MtvalWidth.W)
 }
-class specialRegData extends Bundle with IUConfig{
+class SpecialRegData extends Bundle with IUConfig{
   val data       = UInt(XLEN.W)
   val dataVld    = Bool()
   val preg       = UInt(NumPhysicRegsBits.W)
 }
 class SpecialOut extends Bundle with IUConfig{
-  val toCbus    = Output(new specialCmpltSignal)
-  val toRbus    = Output(new specialRegData)
+  val toCbus    = Output(new SpecialCmpltSignal)
+  val toRbus    = Output(new SpecialRegData)
 }
 class SpecialIO extends Bundle{
   val bjuSpecialPc = Input(UInt(PcWidth.W))
@@ -59,7 +59,7 @@ class Special extends Module{
   when(flush){
     special_ex1_inst_vld := false.B
   }.otherwise {
-    special_ex1_inst_vld := io.in.sel
+    special_ex1_inst_vld := io.sel.sel
   }
   //----------------------------------------------------------
   //               Pipe2 EX1 Instruction Data
@@ -86,27 +86,27 @@ class Special extends Module{
   //==========================================================
   //               RF stage Complete Bus signals
   //==========================================================
-  io.out.instVld         := special_ex1_inst_vld
-  io.out.abnormal         := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
-  io.out.bkpt             := (io.in.opcode === SpecialOpType.EBREAK)
-  io.out.iid              := ex1_pipe.iid
+  io.out.toCbus.instVld         := special_ex1_inst_vld
+  io.out.toCbus.abnormal         := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
+  io.out.toCbus.bkpt             := (io.in.opcode === SpecialOpType.EBREAK)
+  io.out.toCbus.iid              := ex1_pipe.iid
   //----------------------------------------------------------
   //                     Exception
   //----------------------------------------------------------
-  io.out.exptVec := LookupTree(io.in.opcode, List(
+  io.out.toCbus.exptVec := LookupTree(io.in.opcode, List(
     SpecialOpType.NOP           -> io.in.exptVec,
     SpecialOpType.ECALL         -> special_ex1_ecall_expt_vec,
     SpecialOpType.EBREAK        -> "b00011".U,
   ))
-  io.out.exptVld := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
+  io.out.toCbus.exptVld := special_ex1_inst_vld && (io.in.opcode === SpecialOpType.NOP)  || (io.in.opcode === SpecialOpType.ECALL)  || (io.in.opcode === SpecialOpType.EBREAK)
   //==========================================================
   //                    Result Bus signals
   //==========================================================
-  io.out.dataVld := special_ex1_inst_vld
-  io.out.preg := ex1_pipe.dstPreg
-  io.out.data := special_auipc_rslt
-  io.out.highHwExpt := ex1_pipe.highHwExpt
-  io.out.mtval := DontCare
-  io.out.flush := DontCare // this is vector flush
-  io.out.immuExpt := DontCare
+  io.out.toRbus.dataVld := special_ex1_inst_vld
+  io.out.toRbus.preg := ex1_pipe.dstPreg
+  io.out.toRbus.data := special_auipc_rslt
+  io.out.toCbus.highHwExpt := ex1_pipe.highHwExpt
+  io.out.toCbus.mtval := DontCare
+  io.out.toCbus.flush := DontCare // this is vector flush
+  io.out.toCbus.immuExpt := DontCare
 }
