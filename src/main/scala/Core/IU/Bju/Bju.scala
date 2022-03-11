@@ -21,19 +21,19 @@ object BRUOpType {
   def isJmp(func: UInt): Bool = func(6)
   def isBr(func: UInt): Bool = func(6,4) === "b001".U
 }
-class CmpltSignal extends Bundle{
+class bjuCmpltSignal extends Bundle{
   val abnormal = Bool()
   val bhtMispred = Bool()
   val jmpMispred = Bool()
   val iid = UInt(InstructionIdWidth.W)
   val sel = Bool()
 }
-class IduFeedbackSignal extends Bundle{
+class iduFeedbackSignal extends Bundle{
   val misPredStall = (Bool())
   val cancel   = (Bool())
   val allowPid = Vec(2, (UInt(PcFifoAddr.W)))
 }
-class IfuChangeFlow extends Bundle{
+class ifuChangeFlow extends Bundle{
   val bhtCheckVld    = Bool()
   val bhtCondbrTaken = Bool()
   val bhtPred        = Bool()
@@ -45,7 +45,7 @@ class IfuChangeFlow extends Bundle{
   val pcFifoFull     = Bool()
  // TODO with trait hasVecExtends
 }
-class RtuReadSignal extends Bundle{
+class rtuReadSignal extends Bundle{
   // length
   val bhtPred    = Bool()
   val bhtMispred = Bool()
@@ -77,10 +77,10 @@ class BjuIn extends Bundle{
   val specialPid = Input(UInt(PcFifoAddr.W))
 }
 class BjuOut extends Bundle{
-  val toCbus    = Output(new CmpltSignal)
-  val toIdu     = Output(new IduFeedbackSignal)
-  val toIfu     = Output(new IfuChangeFlow)
-  val toRtu     = Output(new RtuReadSignal)
+  val toCbus    = Output(new bjuCmpltSignal)
+  val toIdu     = Output(new iduFeedbackSignal)
+  val toIfu     = Output(new ifuChangeFlow)
+  val toRtu     = Output(new rtuReadSignal)
   val specialPc = Output(UInt(PcWidth.W))
 }
 class BjuIO extends Bundle{

@@ -3,6 +3,7 @@ package Core.IU
 import Core.AddrConfig.PcWidth
 import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
 import Core.IUConfig
+import Core.IUConfig.MPPWidth
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
 import chisel3.util._
@@ -17,8 +18,7 @@ object SpecialOpType {
   def VSETVLI        = "b00110".U
   def VSETVL         = "b00111".U
 }
-
-class SpecialOut extends Bundle with IUConfig{
+class specialCmpltSignal extends Bundle with IUConfig{
   val abnormal   = Bool()
   val bkpt       = Bool()
   val exptVec    = UInt(ExceptionVecWidth.W)
@@ -29,18 +29,23 @@ class SpecialOut extends Bundle with IUConfig{
   val immuExpt   = Bool()
   val instVld    = Bool()
   val mtval      = UInt(MtvalWidth.W)
+}
+class specialRegData extends Bundle with IUConfig{
   val data       = UInt(XLEN.W)
   val dataVld    = Bool()
   val preg       = UInt(NumPhysicRegsBits.W)
 }
-
+class SpecialOut extends Bundle with IUConfig{
+  val toCbus    = Output(new specialCmpltSignal)
+  val toRbus    = Output(new specialRegData)
+}
 class SpecialIO extends Bundle{
-  val sel              = Input(new unitSel)
-  val in               = Input(new IduRfPipe0)
-  val bjuSpecialPc     = Input(UInt(PcWidth.W))
-  val flush            = Input(Bool())
-  val cp0_yy_priv_mode = Input(UInt(2.W))   // TODO cp0 in
-  val out              = Output(new SpecialOut)
+  val bjuSpecialPc = Input(UInt(PcWidth.W))
+  val cp0PrivMode  = Input(UInt(MPPWidth.W)) // todo add cp0 in
+  val in           = Input(new IduRfPipe0)
+  val sel          = Input(new unitSel)
+  val flush        = Input(Bool())
+  val out          = Output(new SpecialOut)
 }
 
 class Special extends Module{
@@ -66,7 +71,7 @@ class Special extends Module{
   //                  Instruction Selection
   //==========================================================
   // 1. exception vec process
-  val special_ex1_ecall_expt_vec = LookupTree(io.cp0_yy_priv_mode, List(
+  val special_ex1_ecall_expt_vec = LookupTree(io.cp0PrivMode, List(
     "b00".U  -> "b01000".U,
     "b01".U  -> "b01001".U,
     "b11".U  -> "b01011".U,

@@ -28,8 +28,8 @@ val pipe2JmpMispred = Bool()
 }
 
 class CbusNoEcep extends Bundle with IUConfig{
-  val divSel = Bool()
-  val multSel = Bool()
+  val divSel   = Bool()
+  val multSel  = Bool()
   val pipe0Iid = UInt(InstructionIdWidth.W)
   val pipe0Sel = Bool()
   val pipe1Iid = UInt(InstructionIdWidth.W)
@@ -38,15 +38,15 @@ class CbusNoEcep extends Bundle with IUConfig{
 
 class Cp0In extends Bundle with IUConfig{
   val abnormal = Bool()
-  val efpc = UInt(PcWidth.W)
-  val efpcVld = Bool()
-  val exptVec = UInt(5.W)
-  val exptVld = Bool()
-  val flush = Bool()
-  val iid = UInt(InstructionIdWidth.W)
-  val instVld = Bool()
-  val mtval = UInt(32.W)
-  val en = Bool()
+  val efpc     = UInt(PcWidth.W)
+  val efpcVld  = Bool()
+  val exptVec  = UInt(5.W)
+  val exptVld  = Bool()
+  val flush    = Bool()
+  val iid      = UInt(InstructionIdWidth.W)
+  val instVld  = Bool()
+  val mtval    = UInt(32.W)
+  val en       = Bool()
 }
 
 class CbusIO extends Bundle with IUConfig{

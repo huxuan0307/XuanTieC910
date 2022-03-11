@@ -83,6 +83,7 @@ trait IUConfig {
   def CSR_ADDR_WIDTH = 12
   def CSR_UIMM_WIDTH = 5
   def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
+  def MPPWidth = 2
   def PcFifoLen = 32
   def PcFifoAddr: Int = log2Up(PcFifoLen)
   def PcOffsetWidth = 21
