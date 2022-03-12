@@ -33,7 +33,7 @@ class RobFromHadBundle extends Bundle {
   val xxTme : Bool = Bool()
 }
 
-class RobFromHpcpBundle extends Bundle {
+class RtuFromHpcpBundle extends Bundle {
   val cntEn : Bool = Bool()
 }
 
@@ -42,7 +42,7 @@ class RobFromIfu extends Bundle {
   val curPcLoad : Bool = Bool()
 }
 
-class RobFromPad extends Bundle {
+class RtuFromPad extends Bundle {
   val yyIcgScanEn : Bool = Bool()
 }
 
@@ -54,7 +54,7 @@ abstract class RobFromRetire extends Bundle {
     val instAckInt : Bool = Bool()
     val debugModeOn : Bool = Bool()
     val exceptionValid : Bool = Bool()
-    val flush : Bool = Bool()
+    val instflush : Bool = Bool()
     val mispred : Bool = Bool()
   }
   val flush : Bool = Bool()
@@ -125,7 +125,7 @@ class RobToRetireInstBundle extends Bundle {
   val pstVregValid : Bool = Bool()
   // Todo: imm, figure out
   val checkIdx : UInt = UInt(8.W)
-  val pcCur : UInt = UInt(PcWidth.W)
+  val pc : UInt = UInt(PcWidth.W)
   val npc : UInt = UInt(PcWidth.W)
   // Todo: imm
   val pcOffset : UInt = UInt(RobPcOffsetBits.W)
@@ -144,7 +144,8 @@ class RobToRetireInstExtraBundle extends Bundle {
   val dataBreakpoint : Bool = Bool()
   val debugDisable : Bool = Bool()
   val efPcValid : Bool = Bool()
-  val exceptionVec = ValidIO(UInt(ExceptionVecWidth.W))
+  // Todo: imm
+  val exceptionVec = ValidIO(UInt(4.W))
   val highHwException : Bool = Bool()
   val iid : UInt = UInt(InstructionIdWidth.W)
   val instMmuException : Bool = Bool()
@@ -155,8 +156,8 @@ class RobToRetireInstExtraBundle extends Bundle {
   val jmpMispred : Bool = Bool()
   val mtval : UInt = UInt(MtvalWidth.W)
 
-  val pcal : Bool = Bool()
-  val pret : Bool = Bool()
+  val pCall : Bool = Bool()
+  val pReturn : Bool = Bool()
   val ras : Bool = Bool()
   val specFail : Bool = Bool()
   val specFailNoSsf : Bool = Bool()

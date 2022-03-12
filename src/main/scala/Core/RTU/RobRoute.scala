@@ -36,7 +36,7 @@ class RobRouteInput extends Bundle {
   val fromCp0       = new RobFromCp0Bundle
   val fromExptEntry = new RobExceptEntryBundle
   val fromHad       = new RobFromHadBundle
-  val fromHpcp      = new RobFromHpcpBundle
+  val fromHpcp      = new RtuFromHpcpBundle
   val fromIdu       = new Bundle() {
     val fenceIdle   : Bool = Bool()
   }
@@ -64,7 +64,7 @@ class RobRouteInput extends Bundle {
     val pipe3       = new RobRouteFromLsuBundle
     val pipe4       = new RobRouteFromLsuBundle
   }
-  val fromPad       = new RobFromPad
+  val fromPad       = new RtuFromPad
   val fromRetire    = new RobFromRetire {}
   val fromRobReadData : Vec[RobEntryData] = Vec(NumRobReadEntry, new RobEntryData)
   val fromRobReadIid  : Vec[UInt] = Vec(NumRobReadEntry, UInt(InstructionIdWidth.W))
@@ -666,7 +666,7 @@ class RobRoute extends Module {
   io.out.toRob.exceptInst0Iid := retireInstVec(0).bits.data.iid
   // Todo: check if need to add inst1/2.iid output
   io.out.toRetire.instExtra.iid := retireInstVec(0).bits.data.iid
-  io.out.toRetire.instExtra.pret := retireInstVec(0).bits.data.bju && retireInstVec(0).bits.data.pret
+  io.out.toRetire.instExtra.pReturn := retireInstVec(0).bits.data.bju && retireInstVec(0).bits.data.pret
 
   // robToRetireInstVec
   for (i <- 0 until NumRetireEntry) {
@@ -765,7 +765,7 @@ class RobRoute extends Module {
 
   io.out.toRetire.instExtra.interruptVec  := retireInst0Special.interruptVec
   io.out.toRetire.instExtra.interruptMask := retireInst0Special.intMask
-  io.out.toRetire.instExtra.pcal          := retireInstVec(0).bits.data.bju && retireInst0Special.pcal
+  io.out.toRetire.instExtra.pCall          := retireInstVec(0).bits.data.bju && retireInst0Special.pcal
   io.out.toRetire.instExtra.ras           := retireInstVec(0).bits.data.bju && retireInst0Special.ras
   io.out.toRetire.instExtra.dataBreakpoint:= retireInst0Special.dataBreakpoint
   io.out.toRetire.instExtra.debugDisable  := retireInst0Special.debugDisable
@@ -888,7 +888,7 @@ class RobRoute extends Module {
     retireInst0Special.pcCur := robRead0PcCur
   }
 
-  io.out.toRetire.instVec(0).pcCur := retireInst0Special.pcCur
+  io.out.toRetire.instVec(0).pc := retireInst0Special.pcCur
   io.out.toPad.retirePc(0).bits := Cat(retireInst0Special.pcCur, 0.U(1.W))
   // Todo: figure out bjuLength
   //retire inst0 branch increase pc
@@ -897,7 +897,7 @@ class RobRoute extends Module {
   //retire inst0 next pc
   io.out.toRetire.instVec(0).npc := Mux(
     retireInstVec(1).valid,
-    io.out.toRetire.instVec(1).pcCur,
+    io.out.toRetire.instVec(1).pc,
     robPcCur
   )
 
@@ -910,11 +910,11 @@ class RobRoute extends Module {
     retireInstVec(1).bits.pcAddend1 := robRead1PcCurAddend1
   }
 
-  io.out.toRetire.instVec(1).pcCur := retireInstVec(1).bits.pcAddend0 + retireInstVec(1).bits.pcAddend1
+  io.out.toRetire.instVec(1).pc := retireInstVec(1).bits.pcAddend0 + retireInstVec(1).bits.pcAddend1
   io.out.toPad.retirePc(1).bits := Cat(retireInstVec(1).bits.pcAddend0, 0.U(1.W))
   io.out.toRetire.instVec(1).npc := Mux(
     retireInstVec(2).valid,
-    io.out.toRetire.instVec(2).pcCur,
+    io.out.toRetire.instVec(2).pc,
     robPcCur
   )
 
@@ -926,7 +926,7 @@ class RobRoute extends Module {
     retireInstVec(2).bits.pcAddend0 := robRead2PcCurAddend0
     retireInstVec(2).bits.pcAddend1 := robRead2PcCurAddend1
   }
-  io.out.toRetire.instVec(2).pcCur := retireInstVec(2).bits.pcAddend0 + retireInstVec(2).bits.pcAddend1
+  io.out.toRetire.instVec(2).pc := retireInstVec(2).bits.pcAddend0 + retireInstVec(2).bits.pcAddend1
   io.out.toPad.retirePc(2).bits := Cat(retireInstVec(2).bits.pcAddend0, 0.U(1.W))
   io.out.toRetire.instVec(2).npc := robPcCur
 

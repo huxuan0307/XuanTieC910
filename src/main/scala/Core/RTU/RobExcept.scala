@@ -81,7 +81,7 @@ class RobExceptInput extends Bundle {
     val pipe3 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
     val pipe4 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
   }
-  val fromPad = new RobFromPad
+  val fromPad = new RtuFromPad
   val fromRetire = new Bundle {
     val inst0Abnormal : Bool = Bool()
     val inst0Valid    : Bool = Bool()
