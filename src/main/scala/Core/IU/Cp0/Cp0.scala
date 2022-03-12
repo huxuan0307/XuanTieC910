@@ -1,13 +1,16 @@
-package Core.IU.Csr
+package Core.IU.Cp0
 
-import Core.IU.Csr.Define.Exceptions._
+import Core.ExceptionConfig.ExceptionVecWidth
+import Core.IU.Cp0.Define.Exceptions._
+import Core.IU.{cp0ToIu, unitSel}
 import Core.IUConfig.XLEN
-import Core.{FuncOpType, FuncType, IUConfig}
+import Core.{Cp0Config, FuncType, VectorUnitConfig}
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
 import chisel3.internal.firrtl.Width
 import chisel3.util._
-import Privilege.{supportSupervisor, supportUser}
+import Privilege.{MXLEN, supportSupervisor, supportUser}
+import Utils.SignExt
 import chisel3.util.experimental.BoringUtils
 
 import scala.math.pow
@@ -125,7 +128,7 @@ trait Config{
   }
 }
 
-class rfToCp0 extends Bundle with IUConfig{
+class RfToCp0 extends Bundle with Cp0Config{
   val iid     = UInt(InstructionIdWidth.W)
   val opcode  = new Bundle {
     val addr   = UInt(CSR_ADDR_WIDTH.W)
@@ -137,66 +140,99 @@ class rfToCp0 extends Bundle with IUConfig{
   val preg    = UInt(NumPhysicRegsBits.W)
   val src0    = UInt(XLEN.W)
   val func    = FuncType.uwidth
-  val sel     = Bool()
+  val rfSel = new unitSel
 }
 
+class BiuToCp0 extends Bundle with Cp0Config{
+  val apbBase   = UInt(APB_BASE_WIDTH.W)
+  val cmplt     = Bool()
+  val coreId    = Bool()
+  val meInt     = Bool()
+  val msInt     = Bool()
+  val mtInt     = Bool()
+  val rdata     = UInt(BIU_CP0_RDATA.W)
+  val rvba      = UInt(BIU_CP0_RVBA.W)
+  val seInt     = Bool()
+  val ssInt     = Bool()
+  val stInt     = Bool()
+  val biu_yy_xx_no_op = Bool()
+}
+
+class IfuToCp0 extends Bundle with Cp0Config{
+  val bhtInvDone        = Bool()
+  val btbInvDone        = Bool()
+  val icacheInvDone     = Bool()
+  val icacheReadData    = UInt(CACHE_READ_DATA_WITDTH.W)
+  val icacheReadDataVld = Bool()
+  val indBtbInvDone     = Bool()
+  val rstInvReq         = Bool()
+  val ifu_yy_xx_no_op   = Bool()
+}
+class LsuToCp0 extends Bundle with Cp0Config{
+  val dcacheDone        = Bool()
+  val dcacheReadData    = UInt(CACHE_READ_DATA_WITDTH.W)
+  val dcacheReadDataVld = Bool()
+  val lsu_yy_xx_no_op   = Bool()
+}
+
+trait hasVecRtuIO extends Bundle with VectorUnitConfig{
+  val vec_dirtyVld = Bool()
+  val vsetvlVill = Bool()
+  val vsetvlVl = UInt(VlmaxBits.W)
+  val vsetvlVlVld = Bool()
+  val vsetvlVlmul =  UInt(VlmulBits.W)
+  val vsetvlVsew = UInt(VsewBits.W)
+  val vsetvlVtypeVld = Bool()
+  val vstart =  UInt(VstartBits.W)
+  val vstartVld = Bool()
+  val fpDirtyVld = Bool() // actually is float point
+}
+class RtuToCp0 extends Bundle with Cp0Config{
+  val epc = UInt(MXLEN.W)  // rtu commit m/s epc
+  val exptGateclkVld = Bool()
+  val exptMtval = Bool()
+  val exptVld = Bool()
+  val intAck = Bool()
+  val rtu_yy_xx_commit0 = Bool()
+  val rtu_yy_xx_commit0_iid = UInt(InstructionIdWidth.W)
+  val rtu_yy_xx_dbgon = Bool()
+  val rtu_yy_xx_expt_vec = UInt(ExceptionVecWidth.W)
+  val rtu_yy_xx_flush = Bool()
+}
 class Cp0In extends Bundle {
-  val rfIn = Input(new rfToCp0)
+  val biuIn = Input(new BiuToCp0)
+  val rfIn  = Input(new RfToCp0) // of course it also from idu
+  val ifuIn = Input(new IfuToCp0)
+  val lsuIn = Input(new LsuToCp0)
+  val rtuIn = Input(new RtuToCp0)
 }
-
-//class cp0ToIu extends Bundle with IUConfig{
-//  val div_entry_disable      =
-//  val div_entry_disable_clr  =
-//  val ex3_abnormal           =
-//  val ex3_efpc               =
-//  val ex3_efpc_vld           =
-//  val ex3_expt_vec           =
-//  val ex3_expt_vld           =
-//  val ex3_flush              =
-//  val ex3_iid                =
-//  val ex3_inst_vld           =
-//  val ex3_mtval              =
-//  val ex3_rslt_data          =
-//  val ex3_rslt_preg          =
-//  val ex3_rslt_vld           =
-//}
-
-
-
-
 class Cp0Out extends Bundle {
   val toIu = Output(new cp0ToIu)
 }
 class Cp0IO extends Bundle {
   val in = Input(new Cp0In)
   val flush = Input(Bool())
-  val out = Output(Vec(3, new Cp0Out))
+  val out = Output(new Cp0Out)
 }
 
 
-class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to define
+class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to define
   val io = IO(new Cp0IO())
   // working mode define
   private val mode_u::mode_s::mode_h::mode_m::Nil = Enum(4)
   private val currentPriv = RegInit(UInt(2.W), mode_m)
+
+  //private val iui_b_mode = currentPriv === mode_v
   // input decode data prepare
-  private val (ena, src, csrAddr, func) = (
-    io.in.rfIn.sel,
+  val flush = io.in.rtuIn.rtu_yy_xx_flush
+  private val (sel, src, csrAddr, func, uimm) =  (
+    io.in.rfIn.rfSel.sel,
     io.in.rfIn.src0,
     io.in.rfIn.opcode.addr,
-    io.in.rfIn.func
+    io.in.rfIn.func,
+    SignExt(io.in.rfIn.opcode.uimm, 64)
   )
-  // read Core.csr regs
-  private val rdata = MuxLookup(csrAddr, 0.U(MXLEN.W), readOnlyMap++readWriteMap)
-  // write Core.csr regs, may need to cover the old value
-  private val wdata = MuxLookup(func, 0.U, Array(
-    CsrOpType.RW  ->  src,                        // read & write
-    CsrOpType.RWI ->  src,
-    CsrOpType.RS  ->  (rdata | src),              // read & set
-    CsrOpType.RSI ->  (rdata | src),
-    CsrOpType.RC  ->  (rdata & (~src).asUInt),  // read & clean
-    CsrOpType.RCI ->  (rdata & (~src).asUInt)
-  ))
+  // todo addr_inv, what's meaning?  cache invalid??
   private val is_jmp    : Bool = CsrOpType.isJmp(func)
   private val is_ret    : Bool = CsrOpType.isRet(func)     && is_jmp
   private val is_mret   : Bool = CsrOpType.MRET === func   && is_jmp
@@ -205,20 +241,111 @@ class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to defi
   private val is_ebreak : Bool = CsrOpType.EBREAK === func && is_jmp
   private val is_ecall  : Bool = CsrOpType.isCall(func)
 
-  private val trap_valid    = ena && is_jmp
-  private val mstatus_en    = ena && !is_jmp && (csrAddr === CsrAddr.mstatus)
-  private val medeleg_en    = ena && !is_jmp && (csrAddr === CsrAddr.medeleg)
-  private val mideleg_en    = ena && !is_jmp && (csrAddr === CsrAddr.mideleg)
-  private val mie_en        = ena && !is_jmp && (csrAddr === CsrAddr.mie)
-  private val mtvec_en      = ena && !is_jmp && (csrAddr === CsrAddr.mtvec)
-  private val mcounteren_en = ena && !is_jmp && (csrAddr === CsrAddr.mcounteren)
-  private val mscratch_en   = ena && !is_jmp && (csrAddr === CsrAddr.mscratch)
-  private val mepc_en       = ena && !is_jmp && (csrAddr === CsrAddr.mepc)
-  private val mcause_en     = ena && !is_jmp && (csrAddr === CsrAddr.mcause)
-  private val mtval_en      = ena && !is_jmp && (csrAddr === CsrAddr.mtval)
-  private val mcycle_en     = ena && !is_jmp && (csrAddr === CsrAddr.mcycle)
-  private val minstret_en   = ena && !is_jmp && (csrAddr === CsrAddr.minstret)
+  // read Core.csr regs
+  private val rdata = MuxLookup(csrAddr, 0.U(MXLEN.W), readOnlyMap++readWriteMap)
+  // write Core.csr regs, may need to cover the old value
+  private val wdata = MuxLookup(func, 0.U, Array( // @ct_cp0_iui 1436-1441
+    CsrOpType.RW  ->  src,                        // read & write
+    CsrOpType.RWI ->  uimm,                       // add imm
+    CsrOpType.RS  ->  (rdata | src),              // read & set
+    CsrOpType.RSI ->  (rdata | uimm),
+    CsrOpType.RC  ->  (rdata & (~src).asUInt),    // read & clean
+    CsrOpType.RCI ->  (rdata & (~uimm).asUInt)
+  ))
+  private val wdata_en = MuxLookup(func, false.B, Array(
+    CsrOpType.RW  ->  true.B,    // read & write
+    CsrOpType.RWI ->  true.B,    // add imm
+    CsrOpType.RS  ->  true.B,    // read & set
+    CsrOpType.RSI ->  true.B,
+    CsrOpType.RC  ->  true.B,    // read & clean
+    CsrOpType.RCI ->  true.B
+  ))
+  //==========================================================
+  //              Commit signal to select cp0
+  //==========================================================
+  val iui_ex2_commit = (io.in.rtuIn.rtu_yy_xx_commit0_iid === io.in.rfIn.iid) && io.in.rtuIn.rtu_yy_xx_commit0
+  val iui_flop_commit = RegInit(false.B)
+  //==========================================================
+  //              FSM of CP0 iui control logic
+  //==========================================================
+  // State Description:
+  // IDLE : wait for cp0 insctuction
+  // EX1  : first cycle in which write value to psr and regs
+  // EX2  : wait for biu align or no operation (if possible)
+  //        complete cp0 insctuction
+  // EX3  : request cbus/rbus
+  private val idle::ex1::ex2::ex3::Nil = Enum(4)
+  private val cur_state = RegInit(idle)
+  switch(cur_state){
+    is(idle){
+      when(sel){
+        cur_state := ex1
+      }
+    }
+    is(ex1){
+      cur_state := ex2
+    }
+    is(ex2){
+      when(cp0_inst_cmplt){
+        cur_state := ex3
+      }
+    }
+    is(ex3){
+      cur_state := idle
+    }
+  }
+  //-------------------control signal by iui FSM-------------
+  iui_flop_commit := Mux(cur_state === ex2, true.B, iui_flop_commit)
+  val cp0_ex1_select = (cur_state === ex1)
+  val cp0_ex2_select = (cur_state === ex2) && iui_ex2_commit
+  val cp0_ex3_select = (cur_state === ex3)
+  val cp0_select =  cp0_ex1_select  || cp0_ex2_select   || (cp0_ex3_select && iui_flop_commit)
+  //==========================================================
+  //                Qualify CP0 insctuctions
+  //==========================================================
+  private val iui_m_mode = currentPriv === mode_m
+  private val iui_s_mode = currentPriv === mode_s
+  private val iui_u_mode = currentPriv === mode_u
+  //execute with privilege
+  val iui_privilege = sel || iui_m_mode || iui_s_mode // TODO add inv, inv means lower mode access higer mode
+  val iui_s_inv = iui_s_mode && ((is_sret || mstatus.TSR.asBool) || is_mret)
+  //the instruction need write back into conctol register
+  //should be selected only when cp0 in EX1 state
+  //following singals are selected only when ex1 stage
+  val inst_csr_ex1  = cp0_ex1_select && iui_privilege && wdata_en
+  val iui_regs_inst_mret = cp0_ex2_select && iui_privilege && is_mret
+  val iui_regs_inst_sret = cp0_ex2_select && iui_privilege && is_sret
+  //signal for inst csr in EX3 stage, used to increase index of CPUID
+  val iui_regs_ex3_inst_csr = cp0_ex3_select && iui_flop_commit && iui_privilege && wdata_en
+  val inst_csr_wr = cp0_select && iui_privilege && wdata_en
+  //instruction type singel for flush and iu special generation
+  //ignore psr s bit only indicate insctuction type information
+  val cp0_mret = cp0_select && is_mret
+  val cp0_sret = cp0_select && is_sret
+  //==========================================================
+  //          Generate select and data signals to regs
+  //==========================================================
+  val inst_csr_ex2 = RegInit(inst_csr_ex1)
+  inst_csr_ex2 :=Mux(cp0_ex1_select,inst_csr_ex1,false.B)
+  val iui_regs_sel = inst_csr_ex2 && cp0_ex2_select
 
+  private val iui_regs_csr_wr = iui_privilege && wdata_en
+  private val trap_valid    = iui_regs_csr_wr
+  private val mstatus_en    = iui_regs_csr_wr && (csrAddr === CsrAddr.mstatus)
+  private val medeleg_en    = iui_regs_csr_wr && (csrAddr === CsrAddr.medeleg)
+  private val mideleg_en    = iui_regs_csr_wr && (csrAddr === CsrAddr.mideleg)
+  private val mie_en        = iui_regs_csr_wr && (csrAddr === CsrAddr.mie)
+  private val mtvec_en      = iui_regs_csr_wr && (csrAddr === CsrAddr.mtvec)
+  private val mcounteren_en = iui_regs_csr_wr && (csrAddr === CsrAddr.mcounteren)
+  private val mscratch_en   = iui_regs_csr_wr && (csrAddr === CsrAddr.mscratch)
+  private val mepc_en       = iui_regs_csr_wr && (csrAddr === CsrAddr.mepc)
+  private val mcause_en     = iui_regs_csr_wr && (csrAddr === CsrAddr.mcause)
+  private val mtval_en      = iui_regs_csr_wr && (csrAddr === CsrAddr.mtval)
+  private val mcycle_en     = iui_regs_csr_wr && (csrAddr === CsrAddr.mcycle)
+  private val minstret_en   = iui_regs_csr_wr && (csrAddr === CsrAddr.minstret)
+  //==========================================================
+  //              Generate Local Signal to CSRs
+  //==========================================================
   when(mstatus_en){
     val mstatus_new = WireInit(wdata.asTypeOf(new StatusStruct))
     // TODO 分别把各特权级允许写的字段一一连线
@@ -226,29 +353,31 @@ class CSR extends Module with Config with CsrRegDefine {// TODO: IO need to defi
     status.MPRV  :=  mstatus_new.MPRV
     status.MPP   :=  legalizePrivilege(mstatus_new.MPP)
     }
-    if (supportSupervisor){
-
-
-
-    }
     status.IE     := mstatus_new.IE
     status.PIE    := mstatus_new.PIE
     status.FS     := mstatus_new.FS
   }
+
   medeleg   := Mux(medeleg_en   , wdata, medeleg)
   mideleg   := Mux(mideleg_en   , wdata, mideleg)
-  ie        := Mux(mie_en       , wdata.asTypeOf(new InterruptField), mie)
+  mie        := Mux(mie_en       , wdata.asTypeOf(new InterruptField), mie)
   mtvec     := Mux(mtvec_en     , wdata, mtvec)
   mcounteren:= Mux(mcounteren_en, wdata, mcounteren)
+
   mscratch  := Mux(mscratch_en  , wdata, mscratch)
-  mepc      := Mux(mepc_en      , wdata, mepc)
+  when(io.in.rtuIn.exptVld){
+    mepc := io.in.rtuIn.epc
+  }.elsewhen(mepc_en){
+    mepc := wdata
+  }
   mcause    := Mux(mcause_en    , wdata, mcause)
   mtval     := Mux(mtval_en     , wdata, mtval)
   mcycle    := Mux(mcycle_en    , wdata, mcycle)
   minstret  := Mux(minstret_en  , wdata, minstret)
+
   // todo map pmpcfg[0~15]
-  val illegalMret = ena && is_mret && (currentPriv < mode_m)
-  val illegalSret = ena && is_sret && (currentPriv < mode_s)
+  val illegalMret      = ena && is_mret && (currentPriv < mode_m)
+  val illegalSret      = ena && is_sret && (currentPriv < mode_s)
   val illegalSModeSret = ena && is_sret && (currentPriv === mode_s) && mstatus.TSR.asBool // TSR is 1 raise an illegal instr exception, see RISCV-privile 3.1.6.5
   val tvmNotPermit = (currentPriv === mode_s) && mstatus.TVM.asBool
   val accessPermitted = !(csrAddr === CsrAddr.satp && tvmNotPermit)
@@ -333,9 +462,43 @@ private val trap = WireInit(0.U.asTypeOf(new TrapIO))
     }
   }
 
-
-
-
+  //==========================================================
+  //           Generate data valid signal to IU
+  //==========================================================
+  //----------------------------------------------------------
+  //           IU RBUS handling reg data
+  //----------------------------------------------------------
+  io.out.toIu.toRbus.rsltVld  := wdata_en && iui_privilege  && cp0_ex3_select  && iui_flop_commit
+  io.out.toIu.toRbus.rsltPreg := io.in.rfIn.preg
+  val cp0_rslt_reg = RegInit(0.U(XLEN.W))
+  when(inst_csr_ex1){
+    cp0_rslt_reg := rdata
+  }
+  io.out.toIu.toRbus.rsltData := cp0_rslt_reg
+  //----------------------------------------------------------
+  //           IU CBUS handling complete singal
+  //----------------------------------------------------------
+  val cp0_expt_vld = RegInit(false.B)
+  when(flush){
+    cp0_expt_vld := false.B
+  }.elsewhen(cp0_ex2_select){
+    cp0_expt_vld := (!iui_privilege) && cp0_ex2_select
+  }
+  io.out.toIu.toCbus.abnormal := true.B
+  io.out.toIu.toCbus.efpc     := DontCare
+  io.out.toIu.toCbus.efpcVld  := cp0_expt_vld
+  io.out.toIu.toCbus.exptVec  := "b00010".U
+  io.out.toIu.toCbus.exptVld  := !iui_privilege && cp0_ex2_select
+  io.out.toIu.toCbus.iid      := io.in.rfIn.iid
+  io.out.toIu.toCbus.instVld  := cp0_ex3_select
+  io.out.toIu.toCbus.mtval    := func
+  val cp0_flush = RegInit(false.B)
+  when(flush){
+    cp0_flush := false.B
+  }.elsewhen(cp0_ex2_select){
+    cp0_flush := cp0_select
+  }
+  io.out.toIu.toCbus.flush    := cp0_flush
 }
 
 trait CsrRegDefine extends Config {

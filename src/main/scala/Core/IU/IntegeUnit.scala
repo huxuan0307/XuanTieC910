@@ -43,7 +43,7 @@ class Cp0ToCbus extends Bundle with IUConfig{
     val instVld       = Bool()
     val mtval         = UInt(MtvalWidth.W)
 }
-class  cp0In extends Bundle with IUConfig{
+class  cp0ToIu extends Bundle with IUConfig{
 //  val divDisable    = Bool()
 //  val divDisableClr = Bool()
   val toCbus    = new Cp0ToCbus
@@ -100,7 +100,7 @@ class IuRslt extends Bundle {
   val rbusRslt = Output(Vec(IuPipeNum-1, new RbusOut))
 }
 class IntegerUnitIO extends Bundle{
-  val cp0In      = Input(new cp0In)
+  val cp0In      = Input(new cp0ToIu)
   // to alu0, special, div
   val alu0Sel    = Input(new unitSel)
   val pipe0      = Input(new IduRfPipe0)

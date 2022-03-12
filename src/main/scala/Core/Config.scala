@@ -74,23 +74,33 @@ trait ExceptionConfig {
 
 trait VectorUnitConfig {
   def VlmaxBits = 8
-  def VlmulBits = 3
+  def VlmulBits = 2 // TODO: should be 2 or 3? @ct_cp0_top.v @293  [1  :0]  rtu_cp0_vsetvl_vlmul;
   def VsewBits = 3
+  def VstartBits = 7
   def VregNum = 64
   def VregNumBits : Int = log2Up(VregNum)
 }
 
 trait IUConfig {
   def XLEN = 64
-  def CSR_OPCODE_WIDTH = 32
-  def CSR_ADDR_WIDTH = 12
-  def CSR_UIMM_WIDTH = 5
-  def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
   def MPPWidth = 2
   def PcFifoLen = 32
   def PcFifoAddr: Int = log2Up(PcFifoLen)
   def PcOffsetWidth = 21
   def IuPipeNum = 3
+}
+
+trait Cp0Config {
+  def APB_BASE_WIDTH = 40
+  def BIU_CP0_RDATA = 128
+  def BIU_CP0_RVBA = 40
+  def FSER_ACC_UPDATE_WITDH = 7
+  def CACHE_READ_DATA_WITDTH = 128
+  def CSR_OPCODE_WIDTH = 32
+  def CSR_ADDR_WIDTH = 12
+  def CSR_UIMM_WIDTH = 5
+  def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
+
 }
 
 
