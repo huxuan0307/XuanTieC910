@@ -127,7 +127,19 @@ trait Config{
     BigInt(MXL) << (MXLEN - 2) | BigInt(ISAEXT.toInt)
   }
 }
+object TrapConfig {
+  def InterruptVecWidth = 12
+  def ExceptionVecWidth = 16
+}
+class TrapIO extends Bundle with Config {
+  val epc = UInt(XLEN.W)
+  val einst = UInt(XLEN.W)
+  val interruptVec = UInt(TrapConfig.InterruptVecWidth.W)
+  val interruptValid = Bool()
 
+  val mstatus = UInt(MXLEN.W)
+  val iid = UInt(InstructionIdWidth.W)
+}
 class RfToCp0 extends Bundle with Cp0Config{
   val iid     = UInt(InstructionIdWidth.W)
   val opcode  = new Bundle {
@@ -265,6 +277,7 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
   //==========================================================
   val iui_ex2_commit = (io.in.rtuIn.rtu_yy_xx_commit0_iid === io.in.rfIn.iid) && io.in.rtuIn.rtu_yy_xx_commit0
   val iui_flop_commit = RegInit(false.B)
+  val cp0_inst_cmplt = WireInit(true.B) // TODO see ct_cp0_iui.v @1495
   //==========================================================
   //              FSM of CP0 iui control logic
   //==========================================================
@@ -357,7 +370,11 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
     status.PIE    := mstatus_new.PIE
     status.FS     := mstatus_new.FS
   }
-
+  val mp = RegInit(0.U(2.W))
+  when(currentPriv === mode_m){
+    mp := mstatus.MPP
+  }
+  io.out.toIu.cp0PrivMode := mp
   medeleg   := Mux(medeleg_en   , wdata, medeleg)
   mideleg   := Mux(mideleg_en   , wdata, mideleg)
   mie        := Mux(mie_en       , wdata.asTypeOf(new InterruptField), mie)
@@ -375,41 +392,40 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
   mcycle    := Mux(mcycle_en    , wdata, mcycle)
   minstret  := Mux(minstret_en  , wdata, minstret)
 
-  // todo map pmpcfg[0~15]
-  val illegalMret      = ena && is_mret && (currentPriv < mode_m)
-  val illegalSret      = ena && is_sret && (currentPriv < mode_s)
-  val illegalSModeSret = ena && is_sret && (currentPriv === mode_s) && mstatus.TSR.asBool // TSR is 1 raise an illegal instr exception, see RISCV-privile 3.1.6.5
-  val tvmNotPermit = (currentPriv === mode_s) && mstatus.TVM.asBool
-  val accessPermitted = !(csrAddr === CsrAddr.satp && tvmNotPermit)
-
-
-  val isIllegalAddr = rdata === 0.U // TODO the list is not complele, if check all addr should make a new map
-  // val isIllegalAccess
-  val isIllegalPrivOp = illegalMret || illegalSret || illegalSModeSret // TODO assigned to nowhere in XS?
-
-  when(ena && is_mret && !illegalMret){
-    currentPriv  := mstatus.MPP
-    status.PIE.M := true.B
-    status.IE.M  := mstatus.PIE.M
-    status.MPP   := (if (supportUser) mode_u else mode_m)
-  }
-  when(ena && is_sret && !illegalSret && !illegalSModeSret){
-    currentPriv  := Cat(0.U,sstatus.SPP)       // SPP is 1bit width
-    status.PIE.S := true.B
-    status.IE.S  := sstatus.PIE.S
-    status.SPP   := (if (supportUser) mode_u else mode_s)
-  }
-
-  val csrExceptionVec = WireInit(ExceptionVec.apply())
-  csrExceptionVec.map(_ := false.B) // close
-  csrExceptionVec(Breakpoint) := ena && isE
-  csrExceptionVec(UECall) := ena && (currentPriv === mode_m) && is_ecall
-  csrExceptionVec(SECall) := ena && (currentPriv === mode_u) && is_ecall
-  csrExceptionVec(MECall) := ena && (currentPriv === mode_s) && is_ecall
-
+//  // todo map pmpcfg[0~15]
+//  val illegalMret      = ena && is_mret && (currentPriv < mode_m)
+//  val illegalSret      = ena && is_sret && (currentPriv < mode_s)
+//  val illegalSModeSret = ena && is_sret && (currentPriv === mode_s) && mstatus.TSR.asBool // TSR is 1 raise an illegal instr exception, see RISCV-privile 3.1.6.5
+//  val tvmNotPermit = (currentPriv === mode_s) && mstatus.TVM.asBool
+//  val accessPermitted = !(csrAddr === CsrAddr.satp && tvmNotPermit)
+//
+//
+//  val isIllegalAddr = rdata === 0.U // TODO the list is not complele, if check all addr should make a new map
+//  // val isIllegalAccess
+//  val isIllegalPrivOp = illegalMret || illegalSret || illegalSModeSret // TODO assigned to nowhere in XS?
+//
+//  when(ena && is_mret && !illegalMret){
+//    currentPriv  := mstatus.MPP
+//    status.PIE.M := true.B
+//    status.IE.M  := mstatus.PIE.M
+//    status.MPP   := (if (supportUser) mode_u else mode_m)
+//  }
+//  when(ena && is_sret && !illegalSret && !illegalSModeSret){
+//    currentPriv  := Cat(0.U,sstatus.SPP)       // SPP is 1bit width
+//    status.PIE.S := true.B
+//    status.IE.S  := sstatus.PIE.S
+//    status.SPP   := (if (supportUser) mode_u else mode_s)
+//  }
+//
+//  val csrExceptionVec = WireInit(ExceptionVec.apply())
+//  csrExceptionVec.map(_ := false.B) // close
+//  csrExceptionVec(Breakpoint) := ena && isE
+//  csrExceptionVec(UECall) := ena && (currentPriv === mode_m) && is_ecall
+//  csrExceptionVec(SECall) := ena && (currentPriv === mode_u) && is_ecall
+//  csrExceptionVec(MECall) := ena && (currentPriv === mode_s) && is_ecall
+//
 
   // 中断相关定义
-
   def legalizePrivilege(priv: UInt): UInt =
     if (supportUser)
       Fill(2, priv(0))
@@ -423,22 +439,24 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
     ))
   }
 
-  def real_tvec (x_mode: UInt) : UInt = {
-    MuxLookup(x_mode, 0.U, Array(
-      XtvecMode.Direct -> Cat(mtvec_base(61,0), 0.U(2.W)),
-      XtvecMode.Vectored -> Cat(mtvec_base + mcause, 0.U(2.W))
+  def real_mtvec () : UInt = {
+    MuxLookup(mtvec_mode, 0.U, Array(
+      MtvecMode.Direct -> Cat(mtvec_base(61,0), 0.U(2.W)),
+      MtvecMode.Vectored -> Cat(mtvec_base + mcause, 0.U(2.W))
     ))
   }
 
-private val trap = WireInit(0.U.asTypeOf(new TrapIO))
+  // 中断相关定义
+  private val trap = WireInit(0.U.asTypeOf(new TrapIO))
   BoringUtils.addSink(trap, "ROBTrap")
+
   private val interruptVec = mie(11, 0) & mip.asUInt()(11,0) & Fill(12, trap.mstatus.asTypeOf(new StatusStruct).IE.M)
   private val interruptValid = interruptVec.asUInt.orR()
   BoringUtils.addSource(interruptVec, "interruptVec")
-  private val curInterruptPc = real_tvec(mtvec_mode)
+
+  private val curInterruptPc = real_mtvec()
   private val curInterruptNo = Mux(trap.interruptValid, PriorityEncoder(trap.interruptVec), 0.U)
   private val curInterruptCause = (trap.interruptValid.asUInt << (XLEN - 1).U).asUInt | curInterruptNo
-
 
   // --------------------------- 时钟中断 --------------------------
   val mtip = WireInit(false.B)
@@ -669,7 +687,7 @@ trait CsrRegDefine extends Config {
   // mtvec
   val mtvec_base    : UInt = mtvec(MXLEN-1, 2)
   val mtvec_mode    : UInt = mtvec(1, 0)
-  object XtvecMode {
+  object MtvecMode {
     def Direct : UInt = 0.U(2.W)
     def Vectored : UInt = 1.U(2.W)
   }
