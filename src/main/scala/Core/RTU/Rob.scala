@@ -14,7 +14,7 @@ import Utils.Bits.RingShiftLeft
 class RobInput extends Bundle {
   val fromCp0 = new RobFromCp0Bundle
   val fromHad = new RobFromHadBundle
-  val fromHpcp = new RobFromHpcpBundle
+  val fromHpcp = new RtuFromHpcpBundle
   val fromIdu = new Bundle() {
     val fenceIdle = Bool()
     val robCreate = Vec(NumCreateEntry, new RobCreateBundle)
@@ -55,7 +55,7 @@ class RobInput extends Bundle {
     }
     val pipe4 = new RobFromLsuPipeCommonBundle {}
   }
-  val fromPad = new RobFromPad
+  val fromPad = new RtuFromPad
   val fromRetire = new RobFromRetire {
     // Todo: imm
     val flushCurState = UInt(5.W)

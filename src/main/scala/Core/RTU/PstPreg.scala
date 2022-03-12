@@ -25,7 +25,7 @@ class PstPregInput extends Bundle {
   }
   val fromIuEx2 = Vec(NumIuPipe, ValidIO(new PstPregOHBundle))
   val fromLsu = Vec(NumLsuPipe, ValidIO(new PstPregOHBundle))
-  val fromPad = new RobFromPad
+  val fromPad = new RtuFromPad
   val retiredEregWb = Bool()
   val retiredFregWb = Bool()
   val retiredVregWb = Bool()
