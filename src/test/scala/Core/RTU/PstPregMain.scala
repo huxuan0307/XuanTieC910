@@ -2,11 +2,11 @@ package Core.RTU
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object PregEntryMain extends App {
+object PstPregMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new PstPregEntry)
+      ChiselGeneratorAnnotation(() => new PstPreg)
     )
   )
 }
