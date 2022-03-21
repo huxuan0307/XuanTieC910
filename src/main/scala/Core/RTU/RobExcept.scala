@@ -11,7 +11,7 @@ import chisel3.util._
 // Todo: figure out: ssf: Split instruction spec fail
 object SsfState {
   def size : Int = 3
-  def bits : Int = log2Up(size)
+  def width : Int = log2Up(size)
   val idle :: wfRetire :: retiring :: Nil = Enum(3)
 }
 
@@ -81,7 +81,7 @@ class RobExceptInput extends Bundle {
     val pipe3 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
     val pipe4 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
   }
-  val fromPad = new RtuFromPad
+  val fromPad = new RtuFromPadBundle
   val fromRetire = new Bundle {
     val inst0Abnormal : Bool = Bool()
     val inst0Valid    : Bool = Bool()
@@ -119,7 +119,7 @@ class RobExceptOutput extends Bundle {
     val ssfIid            : UInt = UInt(InstructionIdWidth.W)
   }
   val toTop = new Bundle() {
-    val ssfStateCur : UInt = UInt(SsfState.bits.W)
+    val ssfStateCur : UInt = UInt(SsfState.width.W)
   }
 }
 

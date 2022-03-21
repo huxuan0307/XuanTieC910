@@ -302,11 +302,6 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryAluRegFwdValid = Wire(Vec(NumAlu, Vec(this.NumAiqEntry, UInt(NumSrcArith.W))))
 
   entryAluRegFwdValid := ctrlAiq0.rfAluRegFwdValid
-//  for (idxAlu <- 0 to NumAlu) {
-//    for (idxEntry <- 0 to this.NumAiqEntry) {
-//      entryAluRegFwdValid(idxAlu)(idxEntry) := ctrlAiq0.rfAluRegFwdValid(idxAlu)(idxEntry)
-//    }
-//  }
 
   //-------------------issue enable signals-------------------
   private val entryReadyVec = Wire(Vec(this.NumAiqEntry, Bool()))

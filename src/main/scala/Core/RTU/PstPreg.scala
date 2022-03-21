@@ -12,14 +12,6 @@ class PstPregOHBundle extends Bundle {
   val pregOH : Vec[Bool] = Vec(NumPhysicRegs, Bool())
 }
 
-class PstPregEntryCreateBundle extends Bundle {
-  val dstReg : UInt = UInt(NumLogicRegsBits.W)
-  val preg : UInt = UInt(NumPhysicRegsBits.W)
-  val iid : UInt = UInt(InstructionIdWidth.W)
-  val pregValid : Bool = Bool()
-  val relPreg : UInt = UInt(NumPhysicRegsBits.W)
-}
-
 class PstPregInput extends Bundle {
   class PstFromIdu extends Bundle {
     val allocGateClkValid : Bool = Bool()
@@ -55,7 +47,7 @@ class PstPregInput extends Bundle {
   val fromIfu = new PstFromIfu
   val fromIuEx2 = new PstFromIu
   val fromLsu = new PstFromLsu
-  val fromPad = new RtuFromPad
+  val fromPad = new RtuFromPadBundle
   val retiredEregWb : Bool = Bool()
   val retiredFregWb : Bool = Bool()
   val retiredVregWb : Bool = Bool()

@@ -16,84 +16,77 @@ class RobInput extends Bundle {
   val fromHad = new RobFromHadBundle
   val fromHpcp = new RtuFromHpcpBundle
   val fromIdu = new Bundle() {
-    val fenceIdle = Bool()
-    val robCreate = Vec(NumCreateEntry, new RobCreateBundle)
+    val fenceIdle : Bool = Bool()
+    val robCreate : Vec[RobCreateBundle] = Vec(NumCreateEntry, new RobCreateBundle)
   }
   val fromIfu = new RobFromIfu
   val fromIu = new Bundle() {
-    val pcFifoPopDataVec = Vec(3, UInt(48.W))
+    val pcFifoPopDataVec : Vec[PcFifoData] = Vec(NumPopEntry, new PcFifoData)
     val pipe0 = new Bundle() {
-      val iid = UInt(InstructionIdWidth.W)
-      val cmplt = Bool()
-      val abnormal = Bool()
-      val breakPoint = Bool()
+      val iid : UInt = UInt(InstructionIdWidth.W)
+      val cmplt : Bool = Bool()
+      val abnormal : Bool = Bool()
+      val breakPoint : Bool = Bool()
       val efPc = ValidIO(UInt(PcWidth.W))
       val exceptionVec = ValidIO(UInt(ExceptionVecWidth.W))
-      val flush = Bool()
-      val highHwException = Bool()
-      val instMmuException = Bool()
-      val mtval = UInt(MtvalWidth.W)
-      val vsetvl = Bool()
+      val flush : Bool = Bool()
+      val highHwException : Bool = Bool()
+      val instMmuException : Bool = Bool()
+      val mtval : UInt = UInt(MtvalWidth.W)
+      val vsetvl : Bool = Bool()
       val vstart = ValidIO(UInt(VlmaxBits.W))
     }
     val pipe1 = new Bundle() {
-      val iid = UInt(InstructionIdWidth.W)
-      val cmplt = Bool()
+      val iid : UInt = UInt(InstructionIdWidth.W)
+      val cmplt : Bool = Bool()
     }
     val pipe2 = new Bundle() {
-      val iid = UInt(InstructionIdWidth.W)
-      val cmplt = Bool()
-      val abnormal = Bool()
-      val bhtMispred = Bool()
-      val jmpMispred = Bool()
+      val iid : UInt = UInt(InstructionIdWidth.W)
+      val cmplt : Bool = Bool()
+      val abnormal : Bool = Bool()
+      val bhtMispred : Bool = Bool()
+      val jmpMispred : Bool = Bool()
     }
   }
   val fromLsu = new Bundle() {
-    val allCommitDataValid = Bool()
-    val pipe3 = new RobFromLsuPipeCommonBundle {
-      val vsetvl = Bool()
-    }
-    val pipe4 = new RobFromLsuPipeCommonBundle {}
+    val allCommitDataValid : Bool = Bool()
+    val pipe3 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
+    val pipe4 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
   }
-  val fromPad = new RtuFromPad
+  val fromPad = new RtuFromPadBundle
   val fromRetire = new RobFromRetire {
-    // Todo: imm
-    val flushCurState = UInt(5.W)
-    // Todo: imm
-    val retireEmpty = Bool()
+    val flushCurState : UInt = UInt(FlushState.width.W)
+    val retireEmpty : Bool = Bool()
   }
   val fromRtu = new Bundle() {
-    val yyXxFlush = Bool()
+    val yyXxFlush : Bool = Bool()
   }
   val fromVfpu = new RobFromVfpu
 }
 
 class RobOutput extends Bundle {
   // Todo: imm
-  val pstRetire = Vec(3, new Bundle() {
-    val iid = UInt(InstructionIdWidth.W)
-    val iidUpdateVal = UInt(InstructionIdWidth.W)
-    val gateClkValid = Bool()
+  val toPst = Vec(3, new Bundle() {
+    val iid : UInt = UInt(InstructionIdWidth.W)
+    val iidUpdateVal : UInt = UInt(InstructionIdWidth.W)
+    val gateClkValid : Bool = Bool()
   })
   val toRetire = new RobToRetireBundle {
-    val interrupt = Bool()
-    val splitSpecFailSrt = Bool()
-    val ssfIid = UInt(InstructionIdWidth.W)
+    val splitSpecFailSrt : Bool = Bool()
+    val ssfIid : UInt = UInt(InstructionIdWidth.W)
   }
   val toTop = new Bundle() {
-    val commit0 = Bool()
-    val commitStNoValid = Bool()
-    val create0Iid = UInt(InstructionIdWidth.W)
+    val commit0 : Bool = Bool()
+    val commitStNoValid : Bool = Bool()
+    val create0Iid : UInt = UInt(InstructionIdWidth.W)
     // Todo: imm
-    val entryNum = UInt(7.W)
+    val entryNum : UInt = UInt(NumRobEntry.W)
+    val flushCurState : UInt = UInt(FlushState.width.W)
+    val read0Iid : UInt = UInt(InstructionIdWidth.W)
     // Todo: imm
-    val flushCurState = UInt(5.W)
-    val read0Iid = UInt(InstructionIdWidth.W)
-    // Todo: imm
-    val robCurPc = UInt(7.W)
-    val robFull = Bool()
-    // Todo: imm
-    val ssfStateCur = UInt(2.W)
+    val robCurPc : UInt = UInt(7.W)
+    val robFull : Bool = Bool()
+    val ssfStateCur : UInt = UInt(SsfState.width.W)
   }
   val toCpu = new RobToCpu
   // Todo: figure out
@@ -101,112 +94,121 @@ class RobOutput extends Bundle {
   // Todo: figure out
   val toHpcp = new RobToHpcp
   val toIdu = new Bundle() {
-    val retireInterruptValid = Bool()
-    val robEmpty = Bool()
-    val robFull = Bool()
+    val retireInterruptValid : Bool = Bool()
+    val robEmpty : Bool = Bool()
+    val robFull : Bool = Bool()
     // Todo: check
-    val robInstIidVec = Vec(NumCreateEntry, UInt(InstructionIdWidth.W))
+    val robInstIidVec : Vec[UInt] = Vec(NumCreateEntry, UInt(InstructionIdWidth.W))
   }
   val toIu = new RobToIu
   val toLsu = new Bundle() {
     // Todo: check
-    val commitIidUpdateVal = Vec(NumRetireEntry, UInt(InstructionIdWidth.W))
+    val commitIidUpdateVal : Vec[UInt] = Vec(NumRetireEntry, UInt(InstructionIdWidth.W))
   }
   val toPad = new RobToPad
   val yyXx = new RobYyXx
 }
 
 class RobIO extends Bundle {
-  val in = Input(new RobInput)
-  val out = Output(new RobOutput)
+  val in : RobInput = Input(new RobInput)
+  val out : RobOutput = Output(new RobOutput)
 }
 
 class Rob extends Module {
-  val io = IO(new RobIO)
+  val io : RobIO = IO(new RobIO)
 
   /**
    * Regs
    */
 
-  // Todo: imm
-  val debugInfoFlushCurState = RegInit(0.U(5.W))
-  val debugInfoRobCommit0 = RegInit(false.B)
-  val debugInfoRobCommitStNoValid = RegInit(false.B)
-  val debugInfoRobCreate0Iid = RegInit(0.U(InstructionIdWidth.W))
-  val debugInfoRobRead0Iid = RegInit(0.U(InstructionIdWidth.W))
-  // Todo: imm
-  val debugInfoRobEntryNum = RegInit(0.U(7.W))
-  val debugInfoRobFull = RegInit(false.B)
+  private val debugInfoFlushCurState = RegInit(FlushState.idle)
+  private val debugInfoRobCommit0 = RegInit(false.B)
+  private val debugInfoRobCommitStNoValid = RegInit(false.B)
+  private val debugInfoRobCreate0Iid = RegInit(0.U(InstructionIdWidth.W))
+  private val debugInfoRobRead0Iid = RegInit(0.U(InstructionIdWidth.W))
 
-  // Todo: imm
-  val readEntryUpdateDataVec = RegInit(VecInit(Seq.fill(3)(0.U(40.W))))
-  val robCreatePtr = RegInit(0.U(RobPtrWidth.W))
-  val robCreateIidVec = RegInit(VecInit(Seq.fill(NumCreateEntry)(0.U(InstructionIdWidth.W))))
-  // Todo: imm
-  val robEntryNum = RegInit(0.U(7.W))
-  val robEntryNumAdd = RegInit(0.U(3.W))
-  val robEntryNumSub = RegInit(0.U(2.W))
-  val robFull = RegInit(false.B)
-  // Todo: imm
-  val robPopIidVec = RegInit(VecInit(Seq.fill(3)(0.U(InstructionIdWidth.W))))
-  // Todo: imm
-  val robReadPtr = RegInit(0.U(RobPtrNum.W))
-  // Todo: imm
-  val robReadEntryDataVec = RegInit(VecInit(Seq.fill(6)(0.U.asTypeOf(new RobEntryData))))
-  val robReadIidVec = RegInit(VecInit(Seq.fill(6)(0.U(InstructionIdWidth.W))))
-  val robReadEntryUpdateIid = RegInit(VecInit(Seq.fill(3)(0.U(6.W))))
+  private val debugInfoRobEntryNum = RegInit(0.U(NumRobEntry.W))
+  private val debugInfoRobFull = RegInit(false.B)
+
+  private val robCreatePtr = RegInit(0.U(RobPtrWidth.W))
+  private val robCreateIidVec = RegInit(VecInit(Seq.fill(NumCreateEntry)(0.U(InstructionIdWidth.W))))
+
+  private val robEntryNum = RegInit(0.U(NumRobEntry.W))
+  private val robFull = RegInit(false.B)
+  private val robPopIidVec = RegInit(VecInit(Seq.fill(NumPopEntry)(0.U(InstructionIdWidth.W))))
+
+  private val robReadPtr = RegInit(0.U(NumRobEntry.W))
+  private val robReadIidVec = RegInit(VecInit(Seq.fill(RobReadPtrNum)(0.U(InstructionIdWidth.W))))
+
+  /**
+   * Wires
+   */
+
+  private val robEntryNumAdd = Wire(UInt(3.W))
+  private val robEntryNumSub = Wire(UInt(2.W))
+
+  private val readEntryUpdateDataVec = Wire(Vec(3, new RobEntryData))
+  private val robReadEntryUpdateIid = Wire(Vec(3, UInt(6.W)))
+  // Todo: check imm
+  private val robReadEntryDataVec = Wire(Vec(RobReadPtrNum, new RobEntryData))
 
   //==========================================================
   //                   ROB Entry Instance
   //==========================================================
 
-  val entryCmpltValidVec        = Wire(Vec(NumRobEntry, UInt(7.W)))
-  val entryCmpltGateClkValidVec = Wire(Vec(NumRobEntry, Bool()))
-  val entryCreateDpEnVec        = Wire(Vec(NumRobEntry, Bool()))
-  val entryCreateEnVec          = Wire(Vec(NumRobEntry, Bool()))
-  val entryCreateGateClkEnVec   = Wire(Vec(NumRobEntry, Bool()))
+  private val miscCmpltGateClkEn        = Wire(Bool())
   // Todo: imm
-  val entryCreateSelVec         = Wire(Vec(NumRobEntry, UInt(4.W)))
-  val entryPopEnVec             = Wire(Vec(NumRobEntry, Bool()))
-  val entryReadDateVec          = Wire(Vec(NumRobEntry, new RobEntryData))
+  private val entryCmpltValidVec        = Wire(Vec(NumRobEntry, UInt(7.W)))
+  private val entryCmpltGateClkValidVec = Wire(Vec(NumRobEntry, Bool()))
+  private val entryCreateDpEnVec        = Wire(Vec(NumRobEntry, Bool()))
+  private val entryCreateEnVec          = Wire(Vec(NumRobEntry, Bool()))
+  private val entryCreateGateClkEnVec   = Wire(Vec(NumRobEntry, Bool()))
+  // Todo: imm
+  private val entryCreateSelVec         = Wire(Vec(NumRobEntry, UInt(NumCreateEntry.W)))
+  private val entryPopEnVec             = Wire(Vec(NumRobEntry, Bool()))
+  private val entryReadDataVec          = Wire(Vec(NumRobEntry, new RobEntryData))
   for (i <- 0 until NumRobEntry) {
     entryCmpltGateClkValidVec(i) := entryCmpltValidVec(i).asUInt.orR
   }
 
-  val robEntryVec = Seq.fill(NumRobEntry)(Module(new RobEntry))
+  private val robEntryVec = Seq.fill(NumRobEntry)(Module(new RobEntry))
   for (i <- 0 until NumRobEntry) {
     val in = robEntryVec(i).io.in
     val out = robEntryVec(i).io.out
-    in.fromCp0 := io.in.fromCp0
-    in.fromIdu := io.in.fromIdu
-    in.fromLsu := io.in.fromLsu
+    in.fromCp0.icgEn := io.in.fromCp0.icgEn
+    in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
+    in.fromIdu.createDataVec.zipWithIndex.foreach {
+      case (data, i) => data := io.in.fromIdu.robCreate(i).data
+    }
+    in.fromLsu.miscCmpltGateClkEn := miscCmpltGateClkEn
+    in.fromLsu.pipe3.wbNoSpec  := io.in.fromLsu.pipe3.wb.noSpec
+    in.fromLsu.pipe3.wbBreakpointData := io.in.fromLsu.pipe3.wb.breakpointData
+    in.fromLsu.pipe4.wbNoSpec  := io.in.fromLsu.pipe4.wb.noSpec
+    in.fromLsu.pipe4.wbBreakpointData := io.in.fromLsu.pipe4.wb.breakpointData
     in.fromPad := io.in.fromPad
     in.fromRetire := io.in.fromRetire
     in.x.cmpltGateClkValid :=  entryCmpltGateClkValidVec(i)
-    in.x.cmpltValidVec := entryCmpltValidVec(i)
+    in.x.cmpltValidVec := VecInit(entryCmpltValidVec(i).asBools)
     in.x.createDpEn := entryCreateDpEnVec(i)
     in.x.createEn := entryCreateEnVec(i)
     in.x.createGateClkEn := entryCreateGateClkEnVec(i)
-    in.x.createSel := entryCreateSelVec(i)
+    in.x.createSel := VecInit(entryCreateSelVec(i).asBools)
     in.x.popEn := entryPopEnVec(i)
-    entryReadDateVec(i) := out.readData
+    entryReadDataVec(i) := out.readData
   }
 
-  val readEntryCreateDataVec = Wire(Vec(NumRobReadEntry, new RobEntryData))
-  val miscCmpltGateClkEn = Wire(Bool())
+  private val readEntryCreateDataVec = Wire(Vec(NumRobReadEntry, new RobEntryData))
 
-  val readEntryCmpltValidVec        = Wire(Vec(NumRobReadEntry, UInt(7.W)))
-  val readEntryCmpltGateClkValidVec = Wire(Vec(NumRobReadEntry, Bool()))
-  val readEntryCreateDpEnVec        = Wire(Vec(NumRobReadEntry, Bool()))
-  val readEntryCreateEnVec          = Wire(Vec(NumRobReadEntry, Bool()))
-  val readEntryCreateGateClkEnVec   = Wire(Vec(NumRobReadEntry, Bool()))
-  // Todo: imm
-  val readEntryCreateSelVec         = Wire(Vec(NumRobReadEntry, UInt(4.W)))
-  val readEntryPopEnVec             = Wire(Vec(NumRobReadEntry, Bool()))
-  val readEntryReadDataVec          = Wire(Vec(NumRobReadEntry, new RobEntryData))
+  private val readEntryCmpltValidVec        = Wire(Vec(NumRobReadEntry, UInt(7.W)))
+  private val readEntryCmpltGateClkValidVec = Wire(Vec(NumRobReadEntry, Bool()))
+  private val readEntryCreateDpEnVec        = Wire(Vec(NumRobReadEntry, Bool()))
+  private val readEntryCreateEnVec          = Wire(Vec(NumRobReadEntry, Bool()))
+  private val readEntryCreateGateClkEnVec   = Wire(Vec(NumRobReadEntry, Bool()))
+  private val readEntryCreateSelVec         = Wire(Vec(NumRobReadEntry, UInt(NumCreateEntry.W)))
+  private val readEntryPopEnVec             = Wire(Vec(NumRobReadEntry, Bool()))
+  private val readEntryReadDataVec          = Wire(Vec(NumRobReadEntry, new RobEntryData))
 
-
-  val robReadEntryVec = Seq.fill(NumRobReadEntry)(Module(new RobEntry))
+  private val robReadEntryVec = Seq.fill(NumRobReadEntry)(Module(new RobEntry))
   for (i <- 0 until NumRobReadEntry) {
     val in = robReadEntryVec(i).io.in
     val out = robReadEntryVec(i).io.out
@@ -218,25 +220,19 @@ class Rob extends Module {
     }
     in.fromLsu.miscCmpltGateClkEn := miscCmpltGateClkEn
     // Todo: simplify wire connection
-    in.fromLsu.pipe3.wbBreakpointAData  := io.in.fromLsu.pipe3.wb.breakPointAData
-    in.fromLsu.pipe3.wbBreakpointBData  := io.in.fromLsu.pipe3.wb.breakPointBData
-    in.fromLsu.pipe3.wbNoSpecHit        := io.in.fromLsu.pipe3.wb.noSpecHit
-    in.fromLsu.pipe3.wbNoSpecMispred    := io.in.fromLsu.pipe3.wb.noSpecMispred
-    in.fromLsu.pipe3.wbNoSpecMiss       := io.in.fromLsu.pipe3.wb.noSpecMiss
-    in.fromLsu.pipe4.wbBreakpointAData  := io.in.fromLsu.pipe4.wb.breakPointAData
-    in.fromLsu.pipe4.wbBreakpointBData  := io.in.fromLsu.pipe4.wb.breakPointBData
-    in.fromLsu.pipe4.wbNoSpecHit        := io.in.fromLsu.pipe4.wb.noSpecHit
-    in.fromLsu.pipe4.wbNoSpecMispred    := io.in.fromLsu.pipe4.wb.noSpecMispred
-    in.fromLsu.pipe4.wbNoSpecMiss       := io.in.fromLsu.pipe4.wb.noSpecMiss
+    in.fromLsu.pipe3.wbNoSpec           := io.in.fromLsu.pipe3.wb.noSpec
+    in.fromLsu.pipe3.wbBreakpointData   := io.in.fromLsu.pipe3.wb.breakpointData
+    in.fromLsu.pipe4.wbNoSpec           := io.in.fromLsu.pipe4.wb.noSpec
+    in.fromLsu.pipe4.wbBreakpointData   := io.in.fromLsu.pipe4.wb.breakpointData
     in.fromPad                          := io.in.fromPad
     in.fromRetire.flush                 := io.in.fromRetire.flush
     in.fromRetire.flushGateClk          := io.in.fromRetire.flushGateClk
     in.x.cmpltGateClkValid              := readEntryCmpltGateClkValidVec(i)
-    in.x.cmpltValidVec                  := readEntryCmpltValidVec(i)
+    in.x.cmpltValidVec                  := VecInit(readEntryCmpltValidVec(i).asBools)
     in.x.createDpEn                     := readEntryCreateDpEnVec(i)
     in.x.createEn                       := readEntryCreateEnVec(i)
     in.x.createGateClkEn                := readEntryCreateGateClkEnVec(i)
-    in.x.createSel                      := readEntryCreateSelVec(i)
+    in.x.createSel                      := VecInit(readEntryCreateSelVec(i).asBools)
     in.x.popEn                          := readEntryPopEnVec(i)
     readEntryReadDataVec(i)             := out.readData
   }
@@ -249,11 +245,11 @@ class Rob extends Module {
   //----------------------------------------------------------
 
   // Todo: imm
-  val robCreatePtrVec = Wire(Vec(4, UInt(RobPtrNum.W)))
+  private val robCreatePtrVec = Wire(Vec(NumCreateEntry, UInt(RobPtrWidth.W)))
   robCreatePtrVec(0) := robCreatePtr
-  val robCreateEn = Wire(UInt(RobPtrWidth.W))
-  val robCreateDpEn = Wire(UInt(RobPtrWidth.W))
-  val robCreateGateClkEn = Wire(UInt(RobPtrWidth.W))
+  private val robCreateEn = Wire(UInt(RobPtrWidth.W))
+  private val robCreateDpEn = Wire(UInt(RobPtrWidth.W))
+  private val robCreateGateClkEn = Wire(UInt(RobPtrWidth.W))
 
   robCreateEn := io.in.fromIdu.robCreate.zip(robCreatePtrVec).map{
     case (robCreate, ptr) => Mux(robCreate.en, ptr, 0.U)
@@ -334,14 +330,14 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                  ROB valid entry counter
   //----------------------------------------------------------
-  val robPopPtrAdd = Wire(Vec(RobPtrNum, Bool()))
+  private val robPopPtrAdd = Wire(Vec(RobPtrNum, Bool()))
 
   robEntryNumAdd := OHToUInt(PriorityEncoderOH(robCreatePtrAdd))
   robEntryNumSub := OHToUInt(PriorityEncoderOH(robPopPtrAdd.asUInt(RobPtrNum-1,0)))
 
   // Create or pop at least 1 entry
-  val robEntryNumUpdateValid = robCreatePtrAdd(1) || robPopPtrAdd(1)
-  val robEntryNumUpdate = robEntryNum + robEntryNumAdd - robEntryNumSub
+  private val robEntryNumUpdateValid = robCreatePtrAdd(1) || robPopPtrAdd(1)
+  private val robEntryNumUpdate = robEntryNum + robEntryNumAdd - robEntryNumSub
 
   when (io.in.fromRetire.flush) {
     robEntryNum := 0.U
@@ -349,15 +345,15 @@ class Rob extends Module {
     robEntryNum := robEntryNumUpdate
   }
 
-  val robEmpty = robEntryNum === 0.U
-  val rob1Entry = robEntryNum === 1.U
-  val rob2Entry = robEntryNum === 2.U
+  private val robEmpty = robEntryNum === 0.U
+  private val rob1Entry = robEntryNum === 1.U
+  private val rob2Entry = robEntryNum === 2.U
   io.out.toIdu.robEmpty := robEmpty && io.in.fromRetire.retireEmpty
 
   //----------------------------------------------------------
   //                     ROB Full signal
   //----------------------------------------------------------
-  val robFullUpdateVal = robEntryNumUpdate > (NumRobEntry - NumCreateEntry).U
+  private val robFullUpdateVal = robEntryNumUpdate > (NumRobEntry - NumCreateEntry).U
 
   when(io.in.fromRetire.flush) {
     robFull := false.B
@@ -370,8 +366,8 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                   read vld bit
   //----------------------------------------------------------
-  val entryValid = Wire(Vec(NumRobEntry, Bool()))
-  entryValid := entryReadDateVec.map(_.ctrl.valid)
+  private val entryValid = Wire(Vec(NumRobEntry, Bool()))
+  entryValid := entryReadDataVec.map(_.ctrl.valid)
 
   // Todo: figure out why not use robEntryNum directly
   io.out.toHad.robEmpty := !entryValid.asUInt.orR
@@ -381,7 +377,7 @@ class Rob extends Module {
   //==========================================================
 
   // Todo: imm: num of pipeline
-  val PipeIidLsbVec = Wire(Vec(7, UInt((InstructionIdWidth-1).W)))
+  private val PipeIidLsbVec = Wire(Vec(7, UInt((InstructionIdWidth-1).W)))
 
   PipeIidLsbVec(0) := io.in.fromIu.pipe0.iid(5,0)
   PipeIidLsbVec(1) := io.in.fromIu.pipe1.iid(5,0)
@@ -416,11 +412,11 @@ class Rob extends Module {
   //----------------------------------------------------------
   miscCmpltGateClkEn :=
     io.in.fromLsu.pipe3.wb.cmplt &&
-      (io.in.fromLsu.pipe3.wb.breakPointAData || io.in.fromLsu.pipe3.wb.breakPointBData ||
-      io.in.fromLsu.pipe3.wb.noSpecHit || io.in.fromLsu.pipe3.wb.noSpecMiss || io.in.fromLsu.pipe3.wb.noSpecMispred) ||
+      (io.in.fromLsu.pipe3.wb.breakpointData.a || io.in.fromLsu.pipe3.wb.breakpointData.b ||
+      io.in.fromLsu.pipe3.wb.noSpec.hit || io.in.fromLsu.pipe3.wb.noSpec.miss || io.in.fromLsu.pipe3.wb.noSpec.mispred) ||
     io.in.fromLsu.pipe4.wb.cmplt &&
-      (io.in.fromLsu.pipe4.wb.breakPointAData || io.in.fromLsu.pipe4.wb.breakPointBData ||
-      io.in.fromLsu.pipe4.wb.noSpecHit || io.in.fromLsu.pipe4.wb.noSpecMiss || io.in.fromLsu.pipe4.wb.noSpecMispred)
+      (io.in.fromLsu.pipe4.wb.breakpointData.a || io.in.fromLsu.pipe4.wb.breakpointData.b ||
+      io.in.fromLsu.pipe4.wb.noSpec.hit || io.in.fromLsu.pipe4.wb.noSpec.miss || io.in.fromLsu.pipe4.wb.noSpec.mispred)
 
   //==========================================================
   //              Read Port for Retire Entry
@@ -429,13 +425,13 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                    5 Read Ports
   //----------------------------------------------------------
-  val robReadPtrVec = Wire(Vec(RobReadPtrNum, UInt(NumRobEntry.W)))
+  private val robReadPtrVec = Wire(Vec(RobReadPtrNum, UInt(RobPtrWidth.W)))
 
-  for (i <- 0 until NumRobReadEntry) {
+  for (i <- 0 until RobReadPtrNum) {
     when(robReadPtrVec(i).orR) {
-      robReadEntryDataVec(i) := entryReadDateVec(OHToUInt(robReadPtrVec(i)))
+      robReadEntryDataVec(i) := entryReadDataVec(OHToUInt(robReadPtrVec(i)))
     }.otherwise{
-      robReadEntryDataVec(i) := 0.U
+      robReadEntryDataVec(i) := 0.U.asTypeOf(chiselTypeOf(robReadEntryDataVec(i)))
     }
   }
 
@@ -447,7 +443,7 @@ class Rob extends Module {
   //----------------------------------------------------------
 
   // Todo: init
-  val retireEntryUpdateValidVec = Wire(Vec(3, Bool()))
+  private val retireEntryUpdateValidVec = Wire(Vec(3, Bool()))
   when(retireEntryUpdateValidVec(2)) {
     readEntryUpdateDataVec(0) := robReadEntryDataVec(3)
     readEntryUpdateDataVec(1) := robReadEntryDataVec(4)
@@ -481,10 +477,10 @@ class Rob extends Module {
   //----------------------------------------------------------
   //             Read entry create data select
   //----------------------------------------------------------
-  // Todo: imm
-  val robCreateToReadEntryEnVec = Wire(Vec(NumRobReadEntry, Bool()))
-  val robCreateToReadEntryDpEnVec = Wire(Vec(NumRobReadEntry, Bool()))
-  val robCreateToReadEntryGateClkEn = Wire(Vec(NumRobReadEntry, Bool()))
+
+  private val robCreateToReadEntryEnVec = Wire(Vec(NumRobReadEntry, Bool()))
+  private val robCreateToReadEntryDpEnVec = Wire(Vec(NumRobReadEntry, Bool()))
+  private val robCreateToReadEntryGateClkEn = Wire(Vec(NumRobReadEntry, Bool()))
   for (i <- 0 until NumRobReadEntry) {
     robCreateToReadEntryEnVec(i) := robReadEntryDataVec(i).ctrl.valid && ! readEntryReadDataVec(i).ctrl.valid
     robCreateToReadEntryDpEnVec(i) := robCreateToReadEntryEnVec(i)
@@ -502,7 +498,7 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                Read entry create enable
   //----------------------------------------------------------
-  val retireEntryUpdateGateClkValid = Wire(Bool())
+  private val retireEntryUpdateGateClkValid = Wire(Bool())
 
   for (i <- 0 until NumRobReadEntry) {
     readEntryCreateEnVec(i) := retireEntryUpdateValidVec(0) || robCreateToReadEntryEnVec(i)
@@ -515,8 +511,8 @@ class Rob extends Module {
   //                Read entry complete port
   //----------------------------------------------------------
 
-  val pipeCompleteVec = Wire(Vec(NumPipeline, Bool()))
-  val pipeIidVec = Wire(Vec(NumPipeline, UInt(NumRobEntryBits.W)))
+  private val pipeCompleteVec = Wire(Vec(NumPipeline, Bool()))
+  private val pipeIidVec = Wire(Vec(NumPipeline, UInt(NumRobEntryBits.W)))
   pipeCompleteVec(0) := io.in.fromIu.pipe0.cmplt
   pipeCompleteVec(1) := io.in.fromIu.pipe1.cmplt
   pipeCompleteVec(2) := io.in.fromIu.pipe2.cmplt
@@ -538,13 +534,13 @@ class Rob extends Module {
       case (cmplt, iid) => cmplt && iid === robReadEntryUpdateIid(i)
     })
   }
-  val readEntryCmpltGateClkValid = pipeCompleteVec.asUInt.orR
+  private val readEntryCmpltGateClkValid = pipeCompleteVec.asUInt.orR
   readEntryCmpltGateClkValidVec.foreach(_ := readEntryCmpltGateClkValid)
 
   //----------------------------------------------------------
   //                   Read Entry Read
   //----------------------------------------------------------
-  val robReadData = readEntryReadDataVec
+  private val robReadData = readEntryReadDataVec
 
   //----------------------------------------------------------
   //                   Read Entry Pop
@@ -563,34 +559,31 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                    read pointers
   //----------------------------------------------------------
-  val robReadPtrAddVec = Wire(Vec(4, Bool()))
+  private val robReadPtrAddVec = Wire(Vec(4, Bool()))
   robReadPtrAddVec(0) := false.B
   robReadPtrAddVec(1) := retireEntryUpdateValidVec(0)
   robReadPtrAddVec(2) := retireEntryUpdateValidVec(1)
   robReadPtrAddVec(3) := retireEntryUpdateValidVec(2)
 
+  // Todo: simplify
   when(io.in.fromRetire.flush) {
     robReadPtr := 1.U(NumRobEntry.W)
-    // Todo: imm
-    for (i <- 0 until 6) {
+    for (i <- 0 until RobReadPtrNum) {
       robReadIidVec(i) := i.U
     }
   }.elsewhen(robReadPtrAddVec(3)) {
     robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 3)
-    // Todo: imm
-    for (i <- 0 until 6) {
+    for (i <- 0 until RobReadPtrNum) {
       robReadIidVec(i) := robReadIidVec(i) + 3.U
     }
   }.elsewhen(robReadPtrAddVec(2)) {
     robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 2)
-    // Todo: imm
-    for (i <- 0 until 6) {
+    for (i <- 0 until RobReadPtrNum) {
       robReadIidVec(i) := robReadIidVec(i) + 2.U
     }
-  }.elsewhen(robReadPtrAddVec(3)) {
+  }.elsewhen(robReadPtrAddVec(1)) {
     robReadPtr := Utils.Bits.RingShiftLeft(robReadPtr, 1)
-    // Todo: imm
-    for (i <- 0 until 6) {
+    for (i <- 0 until RobReadPtrNum) {
       robReadIidVec(i) := robReadIidVec(i) + 1.U
     }
   }.otherwise {
@@ -599,13 +592,14 @@ class Rob extends Module {
   }
 
   robReadPtrVec(0) := robReadPtr
+
   for (i <- 1 until RobReadPtrNum) {
-    robReadPtrVec(i) := Utils.Bits.RingShiftLeft(robReadPtr, i)
+    robReadPtrVec(i) := RingShiftLeft(robReadPtr, i)
   }
 
   // Todo: imm
   for (i <- 0 until 3) {
-    io.out.pstRetire(i).iidUpdateVal := robReadIidVec(i)
+    io.out.toPst(i).iidUpdateVal := robReadIidVec(i)
   }
 
   for (i <- 0 until NumCommitEntry) {
@@ -619,19 +613,20 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                      3 Pop Ports
   //----------------------------------------------------------
-  val robPopPtrVec = Wire(Vec(3, UInt(NumRobEntryBits.W)))
+  private val robPopPtrVec = Wire(Vec(3, UInt(NumRobEntryBits.W)))
 
-  entryPopEnVec :=
+  entryPopEnVec := VecInit((
     (Fill(NumRobEntry, io.out.yyXx.retire(0)) & UIntToOH(robPopPtrVec(0))) |
     (Fill(NumRobEntry, io.out.yyXx.retire(1)) & UIntToOH(robPopPtrVec(1))) |
     (Fill(NumRobEntry, io.out.yyXx.retire(2)) & UIntToOH(robPopPtrVec(2)))
+  ).asBools)
 
   //----------------------------------------------------------
   //                 Instance of Gated Cell
   //----------------------------------------------------------
 
   // Todo: gated clk for pop ptr
-
+  robPopPtrAdd(0) := 0.U
   robPopPtrAdd(1) := io.out.yyXx.retire(0)
   robPopPtrAdd(2) := io.out.yyXx.retire(1)
   robPopPtrAdd(3) := io.out.yyXx.retire(2)
@@ -667,13 +662,13 @@ class Rob extends Module {
   //----------------------------------------------------------
   //                 Instance of Gated Cell
   //----------------------------------------------------------
-  val debugInfoClkEn = io.in.fromRetire.flushGateClk
+  private val debugInfoClkEn = io.in.fromRetire.flushGateClk
   // Todo: gated clk for debug info
 
   //----------------------------------------------------------
   //                   ROB debug info
   //----------------------------------------------------------
-  val robDebugCommit0 = Wire(Bool())
+  private val robDebugCommit0 = Wire(Bool())
   when(io.in.fromRetire.flushGateClk) {
     debugInfoRobFull            := robFull
     debugInfoRobRead0Iid        := robReadIidVec(0)
@@ -698,29 +693,40 @@ class Rob extends Module {
   //                   Expt Entry Instance
   //==========================================================
 
+  private val robExcept = Module(new RobExcept)
+  private val exceptIn = robExcept.io.in
+  private val exceptOut = robExcept.io.out
 
-  val robExcept = Module(new RobExcept)
-  val exceptIn = robExcept.io.in
-  val exceptOut = robExcept.io.out
-
-  val exceptOutEntry = Wire(new RobExceptEntryBundle)
-  val retireExceptInst0Abnormal = Wire(Bool())
-  val retireExceptInst0Valid = Wire(Bool())
-  val robRetireExceptInst0Iid = Wire(UInt(InstructionIdWidth.W))
+  private val exceptOutEntry = Wire(new RobExceptEntryBundle)
+  private val retireExceptInst0Abnormal = Wire(Bool())
+  private val retireExceptInst0Valid = Wire(Bool())
+  private val robExceptInst0Iid = Wire(UInt(InstructionIdWidth.W))
   val robRetireInst0Split = WireInit(io.out.toRetire.instVec(0).split)
 
-  exceptIn.fromCp0                  := io.in.fromCp0
-  exceptIn.fromIu.pipe0             := io.in.fromIu.pipe0
-  exceptIn.fromIu.pipe2             := io.in.fromIu.pipe2
-  exceptIn.fromLsu.pipe3            := io.in.fromLsu.pipe3
-  exceptIn.fromLsu.pipe4            := io.in.fromLsu.pipe4
-  exceptIn.fromPad                  := io.in.fromPad
-  exceptIn.fromRetire.inst0Abnormal := retireExceptInst0Abnormal
-  exceptIn.fromRetire.inst0Valid    := retireExceptInst0Valid
-  exceptIn.fromRetire.flush         := io.in.fromRetire.flush
-  exceptIn.fromRob.inst0Iid         := robRetireExceptInst0Iid
-  exceptIn.fromRob.inst0Split       := robRetireInst0Split
-  exceptIn.fromRtu.yyXxFlush        := io.in.fromRtu.yyXxFlush
+  exceptIn.fromCp0                    := io.in.fromCp0
+  exceptIn.fromIu.pipe0.cmplt         := io.in.fromIu.pipe0.cmplt
+  exceptIn.fromIu.pipe0.iid           := io.in.fromIu.pipe0.iid
+  exceptIn.fromIu.pipe0.abnormal      := io.in.fromIu.pipe0.abnormal
+  exceptIn.fromIu.pipe0.breakPoint    := io.in.fromIu.pipe0.breakPoint
+  exceptIn.fromIu.pipe0.efPc          := io.in.fromIu.pipe0.efPc
+  exceptIn.fromIu.pipe0.exceptVec     := io.in.fromIu.pipe0.exceptionVec
+  exceptIn.fromIu.pipe0.flush         := io.in.fromIu.pipe0.flush
+  exceptIn.fromIu.pipe0.highHwExcept  := io.in.fromIu.pipe0.highHwException
+  exceptIn.fromIu.pipe0.instMmuExcept := io.in.fromIu.pipe0.instMmuException
+  exceptIn.fromIu.pipe0.mtval         := io.in.fromIu.pipe0.mtval
+  exceptIn.fromIu.pipe0.vsetvl        := io.in.fromIu.pipe0.vsetvl
+  exceptIn.fromIu.pipe0.vstart        := io.in.fromIu.pipe0.vstart
+  exceptIn.fromIu.pipe0.instMmuExcept := io.in.fromIu.pipe0.instMmuException
+  exceptIn.fromIu.pipe2               := io.in.fromIu.pipe2
+  exceptIn.fromLsu.pipe3              := io.in.fromLsu.pipe3
+  exceptIn.fromLsu.pipe4              := io.in.fromLsu.pipe4
+  exceptIn.fromPad                    := io.in.fromPad
+  exceptIn.fromRetire.inst0Abnormal   := retireExceptInst0Abnormal
+  exceptIn.fromRetire.inst0Valid      := retireExceptInst0Valid
+  exceptIn.fromRetire.flush           := io.in.fromRetire.flush
+  exceptIn.fromRob.inst0Iid           := robExceptInst0Iid
+  exceptIn.fromRob.inst0Split         := robRetireInst0Split
+  exceptIn.fromRtu.yyXxFlush          := io.in.fromRtu.yyXxFlush
 
   exceptOutEntry                            := exceptOut.except
   io.out.toRetire.instExtra.bhtMispred      := exceptOut.toRetire.inst0.bhtMispred
@@ -735,7 +741,6 @@ class Rob extends Module {
   io.out.toRetire.instExtra.specFail        := exceptOut.toRetire.inst0.specFail
   io.out.toRetire.instExtra.specFailNoSsf   := exceptOut.toRetire.inst0.specFailNoSsf
   io.out.toRetire.instExtra.specFailSsf     := exceptOut.toRetire.inst0.specFailNoSsf
-//  io.out.toRetire.instExtra.split           := exceptOut.toRetire.inst0.split
   io.out.toRetire.instExtra.vsetvl          := exceptOut.toRetire.inst0.vsetvl
   io.out.toRetire.instExtra.vstart          := exceptOut.toRetire.inst0.vstart
   io.out.toRetire.splitSpecFailSrt      := exceptOut.toRetire.splitSpecFailSrt
@@ -745,36 +750,68 @@ class Rob extends Module {
   //==========================================================
   //                  Retire Entry Instance
   //==========================================================
-  val robRoute = Module(new RobRoute)
-  val routeIn = robRoute.io.in
-  val routeOut = robRoute.io.out
-  routeIn.fromCp0 := io.in.fromCp0
-  routeIn.fromExptEntry := exceptOutEntry
-  routeIn.fromHad := io.in.fromHad
-  routeIn.fromHpcp := io.in.fromHpcp
-  routeIn.fromIdu.fenceIdle := io.in.fromIdu.fenceIdle
-  routeIn.fromIfu := io.in.fromIfu
-  routeIn.fromIu.pcFifoPopDataVec := io.in.fromIu.pcFifoPopDataVec
-  routeIn.fromIu.pipe0.iid        := io.in.fromIu.pipe0.iid
-  routeIn.fromIu.pipe0.cmplt      := io.in.fromIu.pipe0.cmplt
-  routeIn.fromIu.pipe0.abnormal   := io.in.fromIu.pipe0.abnormal
-  routeIn.fromIu.pipe0.efPc       := io.in.fromIu.pipe0.efPc
-  routeIn.fromIu.pipe1.iid        := io.in.fromIu.pipe1.iid
-  routeIn.fromIu.pipe1.cmplt      := io.in.fromIu.pipe1.cmplt
-  routeIn.fromIu.pipe2.iid        := io.in.fromIu.pipe2.iid
-  routeIn.fromIu.pipe2.cmplt      := io.in.fromIu.pipe2.cmplt
-  routeIn.fromIu.pipe2.abnormal   := io.in.fromIu.pipe2.abnormal
-  routeIn.fromLsu                 := io.in.fromLsu
-  routeIn.fromPad                 := io.in.fromPad
-  routeIn.fromRetire              := io.in.fromRetire
+  private val robRetire = Module(new RobRetire)
+  private val retireIn = robRetire.io.in
+  private val retireOut = robRetire.io.out
+  retireIn.fromCp0 := io.in.fromCp0
+  retireIn.fromExptEntry := exceptOutEntry
+  retireIn.fromHad := io.in.fromHad
+  retireIn.fromHpcp := io.in.fromHpcp
+  retireIn.fromIdu.fenceIdle := io.in.fromIdu.fenceIdle
+  retireIn.fromIfu := io.in.fromIfu
+  retireIn.fromIu.pcFifoPopDataVec  := io.in.fromIu.pcFifoPopDataVec
+  retireIn.fromIu.pipe0.iid         := io.in.fromIu.pipe0.iid
+  retireIn.fromIu.pipe0.cmplt       := io.in.fromIu.pipe0.cmplt
+  retireIn.fromIu.pipe0.abnormal    := io.in.fromIu.pipe0.abnormal
+  retireIn.fromIu.pipe0.efPc        := io.in.fromIu.pipe0.efPc
+  retireIn.fromIu.pipe1.iid         := io.in.fromIu.pipe1.iid
+  retireIn.fromIu.pipe1.cmplt       := io.in.fromIu.pipe1.cmplt
+  retireIn.fromIu.pipe2.iid         := io.in.fromIu.pipe2.iid
+  retireIn.fromIu.pipe2.cmplt       := io.in.fromIu.pipe2.cmplt
+  retireIn.fromIu.pipe2.abnormal    := io.in.fromIu.pipe2.abnormal
+  retireIn.fromLsu.pipe3.wb.cmplt   := io.in.fromLsu.pipe3.wb.cmplt
+  retireIn.fromLsu.pipe3.wb.iid     := io.in.fromLsu.pipe3.wb.iid
+  retireIn.fromLsu.pipe3.wb.abnormal:= io.in.fromLsu.pipe3.wb.abnormal
+  retireIn.fromLsu.pipe3.wb.breakpointData:= io.in.fromLsu.pipe3.wb.breakpointData
+  retireIn.fromLsu.pipe3.wb.noSpec  := io.in.fromLsu.pipe3.wb.noSpec
+  retireIn.fromLsu.pipe4.wb.cmplt   := io.in.fromLsu.pipe4.wb.cmplt
+  retireIn.fromLsu.pipe4.wb.iid     := io.in.fromLsu.pipe4.wb.iid
+  retireIn.fromLsu.pipe4.wb.abnormal:= io.in.fromLsu.pipe4.wb.abnormal
+  retireIn.fromLsu.pipe4.wb.breakpointData:= io.in.fromLsu.pipe4.wb.breakpointData
+  retireIn.fromLsu.pipe4.wb.noSpec  := io.in.fromLsu.pipe4.wb.noSpec
+  retireIn.fromPad                  := io.in.fromPad
+  retireIn.fromRetire               := io.in.fromRetire
   for (i <- 0 until NumRobReadEntry) {
-    routeIn.fromRobReadData(i)    := robReadData(i)
-    routeIn.fromRobReadIid(i)     := robReadIidVec(i)
+    retireIn.fromRobReadData(i)    := robReadData(i)
+    retireIn.fromRobReadIid(i)     := robReadIidVec(i)
   }
-  routeIn.fromVfpu.pipe6          := io.in.fromVfpu.pipe6
-  routeIn.fromVfpu.pipe7          := io.in.fromVfpu.pipe7
-  io.out.toRetire.instVec         := routeOut.toRetire.instVec
-  io.out.toRetire.instExtra       := routeOut.toRetire.instExtra
-  // Todo: RobRoute output
+  retireIn.fromVfpu.pipe6          := io.in.fromVfpu.pipe6
+  retireIn.fromVfpu.pipe7          := io.in.fromVfpu.pipe7
+  io.out.toRetire.instVec         := retireOut.toRetire.instVec
+  io.out.toRetire.instExtra       := retireOut.toRetire.instExtra
 
+  retireEntryUpdateGateClkValid   := retireOut.retire.updateGateClkValid
+  retireEntryUpdateValidVec := retireOut.retire.entryUpdateValidVec
+  retireExceptInst0Valid := retireOut.retire.except.inst0Valid
+  retireExceptInst0Abnormal := retireOut.retire.except.inst0Abnormal
+  robDebugCommit0 := retireOut.toRob.debugCommit0
+  robExceptInst0Iid := retireOut.toRob.exceptInst0Iid
+  retireOut.toPst.zipWithIndex.foreach {
+    case (data, i) =>
+      io.out.toPst(i).iid := data.iid
+      io.out.toPst(i).gateClkValid := data.gateClkValid
+  }
+  io.out.toRetire.commitValidVec := retireOut.toRetire.commitValidVec
+  io.out.toRetire.ctcFlushSrtEn := retireOut.toRetire.ctcFlushSrtEn
+  io.out.toRetire.instVec   := retireOut.toRetire.instVec
+  io.out.toRetire.instExtra := retireOut.toRetire.instExtra
+  io.out.toRetire.robCurPc  := retireOut.toRetire.robCurPc
+  io.out.toTop.robCurPc     := retireOut.toTop.robCurPc
+  io.out.toCpu              := retireOut.toCpu
+  io.out.toHad              := retireOut.toHad
+  io.out.toHpcp             := retireOut.toHpcp
+  io.out.toIdu.retireInterruptValid := retireOut.toIdu.retireInterruptValid
+  io.out.toIu               := retireOut.toIu
+  io.out.toPad              := retireOut.toPad
+  io.out.yyXx               := retireOut.yyXx
 }

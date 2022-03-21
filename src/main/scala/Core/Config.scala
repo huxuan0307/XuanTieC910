@@ -15,12 +15,14 @@ trait IntConfig {
   def NumLogicRegs = 32
   def NumFPregs = 64
   def NumVPregs = 64
+  def NumEregs = 32
   def NumPhysicRegs = 96
   def OpcodeBits = 32
   def NumInstructionId = 128
   def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
   def NumFPregsBits : Int = log2Up(NumFPregs)
   def NumVPregsBits : Int = log2Up(NumVPregs)
+  def NumEregsBits : Int = log2Up(NumEregs)
   def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)
   def InstructionIdWidth : Int = log2Up(NumInstructionId)
   def XLEN = 64

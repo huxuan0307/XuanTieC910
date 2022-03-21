@@ -22,7 +22,7 @@ class PcFifoData extends Bundle {
   def checkIdx : UInt = pcNext(10, 3)
 }
 
-class RobRouteFromLsuBundle extends Bundle {
+class RobRetireFromLsuBundle extends Bundle {
   val wb        = new Bundle() {
     val iid       : UInt = UInt(InstructionIdWidth.W)
     val cmplt     : Bool = Bool()
@@ -32,7 +32,7 @@ class RobRouteFromLsuBundle extends Bundle {
   }
 }
 
-class RobRouteInput extends Bundle {
+class RobRetireInput extends Bundle {
   val fromCp0       = new RobFromCp0Bundle
   val fromExptEntry = new RobExceptEntryBundle
   val fromHad       = new RobFromHadBundle
@@ -61,10 +61,10 @@ class RobRouteInput extends Bundle {
     }
   }
   val fromLsu       = new Bundle() {
-    val pipe3       = new RobRouteFromLsuBundle
-    val pipe4       = new RobRouteFromLsuBundle
+    val pipe3       = new RobRetireFromLsuBundle
+    val pipe4       = new RobRetireFromLsuBundle
   }
-  val fromPad       = new RtuFromPad
+  val fromPad       = new RtuFromPadBundle
   val fromRetire    = new RobFromRetire {}
   val fromRobReadData : Vec[RobEntryData] = Vec(NumRobReadEntry, new RobEntryData)
   val fromRobReadIid  : Vec[UInt] = Vec(NumRobReadEntry, UInt(InstructionIdWidth.W))
@@ -72,7 +72,7 @@ class RobRouteInput extends Bundle {
   val fromVfpu = new RobFromVfpu
 }
 
-class RobRouteOutput extends Bundle {
+class RobRetireOutput extends Bundle {
   val retire = new Bundle() {
     val updateGateClkValid  : Bool = Bool()
     val entryUpdateValidVec : Vec[Bool] = Vec(NumRobReadEntry, Bool())
@@ -87,7 +87,7 @@ class RobRouteOutput extends Bundle {
     // Todo: check if needed move into retire bundle
     val exceptInst0Iid  : UInt = UInt(InstructionIdWidth.W)
   }
-  val pstRetire       = Vec(3, new Bundle() {
+  val toPst       = Vec(3, new Bundle() {
     val iid           : UInt = UInt(InstructionIdWidth.W)
     val gateClkValid  : Bool = Bool()
   })
@@ -108,12 +108,12 @@ class RobRouteOutput extends Bundle {
   val yyXx = new RobYyXx
 }
 
-class RobRouteIO extends Bundle {
-  val in  : RobRouteInput   = Input(new RobRouteInput)
-  val out : RobRouteOutput  = Output(new RobRouteOutput)
+class RobRetireIO extends Bundle {
+  val in  : RobRetireInput   = Input(new RobRetireInput)
+  val out : RobRetireOutput  = Output(new RobRetireOutput)
 }
 
-class RobRoute extends Module {
+class RobRetire extends Module {
   /**
    * Config
    */
@@ -126,7 +126,7 @@ class RobRoute extends Module {
    */
   def fpga = false
 
-  val io : RobRouteIO = IO(new RobRouteIO)
+  val io : RobRetireIO = IO(new RobRetireIO)
   class DebugRetireInfo extends Bundle {
     // Todo: imm
     val info        : UInt = UInt(22.W)
@@ -226,7 +226,7 @@ class RobRoute extends Module {
   private val robReadIidVec = WireInit(io.in.fromRobReadIid)
   // output for pst iid update
   for (i <- 0 until NumRobReadEntry) {
-    io.out.pstRetire(i).gateClkValid := robReadDataVec(i).ctrl.valid
+    io.out.toPst(i).gateClkValid := robReadDataVec(i).ctrl.valid
   }
   private val pipeCmpltVec = Wire(Vec(NumPipeline, Bool()))
   pipeCmpltVec(0) := io.in.fromIu.pipe0.cmplt
@@ -661,7 +661,7 @@ class RobRoute extends Module {
   //----------------------------------------------------------
 
   for (i <- 0 until NumRetireEntry) {
-    io.out.pstRetire(i).iid := retireInstVec(i).bits.data.iid
+    io.out.toPst(i).iid := retireInstVec(i).bits.data.iid
   }
   io.out.toRob.exceptInst0Iid := retireInstVec(0).bits.data.iid
   // Todo: check if need to add inst1/2.iid output
