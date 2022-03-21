@@ -58,6 +58,7 @@ abstract class RobFromRetire extends Bundle {
     val mispred : Bool = Bool()
   }
   val flush : Bool = Bool()
+  val flushState : UInt = UInt(FlushState.width.W)
   val flushGateClk : Bool = Bool()
   val instJmp : Vec[Bool] = Vec(3, Bool())
   val instFlush : Bool = Bool()
@@ -65,6 +66,7 @@ abstract class RobFromRetire extends Bundle {
   // flush of vector first only fault instruction
   val splitFofFlush : Bool = Bool()
   val srtEn : Bool = Bool()
+  val retireEmpty : Bool = Bool()
 }
 
 class RobFromVfpu extends Bundle {
@@ -85,22 +87,18 @@ abstract class RobFromPipeCommonBundle extends Bundle {
 }
 
 abstract class RobFromLsuPipeCommonBundle extends Bundle {
-  val da = new Bundle() {
-    val splitSpecFailIid = ValidIO(UInt(InstructionIdWidth.W))
-  }
-  val wb = new Bundle() {
-    val iid : UInt = UInt(InstructionIdWidth.W)
-    val cmplt : Bool = Bool()
-    val abnormal : Bool = Bool()
-    val breakpointData = new RobBreakpointDataBundle
-    val exceptVec = ValidIO(UInt(ExceptionVecWidth.W))
-    val flush : Bool = Bool()
-    val mtval : UInt = UInt(MtvalWidth.W)
-    val noSpec = new RobNoSpecBundle
-    val specFail : Bool = Bool()
-    val vstart = ValidIO(UInt(VlmaxBits.W))
-    val vsetvl : Bool = Bool()
-  }
+  val splitSpecFailIid = ValidIO(UInt(InstructionIdWidth.W))
+  val iid : UInt = UInt(InstructionIdWidth.W)
+  val cmplt : Bool = Bool()
+  val abnormal : Bool = Bool()
+  val breakpointData = new RobBreakpointDataBundle
+  val exceptVec = ValidIO(UInt(ExceptionVecWidth.W))
+  val flush : Bool = Bool()
+  val mtval : UInt = UInt(MtvalWidth.W)
+  val noSpec = new RobNoSpecBundle
+  val specFail : Bool = Bool()
+  val vstart = ValidIO(UInt(VlmaxBits.W))
+  val vsetvl : Bool = Bool()
 }
 
 class RobToRetireInstBundle extends Bundle {
@@ -170,6 +168,9 @@ abstract class RobToRetireBundle extends Bundle {
   val instVec = Vec(NumRetireEntry, new RobToRetireInstBundle)
   val instExtra = new RobToRetireInstExtraBundle
   val robCurPc : UInt = UInt(PcWidth.W)
+  val splitSpecFailSrt : Bool = Bool()
+  val intSrtEn : Bool = Bool()
+  val ssfIid : UInt = UInt(InstructionIdWidth.W)
 }
 
 class RobToCpu extends Bundle {

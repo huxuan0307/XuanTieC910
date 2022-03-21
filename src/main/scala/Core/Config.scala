@@ -47,6 +47,8 @@ trait ROBConfig {
 trait PipelineConfig {
   def NumIuPipe = 2
   def NumLsuPipe = 2
+  def NumLuPipe = 1
+  def NumSuPipe = 1
   def NumPipeline = 7
 }
 
