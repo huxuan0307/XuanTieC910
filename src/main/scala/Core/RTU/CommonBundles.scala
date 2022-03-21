@@ -42,7 +42,7 @@ class RobFromIfu extends Bundle {
   val curPcLoad : Bool = Bool()
 }
 
-class RtuFromPad extends Bundle {
+class RtuFromPadBundle extends Bundle {
   val yyIcgScanEn : Bool = Bool()
 }
 
@@ -73,7 +73,7 @@ class RobFromVfpu extends Bundle {
 }
 
 class RobCreateBundle extends Bundle {
-  val data : UInt = UInt(40.W)
+  val data = new RobEntryData
   val dpEn : Bool = Bool()
   val en : Bool = Bool()
   val gateClkEn : Bool = Bool()
@@ -92,14 +92,11 @@ abstract class RobFromLsuPipeCommonBundle extends Bundle {
     val iid : UInt = UInt(InstructionIdWidth.W)
     val cmplt : Bool = Bool()
     val abnormal : Bool = Bool()
-    val breakPointAData : Bool = Bool()
-    val breakPointBData : Bool = Bool()
+    val breakpointData = new RobBreakpointDataBundle
     val exceptVec = ValidIO(UInt(ExceptionVecWidth.W))
     val flush : Bool = Bool()
     val mtval : UInt = UInt(MtvalWidth.W)
-    val noSpecHit : Bool = Bool()
-    val noSpecMispred : Bool = Bool()
-    val noSpecMiss : Bool = Bool()
+    val noSpec = new RobNoSpecBundle
     val specFail : Bool = Bool()
     val vstart = ValidIO(UInt(VlmaxBits.W))
     val vsetvl : Bool = Bool()
@@ -239,4 +236,28 @@ class RobBreakpointInstBundle extends Bundle {
 class RobBreakpointBundle extends Bundle {
   val inst = new RobBreakpointInstBundle
   val data = new RobBreakpointDataBundle
+}
+
+class PstPregEntryCreateBundle extends Bundle {
+  val pregValid : Bool = Bool()
+  val dstReg : UInt = UInt(NumLogicRegsBits.W)
+  val preg : UInt = UInt(NumPhysicRegsBits.W)
+  val relPreg : UInt = UInt(NumPhysicRegsBits.W)
+  val iid : UInt = UInt(InstructionIdWidth.W)
+}
+
+class PstVFregEntryCreateBundle extends Bundle {
+  val vregValid : Bool = Bool()
+  val fregValid : Bool = Bool()
+  val dstReg : UInt = UInt(NumLogicRegsBits.W)
+  val preg : UInt = UInt(NumVPregsBits.W)
+  val relPreg : UInt = UInt(NumVPregsBits.W)
+  val iid : UInt = UInt(InstructionIdWidth.W)
+}
+
+class PstEregEntryCreateBundle extends Bundle {
+  val eregValid = Bool()
+  val ereg = UInt(NumEregsBits.W)
+  val relEreg = UInt(NumEregsBits.W)
+  val iid : UInt = UInt(InstructionIdWidth.W)
 }

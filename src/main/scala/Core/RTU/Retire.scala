@@ -10,6 +10,50 @@ import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
 import Utils.Bits.{sext, zext}
 
+// State Description:
+// AE_IDLE    : no asynchronous exception or LSU trigger async expt
+// AE_WFC     : wait for commiting inst retire, stop new inst commit
+// AE_WFI     : stop rob retire entry valid, wait for retire inst 0/1/2
+//              not valid and FLUSH state machine IDLE and ifu fetch vec addr
+// AE_EXPT    : signal IFU expt valid, trigger FLUSH state machine
+object AsyncExceptState {
+  def size : Int = 4
+  def width : Int = log2Up(size)
+  val idle :: wfc :: wfi :: except :: Nil = Enum(size)
+}
+
+// State Description:
+// FLUSH_IDLE  : no flush or retiring inst 0 will trigger flush.
+//               if triggering, stop commit, flush ROB, retire/expt entry
+// FLUSH_IS    : flush IDU IS/RF, flush IDU ptag pool, start to stall
+//               IDU ID, stall IDU ID
+// FLUSH_FE    : flush IFU and IDU ID/IR/IS/RF, flush IDU ptag pool,
+//               stall IDU ID
+// WF_EMPTY    : wait PST retired and released entry WB, stall IDU ID
+// FLUSH_BE    : flush PST, recover rename table,
+//               stop IDU ID mispred stall, stall IDU ID
+// FLUSH_IS_BE : flush IS and flush backend
+// FLUSH_FE_BE : flush frontend and flush backend
+object FlushState {
+  def size = 7
+
+  def width = 5
+
+  def idle    : UInt = "b00001".U(width.W)
+  def is      : UInt = "b00010".U(width.W)
+  def fe      : UInt = "b00100".U(width.W)
+  def wfEmpty : UInt = "b01000".U(width.W)
+  def be      : UInt = "b10000".U(width.W)
+  //
+  def is_be   : UInt = (is.litValue | be.litValue).U
+  def fe_be   : UInt = (fe.litValue | be.litValue).U
+
+  def hasStateIs(src : UInt) : Bool = src(1)
+
+  def hasStateFe(src : UInt) : Bool = src(2)
+
+  def hasStateBe(src : UInt) : Bool = src(4)
+}
 
 class RetireFromCp0Bundle extends Bundle {
   val icgEn : Bool = Bool()
@@ -35,6 +79,7 @@ class RetireFromHadBundle extends Bundle {
 
 class RetireFromLsuBundle extends Bundle {
   val allCommitDataValid : Bool = Bool()
+  // Todo: imm
   val asyncExceptAddr : UInt = UInt(40.W)
   val asyncExceptValid : Bool = Bool()
   val ctcFlushValid : Bool = Bool()
@@ -54,7 +99,7 @@ class RetireInput extends Bundle {
   val fromHpcp = new RtuFromHpcpBundle
   val fromLsu = new RetireFromLsuBundle
   val fromMmu = new RetireFromMmuBundle
-  val fromPad = new RtuFromPad
+  val fromPad = new RtuFromPadBundle
   val fromPst = new RetireFromPstBundle
   val fromRob = Output(new RobToRetireBundle {
     val splitSpecFailSrt : Bool = Bool()
@@ -70,7 +115,7 @@ class RetireToPst extends Bundle {
   val wbInstEregValid : Vec[Bool] = Vec(3, Bool())
 }
 
-class RtuToCp0 extends Bundle {
+class RtuToCp0Bundle extends Bundle {
   val epc : UInt = UInt(XLEN.W)
   val exceptGateClkValid : Bool = Bool()
   // Todo: imm
@@ -87,7 +132,7 @@ class RtuToCp0 extends Bundle {
   val vStart = ValidIO(UInt(VlmaxBits.W))
 }
 
-class RetireToHad extends Bundle {
+class RetireToHadBundle extends Bundle {
   val debugAckInfo : Bool = Bool()
   val debugReqAck : Bool = Bool()
   val inst0BreakpointInst : Bool = Bool()
@@ -108,6 +153,7 @@ class RetireToHad extends Bundle {
     val instVec : Vec[RetireToHadPcFifo] = Vec(3, new RetireToHadPcFifo)
     val inst0Iid : UInt = UInt(InstructionIdWidth.W)
   }
+  val splitInst = Bool()
 }
 
 class RetireToHpcp extends Bundle {
@@ -138,7 +184,7 @@ class RetireToHpcp extends Bundle {
   val traceVec : Vec[RetireToHpcpTrace] = Vec(3, new RetireToHpcpTrace)
 }
 
-class RetireToIdu extends Bundle {
+class RetireToIduBundle extends Bundle {
   val flushFe : Bool = Bool()
   val flushIs : Bool = Bool()
   val flushStall : Bool = Bool()
@@ -146,7 +192,7 @@ class RetireToIdu extends Bundle {
   val srtEn : Bool = Bool()
 }
 
-class RetireToIfu extends Bundle {
+class RetireToIfuBundle extends Bundle {
   val changeFlowPc : UInt = UInt(PcWidth.W)
   val changeFlowValid : Bool = Bool()
   val flush : Bool = Bool()
@@ -202,7 +248,7 @@ class RetireToLsu extends Bundle {
   val specFailIid : UInt = UInt(InstructionIdWidth.W)
 }
 
-class RetireToMmu extends Bundle {
+class RetireToMmuBundle extends Bundle {
   // Todo: imm
   val badVpn : UInt = UInt(27.W)
   val exceptValid : Bool = Bool()
@@ -219,14 +265,14 @@ class RetireOutput extends Bundle {
     // Todo: imm
     val aeStateCur : UInt = UInt(2.W)
   }
-  val toCp0 = new RtuToCp0
-  val toHad = new RetireToHad
+  val toCp0 = new RtuToCp0Bundle
+  val toHad = new RetireToHadBundle
   val toHpcp = new RetireToHpcp
-  val toIdu = new RetireToIdu
-  val toIfu = new RetireToIfu
+  val toIdu = new RetireToIduBundle
+  val toIfu = new RetireToIfuBundle
   val toIu = new RetireToIu
   val toLsu = new RetireToLsu
-  val toMmu = new RetireToMmu
+  val toMmu = new RetireToMmuBundle
   val yyXx = new Bundle {
     val debugOn : Bool = Bool()
     val exceptVec : UInt = UInt(6.W)
@@ -252,51 +298,6 @@ class Retire extends Module {
   private val rob = io.in.fromRob
   private val pad = io.in.fromPad
 
-  // State Description:
-  // AE_IDLE    : no asynchronous exception or LSU trigger async expt
-  // AE_WFC     : wait for commiting inst retire, stop new inst commit
-  // AE_WFI     : stop rob retire entry valid, wait for retire inst 0/1/2
-  //              not valid and FLUSH state machine IDLE and ifu fetch vec addr
-  // AE_EXPT    : signal IFU expt valid, trigger FLUSH state machine
-
-  object AsyncExceptState {
-    def size : Int = 4
-    def width : Int = log2Up(size)
-    val idle :: wfc :: wfi :: except :: Nil = Enum(size)
-  }
-
-  // State Description:
-  // FLUSH_IDLE  : no flush or retiring inst 0 will trigger flush.
-  //               if triggering, stop commit, flush ROB, retire/expt entry
-  // FLUSH_IS    : flush IDU IS/RF, flush IDU ptag pool, start to stall
-  //               IDU ID, stall IDU ID
-  // FLUSH_FE    : flush IFU and IDU ID/IR/IS/RF, flush IDU ptag pool,
-  //               stall IDU ID
-  // WF_EMPTY    : wait PST retired and released entry WB, stall IDU ID
-  // FLUSH_BE    : flush PST, recover rename table,
-  //               stop IDU ID mispred stall, stall IDU ID
-  // FLUSH_IS_BE : flush IS and flush backend
-  // FLUSH_FE_BE : flush frontend and flush backend
-  object FlushState {
-    def size = 7
-
-    def width = 5
-
-    def idle    : UInt = "b00001".U(width.W)
-    def is      : UInt = "b00010".U(width.W)
-    def fe      : UInt = "b00100".U(width.W)
-    def wfEmpty : UInt = "b01000".U(width.W)
-    def be      : UInt = "b10000".U(width.W)
-    //
-    def is_be   : UInt = (is.litValue | be.litValue).U
-    def fe_be   : UInt = (fe.litValue | be.litValue).U
-
-    def hasStateIs(src : UInt) : Bool = src(1)
-
-    def hasStateFe(src : UInt) : Bool = src(2)
-
-    def hasStateBe(src : UInt) : Bool = src(4)
-  }
   /**
    * States
    */
@@ -407,6 +408,7 @@ class Retire extends Module {
   }.elsewhen(rob.instExtra.instMmuException && !rob.instExtra.highHwException) {
     exceptMtvalSrc := Cat(rob.instVec(0).pc, 0.U(1.W))
   }.elsewhen(rob.instExtra.instMmuException) {
+    // Todo: imm
     //32 bit inst cross 4k page fault, high half-word is 4k align of next pc
     exceptMtvalSrc := Cat(rob.instVec(0).npc(38,11), 0.U(12.W))
   }.otherwise {
@@ -707,6 +709,8 @@ class Retire extends Module {
     rob.instVec(0).pc,
     rob.robCurPc
   )
+
+  io.out.toHad.splitInst := rob.instVec(0).split
 
   //for HAD PCFIFO
   for (i <- 0 until NumRetireEntry) {

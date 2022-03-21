@@ -46,16 +46,13 @@ class RobEntryData extends Bundle {
 }
 
 class RobEntryPipe extends Bundle {
-  val wbBreakpointAData : Bool = Bool()
-  val wbBreakpointBData : Bool = Bool()
-  val wbNoSpecHit       : Bool = Bool()
-  val wbNoSpecMispred   : Bool = Bool()
-  val wbNoSpecMiss      : Bool = Bool()
+  val wbBreakpointData = new RobBreakpointDataBundle
+  val wbNoSpec          : RobNoSpecBundle = new RobNoSpecBundle
 }
 
 class RobEntryInput extends Bundle {
   val fromCp0 = new Bundle() {
-    val rtuIcgEn  : Bool = Bool()
+    val icgEn  : Bool = Bool()
     val yyClkEn   : Bool = Bool()
   }
   val fromIdu = new Bundle() {
@@ -220,20 +217,20 @@ class RobEntry extends Module {
   //bkpta_data and bkptb_data can only from pipe3/4
   // Todo : imm
   private val breakpointADataUpdate =
-    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointAData ||
-      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointAData
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointData.a ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointData.a
   private val breakpointBDataUpdate =
-    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointBData ||
-      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointBData
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbBreakpointData.b ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbBreakpointData.b
   private val noSpecHitUpdate =
-    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecHit ||
-      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecHit
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpec.hit ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpec.hit
   private val noSpecMissUpdate =
-    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecMiss ||
-      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecMiss
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpec.miss ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpec.miss
   private val noSpecMispredUpdate =
-    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpecMispred ||
-      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpecMispred
+    io.in.x.cmpltValidVec(3) && io.in.fromLsu.pipe3.wbNoSpec.mispred ||
+      io.in.x.cmpltValidVec(4) && io.in.fromLsu.pipe4.wbNoSpec.mispred
 
   //==========================================================
   //              Instruction Create Information
