@@ -23,13 +23,11 @@ class PcFifoData extends Bundle {
 }
 
 class RobRetireFromLsuBundle extends Bundle {
-  val wb        = new Bundle() {
-    val iid       : UInt = UInt(InstructionIdWidth.W)
-    val cmplt     : Bool = Bool()
-    val abnormal  : Bool = Bool()
-    val breakpointData = new RobBreakpointDataBundle
-    val noSpec  = new RobNoSpecBundle
-  }
+  val iid       : UInt = UInt(InstructionIdWidth.W)
+  val cmplt     : Bool = Bool()
+  val abnormal  : Bool = Bool()
+  val breakpointData = new RobBreakpointDataBundle
+  val noSpec  = new RobNoSpecBundle
 }
 
 class RobRetireInput extends Bundle {
@@ -91,9 +89,7 @@ class RobRetireOutput extends Bundle {
     val iid           : UInt = UInt(InstructionIdWidth.W)
     val gateClkValid  : Bool = Bool()
   })
-  val toRetire = new RobToRetireBundle {
-    val interruptSrtEn : Bool = Bool()
-  }
+  val toRetire = new RobToRetireBundle {}
   val toTop = new Bundle() {
     val robCurPc : UInt = UInt(7.W)
   }
@@ -232,16 +228,16 @@ class RobRetire extends Module {
   pipeCmpltVec(0) := io.in.fromIu.pipe0.cmplt
   pipeCmpltVec(1) := io.in.fromIu.pipe1.cmplt
   pipeCmpltVec(2) := io.in.fromIu.pipe2.cmplt
-  pipeCmpltVec(3) := io.in.fromLsu.pipe3.wb.cmplt
-  pipeCmpltVec(4) := io.in.fromLsu.pipe4.wb.cmplt
+  pipeCmpltVec(3) := io.in.fromLsu.pipe3.cmplt
+  pipeCmpltVec(4) := io.in.fromLsu.pipe4.cmplt
   pipeCmpltVec(5) := io.in.fromVfpu.pipe6.cmplt
   pipeCmpltVec(6) := io.in.fromVfpu.pipe7.cmplt
   private val pipeIidVec = Wire(Vec(NumPipeline, UInt(InstructionIdWidth.W)))
   pipeIidVec(0) := io.in.fromIu.pipe0.iid
   pipeIidVec(1) := io.in.fromIu.pipe1.iid
   pipeIidVec(2) := io.in.fromIu.pipe2.iid
-  pipeIidVec(3) := io.in.fromLsu.pipe3.wb.iid
-  pipeIidVec(4) := io.in.fromLsu.pipe4.wb.iid
+  pipeIidVec(3) := io.in.fromLsu.pipe3.iid
+  pipeIidVec(4) := io.in.fromLsu.pipe4.iid
   pipeIidVec(5) := io.in.fromVfpu.pipe6.iid
   pipeIidVec(6) := io.in.fromVfpu.pipe7.iid
   private val pipeAbnormalVec = Wire(Vec(NumPipeline, Bool()))
@@ -249,8 +245,8 @@ class RobRetire extends Module {
   pipeAbnormalVec(0) := io.in.fromIu.pipe0.abnormal
   pipeAbnormalVec(1) := false.B
   pipeAbnormalVec(2) := io.in.fromIu.pipe2.abnormal
-  pipeAbnormalVec(3) := io.in.fromLsu.pipe3.wb.abnormal
-  pipeAbnormalVec(4) := io.in.fromLsu.pipe4.wb.abnormal
+  pipeAbnormalVec(3) := io.in.fromLsu.pipe3.abnormal
+  pipeAbnormalVec(4) := io.in.fromLsu.pipe4.abnormal
   pipeAbnormalVec(5) := false.B
   pipeAbnormalVec(6) := false.B
   private val pipeBreakpointVec = Wire(Vec(NumPipeline, new RobBreakpointDataBundle))
@@ -258,8 +254,8 @@ class RobRetire extends Module {
   pipeBreakpointVec(0) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(1) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(2) := 0.U.asTypeOf(new RobBreakpointDataBundle)
-  pipeBreakpointVec(3) := io.in.fromLsu.pipe3.wb.breakpointData
-  pipeBreakpointVec(4) := io.in.fromLsu.pipe4.wb.breakpointData
+  pipeBreakpointVec(3) := io.in.fromLsu.pipe3.breakpointData
+  pipeBreakpointVec(4) := io.in.fromLsu.pipe4.breakpointData
   pipeBreakpointVec(5) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(6) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   private val pipeNoSpecVec = Wire(Vec(NumPipeline, new RobNoSpecBundle))
@@ -267,8 +263,8 @@ class RobRetire extends Module {
   pipeNoSpecVec(0) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(1) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(2) := 0.U.asTypeOf(new RobNoSpecBundle)
-  pipeNoSpecVec(3) := io.in.fromLsu.pipe3.wb.noSpec
-  pipeNoSpecVec(4) := io.in.fromLsu.pipe4.wb.noSpec
+  pipeNoSpecVec(3) := io.in.fromLsu.pipe3.noSpec
+  pipeNoSpecVec(4) := io.in.fromLsu.pipe4.noSpec
   pipeNoSpecVec(5) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(6) := 0.U.asTypeOf(new RobNoSpecBundle)
 
@@ -723,7 +719,7 @@ class RobRetire extends Module {
     !io.in.fromCp0.xxIntB && !io.in.fromHad.xxTme && !robCommitIid(2).valid
   robRead0InterruptVec.bits := io.in.fromCp0.xxVec
 
-  io.out.toRetire.interruptSrtEn := robRead0InterruptVec.valid
+  io.out.toRetire.intSrtEn := robRead0InterruptVec.valid
   private val interruptCommitMask = !io.in.fromCp0.xxIntB && !io.in.fromHad.xxTme
 
   //----------------------------------------------------------
@@ -1166,6 +1162,8 @@ class RobRetire extends Module {
   io.out.toRetire.instExtra.vsetvl := DontCare
   io.out.toRetire.instExtra.vstart := DontCare
 
-
+  io.out.toRetire.splitSpecFailSrt := DontCare
+  io.out.toRetire.intSrtEn := DontCare
+  io.out.toRetire.ssfIid := DontCare
 
 }

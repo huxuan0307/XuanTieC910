@@ -8,10 +8,6 @@ import Core.PipelineConfig._
 
 import scala.language.postfixOps
 
-class PstPregOHBundle extends Bundle {
-  val pregOH : Vec[Bool] = Vec(NumPhysicRegs, Bool())
-}
-
 class PstPregInput extends Bundle {
   class PstFromIdu extends Bundle {
     val allocGateClkValid : Bool = Bool()
@@ -27,20 +23,17 @@ class PstPregInput extends Bundle {
     val wbRetireInstPregValid : Vec[Bool] = Vec(NumRetireEntry, Bool())
   }
   class PstFromRob extends Bundle {
-    class PstFromRobData extends Bundle {
-      val gateClkValid : Bool = Bool()
-      val iidUpdate : UInt = UInt(InstructionIdWidth.W)
-    }
-    val data : Vec[PstFromRobData] = Vec(NumRetireEntry, new PstFromRobData)
+    val gateClkValid = Vec(NumRetireEntry, Bool())
+    val iidUpdate = Vec(NumRetireEntry, UInt(InstructionIdWidth.W))
   }
   class PstFromRtu extends Bundle {
     val yyXxFlush : Bool = Bool()
   }
   class PstFromIu extends Bundle {
-    val data : Vec[ValidIO[PstPregOHBundle]] = Vec(NumAlu, ValidIO(new PstPregOHBundle))
+    val wbData : Vec[ValidIO[Vec[Bool]]] = Vec(NumIuPipe, ValidIO(Vec(NumPhysicRegs, Bool())))
   }
   class PstFromLsu extends Bundle {
-    val data : Vec[ValidIO[PstPregOHBundle]] = Vec(NumLu, ValidIO(new PstPregOHBundle))
+    val wbData : Vec[ValidIO[Vec[Bool]]] = Vec(NumLu, ValidIO(Vec(NumPhysicRegs, Bool())))
   }
   val fromCp0 = new RegEntryFromCp0Bundle
   val fromIdu = new PstFromIdu
@@ -162,8 +155,8 @@ class PstPreg extends Module {
       in.fromRetire.asyncFlush := io.in.fromRetire.asyncFlush
       in.fromRob.bits.zipWithIndex.foreach {
         case (entry, i) =>
-          entry.iidUpdate := io.in.fromRob.data(i).iidUpdate
-          entry.gateClkValid := io.in.fromRob.data(i).gateClkValid
+          entry.iidUpdate := io.in.fromRob.iidUpdate(i)
+          entry.gateClkValid := io.in.fromRob.gateClkValid(i)
       }
       in.fromRtu.yyXxFlush := io.in.fromRtu.yyXxFlush
 
@@ -219,8 +212,8 @@ class PstPreg extends Module {
   //==========================================================
   wbValid.zipWithIndex.foreach {
     case (wb_valid, i) =>
-      wb_valid := iu.data.map(data=>data.valid && data.bits.pregOH(i)).reduce(_||_) ||
-        lsu.data.map(data=>data.valid && data.bits.pregOH(i)).reduce(_||_)
+      wb_valid := iu.wbData.map(data=>data.valid && data.bits(i)).reduce(_||_) ||
+        lsu.wbData.map(data=>data.valid && data.bits(i)).reduce(_||_)
   }
 
   //==========================================================

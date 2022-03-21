@@ -55,8 +55,7 @@ class RobInput extends Bundle {
   }
   val fromPad = new RtuFromPadBundle
   val fromRetire = new RobFromRetire {
-    val flushCurState : UInt = UInt(FlushState.width.W)
-    val retireEmpty : Bool = Bool()
+
   }
   val fromRtu = new Bundle() {
     val yyXxFlush : Bool = Bool()
@@ -65,28 +64,25 @@ class RobInput extends Bundle {
 }
 
 class RobOutput extends Bundle {
-  // Todo: imm
-  val toPst = Vec(3, new Bundle() {
-    val iid : UInt = UInt(InstructionIdWidth.W)
-    val iidUpdateVal : UInt = UInt(InstructionIdWidth.W)
-    val gateClkValid : Bool = Bool()
-  })
-  val toRetire = new RobToRetireBundle {
-    val splitSpecFailSrt : Bool = Bool()
-    val ssfIid : UInt = UInt(InstructionIdWidth.W)
+  class RobToPst extends Bundle {
+    val iid : Vec[UInt] = Vec(NumRetireEntry, UInt(InstructionIdWidth.W))
+    val iidUpdate : Vec[UInt] = Vec(NumRetireEntry, UInt(InstructionIdWidth.W))
+    val gateClkValid : Vec[Bool] = Vec(NumRetireEntry, Bool())
   }
+  val toPst = new RobToPst
+  val toRetire = new RobToRetireBundle {}
   val toTop = new Bundle() {
     val commit0 : Bool = Bool()
     val commitStNoValid : Bool = Bool()
     val create0Iid : UInt = UInt(InstructionIdWidth.W)
     // Todo: imm
     val entryNum : UInt = UInt(NumRobEntry.W)
-    val flushCurState : UInt = UInt(FlushState.width.W)
+    val flushState : UInt = UInt(FlushState.width.W)
     val read0Iid : UInt = UInt(InstructionIdWidth.W)
     // Todo: imm
     val robCurPc : UInt = UInt(7.W)
     val robFull : Bool = Bool()
-    val ssfStateCur : UInt = UInt(SsfState.width.W)
+    val ssfState : UInt = UInt(SsfState.width.W)
   }
   val toCpu = new RobToCpu
   // Todo: figure out
@@ -110,7 +106,7 @@ class RobOutput extends Bundle {
 }
 
 class RobIO extends Bundle {
-  val in : RobInput = Input(new RobInput)
+  val in : RobInput = Flipped(Output(new RobInput))
   val out : RobOutput = Output(new RobOutput)
 }
 
@@ -181,10 +177,10 @@ class Rob extends Module {
       case (data, i) => data := io.in.fromIdu.robCreate(i).data
     }
     in.fromLsu.miscCmpltGateClkEn := miscCmpltGateClkEn
-    in.fromLsu.pipe3.wbNoSpec  := io.in.fromLsu.pipe3.wb.noSpec
-    in.fromLsu.pipe3.wbBreakpointData := io.in.fromLsu.pipe3.wb.breakpointData
-    in.fromLsu.pipe4.wbNoSpec  := io.in.fromLsu.pipe4.wb.noSpec
-    in.fromLsu.pipe4.wbBreakpointData := io.in.fromLsu.pipe4.wb.breakpointData
+    in.fromLsu.pipe3.wbNoSpec  := io.in.fromLsu.pipe3.noSpec
+    in.fromLsu.pipe3.wbBreakpointData := io.in.fromLsu.pipe3.breakpointData
+    in.fromLsu.pipe4.wbNoSpec  := io.in.fromLsu.pipe4.noSpec
+    in.fromLsu.pipe4.wbBreakpointData := io.in.fromLsu.pipe4.breakpointData
     in.fromPad := io.in.fromPad
     in.fromRetire := io.in.fromRetire
     in.x.cmpltGateClkValid :=  entryCmpltGateClkValidVec(i)
@@ -220,10 +216,10 @@ class Rob extends Module {
     }
     in.fromLsu.miscCmpltGateClkEn := miscCmpltGateClkEn
     // Todo: simplify wire connection
-    in.fromLsu.pipe3.wbNoSpec           := io.in.fromLsu.pipe3.wb.noSpec
-    in.fromLsu.pipe3.wbBreakpointData   := io.in.fromLsu.pipe3.wb.breakpointData
-    in.fromLsu.pipe4.wbNoSpec           := io.in.fromLsu.pipe4.wb.noSpec
-    in.fromLsu.pipe4.wbBreakpointData   := io.in.fromLsu.pipe4.wb.breakpointData
+    in.fromLsu.pipe3.wbNoSpec           := io.in.fromLsu.pipe3.noSpec
+    in.fromLsu.pipe3.wbBreakpointData   := io.in.fromLsu.pipe3.breakpointData
+    in.fromLsu.pipe4.wbNoSpec           := io.in.fromLsu.pipe4.noSpec
+    in.fromLsu.pipe4.wbBreakpointData   := io.in.fromLsu.pipe4.breakpointData
     in.fromPad                          := io.in.fromPad
     in.fromRetire.flush                 := io.in.fromRetire.flush
     in.fromRetire.flushGateClk          := io.in.fromRetire.flushGateClk
@@ -382,8 +378,8 @@ class Rob extends Module {
   PipeIidLsbVec(0) := io.in.fromIu.pipe0.iid(5,0)
   PipeIidLsbVec(1) := io.in.fromIu.pipe1.iid(5,0)
   PipeIidLsbVec(2) := io.in.fromIu.pipe2.iid(5,0)
-  PipeIidLsbVec(3) := io.in.fromLsu.pipe3.wb.iid(5,0)
-  PipeIidLsbVec(4) := io.in.fromLsu.pipe4.wb.iid(5,0)
+  PipeIidLsbVec(3) := io.in.fromLsu.pipe3.iid(5,0)
+  PipeIidLsbVec(4) := io.in.fromLsu.pipe4.iid(5,0)
   PipeIidLsbVec(5) := io.in.fromVfpu.pipe6.iid(5,0)
   PipeIidLsbVec(6) := io.in.fromVfpu.pipe7.iid(5,0)
 
@@ -394,8 +390,8 @@ class Rob extends Module {
   completeOHVec(0) := UIntToOH(PipeIidLsbVec(0)) & Fill(NumRobEntry, io.in.fromIu.pipe0.cmplt)
   completeOHVec(1) := UIntToOH(PipeIidLsbVec(1)) & Fill(NumRobEntry, io.in.fromIu.pipe1.cmplt)
   completeOHVec(2) := UIntToOH(PipeIidLsbVec(2)) & Fill(NumRobEntry, io.in.fromIu.pipe2.cmplt)
-  completeOHVec(3) := UIntToOH(PipeIidLsbVec(3)) & Fill(NumRobEntry, io.in.fromLsu.pipe3.wb.cmplt)
-  completeOHVec(4) := UIntToOH(PipeIidLsbVec(4)) & Fill(NumRobEntry, io.in.fromLsu.pipe4.wb.cmplt)
+  completeOHVec(3) := UIntToOH(PipeIidLsbVec(3)) & Fill(NumRobEntry, io.in.fromLsu.pipe3.cmplt)
+  completeOHVec(4) := UIntToOH(PipeIidLsbVec(4)) & Fill(NumRobEntry, io.in.fromLsu.pipe4.cmplt)
   completeOHVec(5) := UIntToOH(PipeIidLsbVec(5)) & Fill(NumRobEntry, io.in.fromVfpu.pipe6.cmplt)
   completeOHVec(6) := UIntToOH(PipeIidLsbVec(6)) & Fill(NumRobEntry, io.in.fromVfpu.pipe7.cmplt)
 
@@ -411,12 +407,12 @@ class Rob extends Module {
   //                 lsu cmplt info gateclk en
   //----------------------------------------------------------
   miscCmpltGateClkEn :=
-    io.in.fromLsu.pipe3.wb.cmplt &&
-      (io.in.fromLsu.pipe3.wb.breakpointData.a || io.in.fromLsu.pipe3.wb.breakpointData.b ||
-      io.in.fromLsu.pipe3.wb.noSpec.hit || io.in.fromLsu.pipe3.wb.noSpec.miss || io.in.fromLsu.pipe3.wb.noSpec.mispred) ||
-    io.in.fromLsu.pipe4.wb.cmplt &&
-      (io.in.fromLsu.pipe4.wb.breakpointData.a || io.in.fromLsu.pipe4.wb.breakpointData.b ||
-      io.in.fromLsu.pipe4.wb.noSpec.hit || io.in.fromLsu.pipe4.wb.noSpec.miss || io.in.fromLsu.pipe4.wb.noSpec.mispred)
+    io.in.fromLsu.pipe3.cmplt &&
+      (io.in.fromLsu.pipe3.breakpointData.a || io.in.fromLsu.pipe3.breakpointData.b ||
+      io.in.fromLsu.pipe3.noSpec.hit || io.in.fromLsu.pipe3.noSpec.miss || io.in.fromLsu.pipe3.noSpec.mispred) ||
+    io.in.fromLsu.pipe4.cmplt &&
+      (io.in.fromLsu.pipe4.breakpointData.a || io.in.fromLsu.pipe4.breakpointData.b ||
+      io.in.fromLsu.pipe4.noSpec.hit || io.in.fromLsu.pipe4.noSpec.miss || io.in.fromLsu.pipe4.noSpec.mispred)
 
   //==========================================================
   //              Read Port for Retire Entry
@@ -516,15 +512,15 @@ class Rob extends Module {
   pipeCompleteVec(0) := io.in.fromIu.pipe0.cmplt
   pipeCompleteVec(1) := io.in.fromIu.pipe1.cmplt
   pipeCompleteVec(2) := io.in.fromIu.pipe2.cmplt
-  pipeCompleteVec(3) := io.in.fromLsu.pipe3.wb.cmplt
-  pipeCompleteVec(4) := io.in.fromLsu.pipe4.wb.cmplt
+  pipeCompleteVec(3) := io.in.fromLsu.pipe3.cmplt
+  pipeCompleteVec(4) := io.in.fromLsu.pipe4.cmplt
   pipeCompleteVec(5) := io.in.fromVfpu.pipe6.cmplt
   pipeCompleteVec(6) := io.in.fromVfpu.pipe7.cmplt
   pipeIidVec(0) := io.in.fromIu.pipe0.iid(NumRobEntryBits - 1, 0)
   pipeIidVec(1) := io.in.fromIu.pipe1.iid(NumRobEntryBits - 1, 0)
   pipeIidVec(2) := io.in.fromIu.pipe2.iid(NumRobEntryBits - 1, 0)
-  pipeIidVec(3) := io.in.fromLsu.pipe3.wb.iid
-  pipeIidVec(4) := io.in.fromLsu.pipe4.wb.iid
+  pipeIidVec(3) := io.in.fromLsu.pipe3.iid
+  pipeIidVec(4) := io.in.fromLsu.pipe4.iid
   pipeIidVec(5) := io.in.fromVfpu.pipe6.iid
   pipeIidVec(6) := io.in.fromVfpu.pipe7.iid
 
@@ -599,7 +595,7 @@ class Rob extends Module {
 
   // Todo: imm
   for (i <- 0 until 3) {
-    io.out.toPst(i).iidUpdateVal := robReadIidVec(i)
+    io.out.toPst.iidUpdate(i) := robReadIidVec(i)
   }
 
   for (i <- 0 until NumCommitEntry) {
@@ -676,7 +672,7 @@ class Rob extends Module {
     debugInfoRobEntryNum        := robEntryNum
     debugInfoRobCommit0         := robDebugCommit0
     debugInfoRobCommitStNoValid := !io.in.fromLsu.allCommitDataValid
-    debugInfoFlushCurState      := io.in.fromRetire.flushCurState
+    debugInfoFlushCurState      := io.in.fromRetire.flushState
   }.otherwise {
     // maintain
   }
@@ -687,7 +683,7 @@ class Rob extends Module {
   io.out.toTop.entryNum         := debugInfoRobEntryNum
   io.out.toTop.commit0          := debugInfoRobCommit0
   io.out.toTop.commitStNoValid  := debugInfoRobCommitStNoValid
-  io.out.toTop.flushCurState    := debugInfoFlushCurState
+  io.out.toTop.flushState    := debugInfoFlushCurState
 
   //==========================================================
   //                   Expt Entry Instance
@@ -745,7 +741,7 @@ class Rob extends Module {
   io.out.toRetire.instExtra.vstart          := exceptOut.toRetire.inst0.vstart
   io.out.toRetire.splitSpecFailSrt      := exceptOut.toRetire.splitSpecFailSrt
   io.out.toRetire.ssfIid                := exceptOut.toRetire.ssfIid
-  io.out.toTop.ssfStateCur              := exceptOut.toTop.ssfStateCur
+  io.out.toTop.ssfState              := exceptOut.toTop.ssfStateCur
 
   //==========================================================
   //                  Retire Entry Instance
@@ -769,16 +765,16 @@ class Rob extends Module {
   retireIn.fromIu.pipe2.iid         := io.in.fromIu.pipe2.iid
   retireIn.fromIu.pipe2.cmplt       := io.in.fromIu.pipe2.cmplt
   retireIn.fromIu.pipe2.abnormal    := io.in.fromIu.pipe2.abnormal
-  retireIn.fromLsu.pipe3.wb.cmplt   := io.in.fromLsu.pipe3.wb.cmplt
-  retireIn.fromLsu.pipe3.wb.iid     := io.in.fromLsu.pipe3.wb.iid
-  retireIn.fromLsu.pipe3.wb.abnormal:= io.in.fromLsu.pipe3.wb.abnormal
-  retireIn.fromLsu.pipe3.wb.breakpointData:= io.in.fromLsu.pipe3.wb.breakpointData
-  retireIn.fromLsu.pipe3.wb.noSpec  := io.in.fromLsu.pipe3.wb.noSpec
-  retireIn.fromLsu.pipe4.wb.cmplt   := io.in.fromLsu.pipe4.wb.cmplt
-  retireIn.fromLsu.pipe4.wb.iid     := io.in.fromLsu.pipe4.wb.iid
-  retireIn.fromLsu.pipe4.wb.abnormal:= io.in.fromLsu.pipe4.wb.abnormal
-  retireIn.fromLsu.pipe4.wb.breakpointData:= io.in.fromLsu.pipe4.wb.breakpointData
-  retireIn.fromLsu.pipe4.wb.noSpec  := io.in.fromLsu.pipe4.wb.noSpec
+  retireIn.fromLsu.pipe3.cmplt   := io.in.fromLsu.pipe3.cmplt
+  retireIn.fromLsu.pipe3.iid     := io.in.fromLsu.pipe3.iid
+  retireIn.fromLsu.pipe3.abnormal:= io.in.fromLsu.pipe3.abnormal
+  retireIn.fromLsu.pipe3.breakpointData:= io.in.fromLsu.pipe3.breakpointData
+  retireIn.fromLsu.pipe3.noSpec  := io.in.fromLsu.pipe3.noSpec
+  retireIn.fromLsu.pipe4.cmplt   := io.in.fromLsu.pipe4.cmplt
+  retireIn.fromLsu.pipe4.iid     := io.in.fromLsu.pipe4.iid
+  retireIn.fromLsu.pipe4.abnormal:= io.in.fromLsu.pipe4.abnormal
+  retireIn.fromLsu.pipe4.breakpointData:= io.in.fromLsu.pipe4.breakpointData
+  retireIn.fromLsu.pipe4.noSpec  := io.in.fromLsu.pipe4.noSpec
   retireIn.fromPad                  := io.in.fromPad
   retireIn.fromRetire               := io.in.fromRetire
   for (i <- 0 until NumRobReadEntry) {
@@ -798,13 +794,14 @@ class Rob extends Module {
   robExceptInst0Iid := retireOut.toRob.exceptInst0Iid
   retireOut.toPst.zipWithIndex.foreach {
     case (data, i) =>
-      io.out.toPst(i).iid := data.iid
-      io.out.toPst(i).gateClkValid := data.gateClkValid
+      io.out.toPst.iid(i) := data.iid
+      io.out.toPst.gateClkValid(i) := data.gateClkValid
   }
   io.out.toRetire.commitValidVec := retireOut.toRetire.commitValidVec
   io.out.toRetire.ctcFlushSrtEn := retireOut.toRetire.ctcFlushSrtEn
   io.out.toRetire.instVec   := retireOut.toRetire.instVec
   io.out.toRetire.instExtra := retireOut.toRetire.instExtra
+  io.out.toRetire.intSrtEn  := retireOut.toRetire.intSrtEn
   io.out.toRetire.robCurPc  := retireOut.toRetire.robCurPc
   io.out.toTop.robCurPc     := retireOut.toTop.robCurPc
   io.out.toCpu              := retireOut.toCpu
