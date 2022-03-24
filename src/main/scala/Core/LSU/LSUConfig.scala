@@ -6,6 +6,9 @@ trait LSUConfig {
   def LSIQ_ENTRY  = 12
   def PC_LEN      = 15
 
+  def VB_DATA_ENTRY = 3
+  def VMB_ENTRY     = 8
+
   def BYTE        = "b00"
   def HALF        = "b01"
   def WORD        = "b10"

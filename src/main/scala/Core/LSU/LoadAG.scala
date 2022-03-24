@@ -246,6 +246,8 @@ class LoadAG extends Module {
     ld_ag_inst_vld := false.B
   }.elsewhen(ld_ag_stall_vld || io.in.pipe3.sel){
     ld_ag_inst_vld := true.B
+  }.otherwise{
+    ld_ag_inst_vld := false.B
   }
   io.out.toDC.inst_vld := ld_ag_inst_vld
 
