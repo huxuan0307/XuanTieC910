@@ -113,7 +113,7 @@ trait LsuConfig{
 
   def SNOOP_ID_WIDTH = 6
 
-  def SDID_WIDTH = 4
+  def SDID_WIDTH = log2Up(LSIQ_ENTRY)
 
   def DCACHE_DIRTY_ARRAY_WITDH = 7
   def DCACHE_TAG_ARRAY_WITDH   = 52
