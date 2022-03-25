@@ -90,6 +90,51 @@ trait IUConfig {
   def IuPipeNum = 3
 }
 
+trait LsuConfig{
+  def PA_WIDTH = 40
+  def FENCE_MODE_WIDTH = 4
+  def INST_CODE_WIDTH = 32
+  def INST_MODE_WIDTH = 2
+  def INST_SIZE_WIDTH = 2
+  def INST_TYPE_WIDTH = 2
+  def OFFSET_WIDTH = 12
+  def LSU_PC_WIDTH = 15 //@ ct_lst_st_ag.v  534  parameter PC_LEN = 15;
+  def SDIQ_ENYTY_ADDR = 12
+  def SHITF_WIDTH = 4
+
+  def ADDR_PA_WIDTH = 28
+
+  def WAIT_OLD_WIDTH = 12
+  def ACCESS_SIZE_CHOOSE = 3
+  def BYTES_ACCESS_WIDTH = 16
+  def ROT_SEL_WIDTH = 4
+  def LSIQ_ENTRY = 12
+  def VPN_WIDTH = 28
+
+  def SNOOP_ID_WIDTH = 6
+
+  def SDID_WIDTH = 4
+
+  def DCACHE_DIRTY_ARRAY_WITDH = 7
+  def DCACHE_TAG_ARRAY_WITDH   = 52
+}
+object LsuAccessSize extends LsuConfig{
+  def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
+  def half:  UInt = 1.U(ACCESS_SIZE_CHOOSE.W)
+  def word:  UInt = 2.U(ACCESS_SIZE_CHOOSE.W)
+  def dword: UInt = 3.U(ACCESS_SIZE_CHOOSE.W)
+  def qword: UInt = 4.U(ACCESS_SIZE_CHOOSE.W)
+}
+trait DCacheConfig {
+  def PA_WIDTH = 40
+  def TOTAL_SIZE = 64 //Kb
+  def WAYS = 2
+  def LINE_SIZE = 64 // byte
+  def SET: Int = TOTAL_SIZE * 1024 / LINE_SIZE / WAYS // 512
+  def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
+  def INDEX_WIDTH: Int = log2Up(SET) // 9
+  def TAG_WIDTH: Int = PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
+}
 trait Cp0Config {
   def APB_BASE_WIDTH = 40
   def BIU_CP0_RDATA = 128
@@ -100,7 +145,6 @@ trait Cp0Config {
   def CSR_ADDR_WIDTH = 12
   def CSR_UIMM_WIDTH = 5
   def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
-
 }
 
 
@@ -132,3 +176,5 @@ object AddrConfig extends AddrConfig
 object ExceptionConfig extends ExceptionConfig
 object VectorUnitConfig extends VectorUnitConfig
 object IUConfig extends IUConfig
+object LsuConfig extends LsuConfig
+object DCacheConfig extends DCacheConfig
