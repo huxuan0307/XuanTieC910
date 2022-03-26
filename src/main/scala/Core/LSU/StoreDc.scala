@@ -9,13 +9,13 @@ import firrtl.Utils.False
 //==========================================================
 //                        Input
 //==========================================================
-class Cp0ToLsuDc extends Bundle with LsuConfig{
+class Cp0ToStDc extends Bundle with LsuConfig{
   val dcacheEn      = Bool()
   val icgEn         = Bool()
   val l2StPrefEn    = Bool()
   val clkEn         = Bool()
 }
-class DcacheToLsuDc extends Bundle with LsuConfig with DCacheConfig{
+class DcacheToStDc extends Bundle with LsuConfig with DCacheConfig{
   val arbBorrowIcc      = Bool()
   val arbBorrowSnq      = Bool()
   val arbBorrowSnqId    = UInt(SNOOP_ID_WIDTH.W)
@@ -28,48 +28,48 @@ class DcacheToLsuDc extends Bundle with LsuConfig with DCacheConfig{
   val lsuStDirtyDout    = UInt(7.W)   // TODO
   val lsuStTagDout      = UInt(52.W)  // TODO
 }
-class LqToLsuDc extends Bundle with LsuConfig{
+class LqToStDc extends Bundle with LsuConfig{
   val specFail = Bool()
 }
-class MmuToLsuDc extends Bundle with LsuConfig{
+class MmuToStDc extends Bundle with LsuConfig{
   val mmuEn   = Bool()
   val tlbBusy = Bool()
 }
-class RtuToLsuDc extends Bundle with LsuConfig{
+class RtuToStDc extends Bundle with LsuConfig{
   val commitIidUpdata = Vec(NumCommitEntry, UInt(RobPtrWidth.W))
   val flush = Bool()
 }
-class SdEx1ToLsuDc extends Bundle with LsuConfig{
+class SdEx1ToStDc extends Bundle with LsuConfig{
   val sdid = UInt(SDID_WIDTH.W)
 }
-class SqToLsuDc extends Bundle with LsuConfig{
+class SqToStDc extends Bundle with LsuConfig{
   val full    = Bool()
   val instHit = Bool()
 }
 //----------------------------------------------------------
 class StoreDcIn extends Bundle with LsuConfig{
-  val cp0In    = new Cp0ToLsuDc
-  val dcacheIn = new DcacheToLsuDc
-  val lqIn     = new LqToLsuDc
-  val mmuIn    = new MmuToLsuDc
-  val rtuIn    = new RtuToLsuDc
-  val sdEx1In  = new SdEx1ToLsuDc
-  val sqIn     = new SqToLsuDc
-  val agIn     = new LsuAgToDc
+  val cp0In    = new Cp0ToStDc
+  val dcacheIn = new DcacheToStDc
+  val lqIn     = new LqToStDc
+  val mmuIn    = new MmuToStDc
+  val rtuIn    = new RtuToStDc
+  val sdEx1In  = new SdEx1ToStDc
+  val sqIn     = new SqToStDc
+  val agIn     = new StAgToDc
 }
 //==========================================================
 //                        Output
 //==========================================================
-class LsuDcToIdu extends Bundle with LsuConfig {
+class StDcToIdu extends Bundle with LsuConfig {
   val sdiqEntry     = UInt(LSIQ_ENTRY.W)
   val staddr1Vld    = Bool()
   val staddrUnalign = Bool()
   val staddrVld     = Bool()
 }
-class LsuDcToMmu extends Bundle with LsuConfig {
+class StDcToMmu extends Bundle with LsuConfig {
   val vabuf1 = UInt(VPN_WIDTH.W)
 }
-class LsuDcToSq extends Bundle with LsuConfig{
+class StDcToSq extends Bundle with LsuConfig{
   val cmitIidCrtHit        = Vec(NumCommitEntry,UInt(RobPtrWidth.W))
   val boundaryFirst        = Bool()
   val instFlush            = Bool()
@@ -83,7 +83,7 @@ class LsuDcToSq extends Bundle with LsuConfig{
   val sqFullGateclkEn      = Bool()
   val woStInst             = Bool()
 }
-class LsuDcToLq extends Bundle with LsuConfig{
+class StDcToLq extends Bundle with LsuConfig{
   val addr0                = UInt(PA_WIDTH.W)
   val bytesVld             = UInt(BYTES_ACCESS_WIDTH.W)
   val chkStInstVld         = Bool()
@@ -91,7 +91,7 @@ class LsuDcToLq extends Bundle with LsuConfig{
   val iid                  = UInt(RobPtrWidth.W)
   val instVld              = Bool()
 }
-class LsuDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
+class StDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
   val borrowVld     = Bool()
   val atomic        = Bool()
   val boundary      = Bool()
@@ -110,9 +110,9 @@ class LsuDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
   val instSize      = UInt(INST_SIZE_WIDTH.W)
   val instType      = UInt(INST_TYPE_WIDTH.W)
 }
-class LsuDcToDa extends Bundle with LsuConfig{
-  val toSqDa                       = new LsuDcToSqDa
-  val toPwdDa                      = new LsuDcToLq
+class StDcToDa extends Bundle with LsuConfig{
+  val toSqDa                       = new StDcToSqDa
+  val toPwdDa                      = new StDcToLq
   val dcacheDirtyArray             = UInt(DCACHE_DIRTY_ARRAY_WITDH.W)
   val dcacheTagArray               = UInt(DCACHE_TAG_ARRAY_WITDH.W)
   val exptVldGateEn                = Bool()
@@ -146,17 +146,17 @@ class LsuDcToDa extends Bundle with LsuConfig{
   val st                           = Bool()
   val vectorNop                    = Bool()
 }
-class LsuDcToCtrl extends Bundle with LsuConfig with DCacheConfig {
+class StDcToCtrl extends Bundle with LsuConfig with DCacheConfig {
  val tlbBusyGateclkEn   = Bool()
  val immeWakeup         = UInt(LSIQ_ENTRY.W)
 }
 //----------------------------------------------------------
 class StoreDcOut extends Bundle with LsuConfig{
-  val toIdu  = new LsuDcToIdu
-  val toMmu  = new LsuDcToMmu
-  val toSq   = new LsuDcToSq
-  val toDa   = new LsuDcToDa
-  val toCtrl = new LsuDcToCtrl
+  val toIdu  = new StDcToIdu
+  val toMmu  = new StDcToMmu
+  val toSq   = new StDcToSq
+  val toDa   = new StDcToDa
+  val toCtrl = new StDcToCtrl
 }
 //==========================================================
 //                          IO

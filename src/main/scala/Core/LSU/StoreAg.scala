@@ -10,7 +10,7 @@ import chisel3.util._
 //==========================================================
 //                        Input
 //==========================================================
-class Cp0ToLsuAg extends Bundle with LsuConfig{
+class Cp0ToStAg extends Bundle with LsuConfig{
   val dcacheEn    = Bool()
   val icgEn       = Bool()
   val mm          = Bool()
@@ -21,7 +21,7 @@ class Cp0ToLsuAg extends Bundle with LsuConfig{
   val privMode    = UInt(MPPWidth.W)
   val virtualMode = Bool()
 }
-class DcacheArbToLsuAg extends Bundle with LsuConfig{ // for acceleration
+class DcacheArbToStAg extends Bundle with LsuConfig{ // for acceleration
   val sel = Bool()
   val addr = UInt(PA_WIDTH.W)
   val borrowAddrVld = Bool()
@@ -64,7 +64,7 @@ class RfPipe4 extends Bundle with LsuConfig{
   val syncFence      = Bool()
   val unalign2nd     = Bool()
 }
-class LmToLsuAg extends Bundle with LsuConfig{
+class LmToStAg extends Bundle with LsuConfig{
   val pa        = UInt(ADDR_PA_WIDTH.W)
   val pageBuf   = Bool()
   val pageCa    = Bool()
@@ -72,7 +72,7 @@ class LmToLsuAg extends Bundle with LsuConfig{
   val pageShare = Bool()
   val pageSo    = Bool()
 }
-class MmuToLsuAg extends Bundle with LsuConfig{
+class MmuToStAg extends Bundle with LsuConfig{
   val buf1        = Bool()
   val ca1         = Bool()
   val pa1         = UInt(ADDR_PA_WIDTH.W)
@@ -83,24 +83,24 @@ class MmuToLsuAg extends Bundle with LsuConfig{
   val so1         = Bool()
   val stall1      = Bool()
 }
-class RtuToLsuAg extends Bundle with ROBConfig{
+class RtuToStAg extends Bundle with ROBConfig{
   val commit = Vec(NumCommitEntry,Bool())
   val iid    = Vec(NumCommitEntry, UInt(RobPtrWidth.W))
   val flush  = Bool()
 }
 //----------------------------------------------------------
 class StoreAgIn extends Bundle with LsuConfig{
-  val cp0In    = new Cp0ToLsuAg
-  val dcacheIn = new DcacheArbToLsuAg
+  val cp0In    = new Cp0ToStAg
+  val dcacheIn = new DcacheArbToStAg
   val rfIn     = new RfPipe4
-  val lmIn     = new LmToLsuAg
-  val mmuIn    = new MmuToLsuAg
-  val rtuIn    = new RtuToLsuAg
+  val lmIn     = new LmToStAg
+  val mmuIn    = new MmuToStAg
+  val rtuIn    = new RtuToStAg
 }
 //==========================================================
 //                        Output
 //==========================================================
-class LsuAgToDcacheArb extends Bundle with DCacheConfig{
+class StAgToDcacheArb extends Bundle with DCacheConfig{
   val dirtyGateclkEn    = Bool()
   val dirtyIdx          = UInt(INDEX_WIDTH.W)
   val dirtyReq          = Bool()
@@ -108,11 +108,11 @@ class LsuAgToDcacheArb extends Bundle with DCacheConfig{
   val tagIdx            = UInt(INDEX_WIDTH.W)
   val tagReq            = Bool()
 }
-class LsuAgToIdu extends Bundle with LsuConfig{
+class StAgToIdu extends Bundle with LsuConfig{
   val waitOld          = UInt(WAIT_OLD_WIDTH.W)
   val waitOldGateclkEn = Bool()
 }
-class LsuAgToMmu extends Bundle with LsuConfig{
+class StAgToMmu extends Bundle with LsuConfig{
  val abort1    = Bool()
  val id1       = UInt(RobPtrWidth.W)
  val stInst1   = Bool()
@@ -121,7 +121,7 @@ class LsuAgToMmu extends Bundle with LsuConfig{
  val va1       = UInt(64.W) // todo va? virtual addr? 39?
  val va1Vld    = Bool()
 }
-class LsuAgToDc extends Bundle with LsuConfig{
+class StAgToDc extends Bundle with LsuConfig{
   val alreadyDa               = Bool()
   val atomic                  = Bool()
   val boundary                = Bool()
@@ -173,10 +173,10 @@ class LsuAgToDc extends Bundle with LsuConfig{
 }
 //----------------------------------------------------------
 class StoreAgOut extends Bundle with LsuConfig{
-  val toDcacheArb = new LsuAgToDcacheArb
-  val toIdu       = new LsuAgToIdu
-  val toMmu       = new LsuAgToMmu
-  val toDc        = new LsuAgToDc
+  val toDcacheArb = new StAgToDcacheArb
+  val toIdu       = new StAgToIdu
+  val toMmu       = new StAgToMmu
+  val toDc        = new StAgToDc
   val rfVld       = Bool() // all done
 }
 //==========================================================
