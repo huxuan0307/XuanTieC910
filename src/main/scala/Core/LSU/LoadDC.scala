@@ -52,7 +52,7 @@ class LoadDC2DA extends Bundle {
   val inst_vfls = Bool()
   val inst_vld = Bool()
   val ldfifo_pc = UInt(15.W)
-  val lsid = UInt(12.W)
+  val lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
   val mmu_req = Bool()
   val mt_value = UInt(40.W)
   val no_spec = Bool()
@@ -210,9 +210,9 @@ class LoadDCOutput extends Bundle{
     val ld_bypass_vld   = Bool()
     val ld_inst_vld     = Bool()
   }
-  val ld_dc_idu_lq_full = UInt(12.W)
-  val ld_dc_idu_tlb_busy = UInt(12.W)
-  val ld_dc_imme_wakeup = UInt(12.W)
+  val ld_dc_idu_lq_full  = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val ld_dc_idu_tlb_busy = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val ld_dc_imme_wakeup  = Vec(LSUConfig.LSIQ_ENTRY, Bool())
   val ld_dc_inst_chk_vld = Bool()
   val toLQ = new Bundle{
     val create1_dp_vld = Bool()
@@ -230,7 +230,7 @@ class LoadDCOutput extends Bundle{
     val pipe3_preg_dup = Vec(5, UInt(7.W))
     val pipe3_vload_fwd_inst_vld = Bool()
     val pipe3_vload_inst_vld_dup = Vec(4, Bool())
-    val pipe3_vreg_dup0 = Vec(4, UInt(7.W))
+    val pipe3_vreg_dup = Vec(4, UInt(7.W))
   }
   val lsu_mmu_vabuf0 = UInt(28.W)
 }
@@ -308,6 +308,8 @@ class LoadDC extends Module {
   }.otherwise{
     ld_dc_borrow_vld := false.B
   }
+  io.out.toDA.inst_vld   := ld_dc_inst_vld
+  io.out.toDA.borrow_vld := ld_dc_borrow_vld
 
   //------------------expt part-------------------------------
   //+-------+----------+--------+------+---------+
@@ -321,6 +323,7 @@ class LoadDC extends Module {
     ld_dc_expt_access_fault_with_page := io.in.fromAG.expt_access_fault_with_page
     ld_dc_expt_ldamo_not_ca           := io.in.fromAG.expt_ldamo_not_ca
   }
+  io.out.toDA.mmu_req := ld_dc_mmu_req
 
   //------------------borrow part-----------------------------
   //+-----+------+-----+------------+
@@ -335,6 +338,13 @@ class LoadDC extends Module {
     ld_dc_borrow_icc_tag := io.in.icc_dcache_arb_ld_tag_read
     ld_dc_settle_way     := io.in.fromDcacheArb.ld_dc_settle_way
   }
+  io.out.toDA.borrow_db      := ld_dc_borrow_db
+  io.out.toDA.borrow_vb      := ld_dc_borrow_vb
+  io.out.toDA.borrow_sndb    := ld_dc_borrow_sndb
+  io.out.toDA.borrow_mmu     := ld_dc_borrow_mmu
+  io.out.toDA.borrow_icc     := ld_dc_borrow_icc
+  io.out.toDA.borrow_icc_tag := ld_dc_borrow_icc_tag
+  io.out.toDA.settle_way     := ld_dc_settle_way
 
   //------------------inst part----------------------------
   //+----------+---------+-----+
@@ -397,6 +407,27 @@ class LoadDC extends Module {
     ld_dc_data.no_spec_exist   := io.in.fromAG.no_spec_exist
     ld_dc_data.raw_new         := io.in.fromAG.raw_new
   }
+  io.out.toDA.expt_vld_except_access_err := ld_dc_data.expt_vld_except_access_err
+  io.out.toDA.split := ld_dc_data.split
+  io.out.toDA.inst_type := ld_dc_data.inst_type
+  io.out.toDA.inst_size := ld_dc_data.inst_size
+  io.out.toDA.secd := ld_dc_data.secd
+  io.out.toDA.already_da := ld_dc_data.already_da
+  io.out.toDA.sign_extend := ld_dc_data.sign_extend
+  io.out.toDA.atomic := ld_dc_data.atomic
+  io.out.toDA.iid := ld_dc_data.iid
+  io.out.toDA.lsid := ld_dc_data.lsid
+  io.out.toDA.boundary := ld_dc_data.boundary
+  io.out.toDA.preg := ld_dc_data.preg
+  io.out.toDA.ldfifo_pc := ld_dc_data.ldfifo_pc
+  io.out.toDA.ahead_predict := ld_dc_data.ahead_predict
+  io.out.toDA.vreg := ld_dc_data.vreg
+  io.out.toDA.inst_vfls := ld_dc_data.inst_vfls
+  io.out.toDA.no_spec := ld_dc_data.no_spec
+  io.out.toDA.no_spec_exist := ld_dc_data.no_spec_exist
+
+  io.out.ld_dc_bytes_vld  := ld_dc_data.bytes_vld
+  io.out.ld_dc_bytes_vld1 := ld_dc_data.bytes_vld1
 
   //------------------inst/borrow share part------------------
   //+-------+
@@ -405,6 +436,7 @@ class LoadDC extends Module {
   when(io.in.fromAG.inst_vld || io.in.fromDcacheArb.ld_dc_borrow_vld){
     ld_dc_addr0 := io.in.fromAG.dc_addr0
   }
+  io.out.toDA.addr0 := ld_dc_addr0
 
   //==========================================================
   //        Generate  va
@@ -737,5 +769,88 @@ class LoadDC extends Module {
   //2: half sign extend
   //1: byte sign extend
   //0: not extend
+  when(ld_dc_data.sign_extend){
+    io.out.toDA.preg_sign_sel := MuxLookup(ld_dc_data.inst_size, 1.U(4.W), Seq(
+      "b00".U -> "b0010".U,
+      "b01".U -> "b0100".U,
+      "b10".U -> "b1000".U
+    ))
+  }.otherwise{
+    io.out.toDA.preg_sign_sel := 1.U(4.W)
+  }
 
+  io.out.toDA.vreg_sign_sel := ld_dc_data.inst_size =/= "b11".U
+  val ld_dc_inst_vls_dup = WireInit(VecInit(Seq.fill(4)(false.B)))
+
+  //==========================================================
+  //            Generage pfu signal
+  //==========================================================
+  io.out.toDA.da_pf_inst := ld_dc_data.pf_inst && !ld_dc_vector_nop && ld_dc_data.page_ca
+
+  val ld_dc_pf_inst_short = ld_dc_data.pf_inst && !ld_dc_vector_nop && ld_dc_data.page_ca &&
+    !ld_dc_data.utlb_miss && !ld_dc_data.expt_vld_except_access_err
+
+  io.out.toDA.pfu_info_set_vld := ld_dc_inst_vld && ld_dc_pf_inst_short &&
+    (!io.in.fromPFU.sdb_empty || !io.in.fromPFU.pfb_empty || io.in.fromPFU.sdb_create_gateclk_en)
+
+  //==========================================================
+  //            Generage to cache buffer signal
+  //==========================================================
+  //------------------addr prepare----------------
+  io.out.toCB.addr_tto4 := ld_dc_addr0(LSUConfig.PA_WIDTH-1,4)
+
+  val cb_create_hit_idx = ld_dc_addr0(13,6) === io.in.fromDcacheArb.idx
+
+  io.out.toCB.addr_create_vld := ld_dc_inst_vld && ld_dc_ld_inst && ld_dc_data.acclr_en &&
+    !ld_dc_vector_nop && !ld_dc_data.expt_vld_except_access_err && !ld_dc_restart_vld &&
+    !(io.in.lsu_dcache_ld_xx_gwen && cb_create_hit_idx) && !io.in.fromRTU.yy_xx_flush
+
+  io.out.toCB.addr_create_gateclk_en := ld_dc_inst_vld && ld_dc_ld_inst && ld_dc_data.acclr_en &&
+    !ld_dc_data.expt_vld_except_access_err && !io.in.fromRTU.yy_xx_flush
+
+  io.out.toDA.da_cb_addr_create := io.out.toCB.addr_create_vld
+
+  io.out.toDA.da_cb_merge_en := ld_dc_data.acclr_en && io.in.cb_ld_dc_addr_hit && !ld_dc_vector_nop &&
+    !ld_dc_depd_st_dc3 && !io.in.fromSQ.ld_dc_cancel_acc_req && !io.in.fromWmb.ld_dc_cancel_acc_req &&
+    !io.in.fromLQ.ld_dc_inst_hit && !ld_dc_data.expt_vld_except_access_err
+
+  //==========================================================
+  //              Generate forward write back
+  //==========================================================
+  io.out.toDA.wait_fence := io.in.lsu_has_fence && io.in.rb_fence_ld
+
+  val ld_dc_ahead_wb_vld = ld_dc_inst_vld && !io.in.fromCp0.lsu_da_fwd_dis && ld_dc_data.page_ca &&
+    ld_dc_ld_inst && !ld_dc_data.expt_vld_except_access_err && io.out.toDA.wait_fence &&
+    !ld_dc_data.boundary && ld_dc_dcache_hit
+
+  io.out.toDA.ahead_preg_wb_vld := ld_dc_ahead_wb_vld && !io.in.fromSQ.ld_dc_cancel_ahead_wb &&
+    !io.in.fromWmb.ld_dc_discard_req && !ld_dc_data.inst_vfls
+
+  io.out.toDA.ahead_vreg_wb_vld := false.B
+
+  //==========================================================
+  //      Generage lsiq signal (renamed in lsu_restart.vp)
+  //==========================================================
+  val ld_dc_mask_lsid = Mux(ld_dc_inst_vld, ld_dc_data.lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+
+  io.out.ld_dc_idu_lq_full  := Mux(ld_dc_lq_full_vld,          ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  io.out.ld_dc_imme_wakeup  := Mux(ld_dc_imme_restart_vld,     ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  io.out.ld_dc_idu_tlb_busy := Mux(ld_dc_tlb_busy_restart_vld, ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+
+  //==========================================================
+  //                Generage signal to idu
+  //==========================================================
+  io.out.toIDU.pipe3_load_inst_vld_dup := ld_dc_load_inst_vld_dup
+  io.out.toIDU.pipe3_load_fwd_inst_vld_dup := ld_dc_load_ahead_inst_vld_dup
+  io.out.toIDU.pipe3_preg_dup := ld_dc_data.preg_dup
+  io.out.toIDU.pipe3_vload_inst_vld_dup := ld_dc_vload_inst_vld_dup
+  io.out.toIDU.pipe3_vload_fwd_inst_vld := ld_dc_vload_ahead_inst_vld
+  for(i <- 0 until 4){
+    io.out.toIDU.pipe3_vreg_dup(i) := Cat(0.U(1.W), ld_dc_data.vreg_dup(i))
+  }
+
+  //==========================================================
+  //        for mmu power
+  //==========================================================
+  io.out.lsu_mmu_vabuf0 := ld_dc_data.vpn(27,0)
 }
