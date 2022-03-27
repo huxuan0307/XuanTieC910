@@ -1,6 +1,7 @@
 package Core.LSU
 import chisel3._
 import chisel3.util._
+import Utils.sext
 
 class LoadDABorrowData extends Bundle{
   val db      = UInt(LSUConfig.VB_DATA_ENTRY.W)
@@ -353,6 +354,17 @@ class LoadDA extends Module {
   //Wire
   val ld_da_ecc_stall_gate = Wire(Bool())
   val ld_da_ecc_stall = Wire(Bool())
+  val ld_da_fof_not_first = Wire(Bool())
+  val ld_da_fwd_sq_bypass_vld = Wire(Bool())
+  val ld_da_discard_dc_req = Wire(Bool())
+  val ld_da_boundary_after_mask = Wire(Bool())
+  val ld_da_wait_fence_req = Wire(Bool())
+  val ld_da_sq_fwd_ecc_discard = Wire(Bool())
+  val ld_da_rb_merge_vld_unmask = Wire(Bool())
+  val ld_da_tag_ecc_stall_ori = Wire(Bool())
+  val ld_da_hit_idx_discard_vld = Wire(Bool())
+  val ld_da_mask_lsid = Wire(Vec(LSUConfig.LSIQ_ENTRY, Bool()))
+  val ld_da_mcic_borrow_mmu = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -515,7 +527,7 @@ class LoadDA extends Module {
   //+------+-----------------+------------------+
   when((io.in.fromDC.inst_vld || io.in.fromDC.borrow_vld && !io.in.fromDC.borrow_vb && !io.in.fromDC.borrow_sndb) && !ld_da_ecc_stall){
     share_data.addr0        :=  io.in.fromDC.addr0
-    share_data.addr0_idx    :=  io.in.fromDC.addr0
+    share_data.addr0_idx    :=  io.in.fromDC.addr0(14,6)
     share_data.old          :=  io.in.fromDC.da_old
     share_data.page_so      :=  io.in.fromDC.da_page_so
     share_data.page_ca      :=  io.in.fromDC.da_page_ca
@@ -545,6 +557,236 @@ class LoadDA extends Module {
   //==========================================================
   //        Generate expt info
   //==========================================================
+  val ld_da_expt_access_fault = (inst_data.mmu_req && inst_data.expt_access_fault_mmu ||
+                                inst_data.expt_access_fault_extra) &&
+                                !inst_data.expt_access_fault_mask
+
+  val ld_da_expt_ori = inst_data.expt_vld_except_access_err || ld_da_expt_access_fault || ld_da_ecc_stall_fatal
+
+  val ld_da_expt_vld = (inst_data.expt_vld_except_access_err || ld_da_expt_access_fault || ld_da_ecc_stall_fatal) &&
+    !ld_da_fof_not_first && !inst_data.vector_nop
+
+  io.out.toWB.expt_vld := (inst_data.expt_vld_except_access_err || ld_da_expt_access_fault) &&
+    !ld_da_fof_not_first && !inst_data.vector_nop
+
+
+
+  val ld_da_wb_expt_vec = ld_da_expt_vec
+  val ld_da_wb_mt_value_ori = ld_da_mt_value
+
+  when(ld_da_expt_access_fault &&  !inst_data.atomic){
+    ld_da_wb_expt_vec     := 5.U(5.W)
+    ld_da_wb_mt_value_ori := 0.U(LSUConfig.PA_WIDTH.W)
+  }.elsewhen(ld_da_expt_access_fault &&  inst_data.atomic){
+    ld_da_wb_expt_vec     := 7.U(5.W)
+    ld_da_wb_mt_value_ori := 0.U(LSUConfig.PA_WIDTH.W)
+  }
+  io.out.toWB.expt_vec := ld_da_wb_expt_vec
+  io.out.toWB.mt_value := ld_da_wb_mt_value_ori
+
+  ld_da_fof_not_first := false.B
+  val ld_da_inst_fof = false.B
+
+  //==========================================================
+  //        Generate inst type
+  //==========================================================
+  //ld/ldr/lrw/pop/lrs is treated as ld inst
+  val ld_da_ld_inst    = !inst_data.atomic && inst_data.inst_type === 0.U(2.W)
+  val ld_da_ldamo_inst = inst_data.atomic && inst_data.inst_type === 0.U(2.W)
+  val ld_da_lr_inst    = inst_data.atomic && inst_data.inst_type === 1.U(2.W)
+
+  //==========================================================
+  //        Data forward from sq/wmb
+  //==========================================================
+  //data forward from sq/wmb is done in sq/wmb file
+  val sq_ld_da_fwd_data_128    = Wire(Vec(16, UInt(8.W)))
+  val sq_ld_da_fwd_data_pe_128 = Wire(Vec(16, UInt(8.W)))
+  val wmb_ld_da_fwd_data_128   = Wire(Vec(16, UInt(8.W)))
+
+  for(i <- 0 until 8){
+    sq_ld_da_fwd_data_128(i)    := io.in.fromSQ.fwd_data(i*8+7, i*8)
+    sq_ld_da_fwd_data_pe_128(i) := io.in.fromSQ.fwd_data_pe(i*8+7, i*8)
+    sq_ld_da_fwd_data_128(i+8)    := io.in.fromSQ.fwd_data(i*8+7, i*8)
+    sq_ld_da_fwd_data_pe_128(i+8) := io.in.fromSQ.fwd_data_pe(i*8+7, i*8)
+  }
+  for(i <- 0 until 16){
+    wmb_ld_da_fwd_data_128(i) := io.in.fromWmb.ld_da_fwd_data(i*8+7, i*8)
+  }
+
+  val ld_da_fwd_wmb_data_am   = Wire(Vec(16, UInt(8.W)))
+  val ld_da_fwd_sq_data_pe_am = Wire(Vec(16, UInt(8.W)))
+  val ld_da_fwd_sq_data_am    = Wire(Vec(16, UInt(8.W)))
+
+  for(i <- 0 until 16){
+    ld_da_fwd_wmb_data_am(i)   := Mux(share_data.bytes_vld(i), wmb_ld_da_fwd_data_128(i), 0.U(8.W))
+    ld_da_fwd_sq_data_pe_am(i) := Mux(share_data.bytes_vld(i), sq_ld_da_fwd_data_pe_128(i), 0.U(8.W))
+    ld_da_fwd_sq_data_am(i)    := Mux(share_data.bytes_vld(i), sq_ld_da_fwd_data_128(i), 0.U(8.W))
+  }
+
+  val ld_da_fwd_data_am = Mux(inst_data.fwd_sq_vld, ld_da_fwd_sq_data_am, ld_da_fwd_wmb_data_am)
+
+  val ld_da_fwd_data_pe_am = Mux(inst_data.data_vld_newest_fwd_sq_dup(0), ld_da_fwd_sq_data_pe_am, ld_da_fwd_wmb_data_am)
+
+  val ld_da_fwd_data_bypass = MuxLookup(inst_data.inst_size, io.in.fromSdEx1.data_bypass, Seq(
+    "b000".U -> Cat(0.U(120.W), io.in.fromSdEx1.data_bypass(7,0)),
+    "b001".U -> Cat(0.U(112.W), io.in.fromSdEx1.data_bypass(15,0)),
+    "b010".U -> Cat(0.U(96.W), io.in.fromSdEx1.data_bypass(31,0)),
+    "b011".U -> Cat(0.U(64.W), io.in.fromSdEx1.data_bypass(63,0))
+  ))
+
+  val ld_da_fwd_vld = inst_data.fwd_sq_vld || ld_da_fwd_sq_bypass_vld || inst_data.fwd_wmb_vld && dcache_hit_info.dcache_hit
+
+  val ld_da_merge_from_cb = inst_data.cb_merge_en && io.in.cb_ld_da_data.valid && !ld_da_ecc_stall_already
+
+  //==========================================================
+  //                Settle data from cache
+  //==========================================================
+  //------------------cache data settle to vb/snq------------
+  val ld_da_data256_way = Wire(Vec(2, UInt(256.W)))
+
+  ld_da_data256_way(0) := ld_da_dcache_data_bank.asUInt
+  ld_da_data256_way(1) := Cat(ld_da_dcache_data_bank.asUInt(127,0), ld_da_dcache_data_bank.asUInt(255,128))
+
+  val ld_da_data256 = Mux(borrow_data.settle_way, ld_da_data256_way(1), ld_da_data256_way(0))
+
+  //------------------cache data settle-----------------------
+  val ld_da_high_region_data128_am = Wire(Vec(16, UInt(8.W)))
+  val ld_da_low_region_data128_am  = Wire(Vec(16, UInt(8.W)))
+
+  for(i <- 0 until 16){
+    ld_da_high_region_data128_am(i) := Mux(share_data.bytes_vld(i), ld_da_dcache_data_bank.asUInt(i*8+7+128,i*8+128), 0.U(8.W))
+    ld_da_low_region_data128_am(i)  := Mux(share_data.bytes_vld(i), ld_da_dcache_data_bank.asUInt(i*8+7,i*8), 0.U(8.W))
+  }
+
+  //==========================================================
+  //        Compare tag and select data from cache/sq|wmb
+  //==========================================================
+  //------------------compare tag-----------------------------
+  val ld_da_idx = share_data.addr0_idx
+  io.out.ld_da_idx := ld_da_idx
+
+  val ld_da_dcache_miss = !dcache_hit_info.dcache_hit
+
+  //------------------select data-----------------------------
+  //hit region refer to LSU spec
+  val ld_da_dcache_pass_data128_am = Mux(dcache_hit_info.hit_low_region, ld_da_low_region_data128_am.asUInt, 0.U(128.W)) |
+    Mux(dcache_hit_info.hit_high_region, ld_da_high_region_data128_am.asUInt, 0.U(128.W))
+
+  val ld_da_dcache_pass_data128_ahead_am = Mux(dcache_hit_info.hit_low_region, ld_da_low_region_data128_am.asUInt, 0.U(128.W)) |
+    Mux(dcache_hit_info.hit_high_region, ld_da_high_region_data128_am.asUInt, 0.U(128.W))
+
+  val ld_da_dcache_data128_ahead_am = ld_da_dcache_pass_data128_ahead_am
+
+  // cache buffer bypass
+  val ld_da_cb_bypass_data_am = Wire(Vec(16, UInt(8.W)))
+  for(i <- 0 until 16){
+    ld_da_cb_bypass_data_am(i) := Mux(inst_data.bytes_vld1(i), io.in.cb_ld_da_data.bits(i*8+7, i*8), 0.U(8.W))
+  }
+
+  val ld_da_cb_bypass_data_for_merge = Mux(ld_da_merge_from_cb, ld_da_cb_bypass_data_am.asUInt, 0.U(128.W))
+
+  val ld_da_dcache_data_after_merge = ld_da_cb_bypass_data_for_merge | ld_da_dcache_pass_data128_am
+
+  val ld_da_data_unrot = Wire(Vec(16, UInt(8.W)))
+  for(i <- 0 until 16){
+    ld_da_data_unrot(i) := Mux(inst_data.fwd_bytes_vld(i), ld_da_fwd_data_am(i), ld_da_dcache_data_after_merge(i*8+7, i*8))
+  }
+
+  val data_rot = Module(new RotData)
+  data_rot.io.data_in := ld_da_data_unrot.asUInt
+  data_rot.io.rot_sel := share_data.data_rot_sel
+  val ld_da_data_settle = data_rot.io.data_settle_out
+
+  val ld_da_data128 = Mux(inst_data.fwd_sq_bypass, ld_da_fwd_data_bypass, ld_da_data_settle)
+
+  io.out.toWB.data := ld_da_data128(63,0)
+
+  //------------------select data from cache or sq/wmb--------
+  val ld_da_data_vld = ld_da_inst_vld && !ld_da_expt_vld && (ld_da_fwd_vld || dcache_hit_info.dcache_hit)
+
+  val ld_da_rb_data_vld = ld_da_data_vld
+  io.out.toRB.data_vld := ld_da_rb_data_vld
+
+  //------------------select data for ahead-------------------
+  val ld_da_ahead_preg_data_unsettle = Wire(Vec(16, UInt(8.W)))
+  for(i <- 0 until 16){
+    ld_da_ahead_preg_data_unsettle(i) := Mux(inst_data.fwd_bytes_vld_dup(i), ld_da_fwd_data_pe_am(i), ld_da_dcache_data128_ahead_am(i*8+7, i*8))
+  }
+
+  val preg_data_rot = Module(new RotData)
+  preg_data_rot.io.data_in := ld_da_ahead_preg_data_unsettle.asUInt
+  preg_data_rot.io.rot_sel := share_data.data_rot_sel
+  val ld_da_ahead_preg_data_settle = preg_data_rot.io.data_settle_out
+
+  //------------------for read buffer merge--------
+  io.out.toRB.data_ori := ld_da_data_unrot.asUInt(127,64) | ld_da_data_unrot.asUInt(63,0)
+
+  //==========================================================
+  //            Data settle and Sign extend
+  //==========================================================
+  val ld_da_preg_data_sign_extend = MuxLookup(inst_data.preg_sign_sel, 0.U(64.W), Seq(
+    "b1000".U -> sext(64, ld_da_ahead_preg_data_settle(31,0)),
+    "b0100".U -> sext(64, ld_da_ahead_preg_data_settle(15,0)),
+    "b0010".U -> sext(64, ld_da_ahead_preg_data_settle(7,0)),
+    "b0001".U -> ld_da_ahead_preg_data_settle
+  ))
+
+  io.out.toWB.vreg_sign_sel := Cat(inst_data.vreg_sign_sel && inst_data.inst_size === "b10".U, inst_data.vreg_sign_sel && inst_data.inst_size === "b01".U)
+
+  //==========================================================
+  //        Request read buffer & Compare index & discard
+  //==========================================================
+  //------------------origin create read buffer---------------
+  //-----------create---------------------
+  //ld            : cache miss, boundary first
+  //lr            : cache miss
+  //ld amo        : any
+  //borrow mmu    : cache miss
+
+  //judge vld pass to read buffer to get rb_full signal
+  io.out.toRB.create_judge_vld := ld_da_inst_vld && !ld_da_expt_vld && !ld_da_discard_dc_req &&
+    (ld_da_ld_inst && !inst_data.secd || inst_data.atomic) || borrow_data.mmu && ld_da_borrow_vld
+
+  val ld_da_rb_create_vld_unmask_part = ld_da_ld_inst && !inst_data.secd && (!ld_da_rb_data_vld || ld_da_boundary_after_mask) ||
+    ld_da_ldamo_inst && !inst_data.vector_nop || ld_da_lr_inst && !ld_da_data_vld
+
+  val ld_da_rb_create_vld_unmask = ld_da_inst_vld && !ld_da_expt_vld && !ld_da_wait_fence_req && !ld_da_discard_dc_req &&
+    !ld_da_sq_fwd_ecc_discard && ld_da_rb_create_vld_unmask_part ||
+    borrow_data.mmu && ld_da_dcache_miss && ld_da_data_vld
+
+  //------------------index hit/discard grnt signal-----------
+  //addr is used to compare index, so addr0 is enough
+  io.out.ld_da_addr := share_data.addr0
+
+  //because rb and lfb use a common wait queue, they can be granted simultaneously
+  val ld_da_discard_from_rb_req = ld_da_rb_create_vld_unmask && share_data.page_ca && io.in.fromRB.hit_idx ||
+    ld_da_rb_merge_vld_unmask && (io.in.fromRB.merge_fail || io.in.fromRB.hit_idx && share_data.page_ca && !ld_da_rb_data_vld) ||
+    ld_da_tag_ecc_stall_ori && io.in.fromRB.hit_idx
+
+  val ld_da_discard_from_lfb_req = (ld_da_rb_create_vld_unmask || ld_da_rb_merge_vld_unmask && !ld_da_rb_data_vld) &&
+    share_data.page_ca && io.in.lfb_ld_da_hit_idx || ld_da_tag_ecc_stall_ori && io.in.lfb_ld_da_hit_idx
+
+  val ld_da_discard_from_lm_req = (ld_da_rb_create_vld_unmask || ld_da_rb_merge_vld_unmask && !ld_da_rb_data_vld) &&
+    share_data.page_ca && io.in.lm_ld_da_hit_idx || ld_da_tag_ecc_stall_ori && io.in.lm_ld_da_hit_idx
+
+  val ld_da_hit_idx_discard_req = ld_da_discard_from_rb_req || ld_da_discard_from_lfb_req || ld_da_discard_from_lm_req
+
+  //because ld_da_hit_idx_discard_vld = ld_da_hit_idx_discard_req, then grnt
+  //signal needn't see ld_da_hit_idx_discard_vld
+  io.out.toRB.discard_grnt := ld_da_discard_from_rb_req
+  io.out.toLfb.discard_grnt := ld_da_discard_from_lfb_req
+  io.out.toLm.discard_grnt := ld_da_discard_from_lm_req
+
+  //record lfb wakeup queue if hit index and create rb
+  io.out.toLfb.set_wakeup_queue := ld_da_hit_idx_discard_vld
+
+  io.out.toLfb.wakeup_queue_next := Cat(ld_da_mcic_borrow_mmu, ld_da_mask_lsid.asUInt)
+
+  //------------------create read buffer info-----------------
+
+
+
+
 
 
 }
