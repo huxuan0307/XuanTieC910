@@ -10,7 +10,7 @@ class LoadDABorrowData extends Bundle{
   val mmu     = Bool()
   val icc     = Bool()
   val icc_tag = Bool()
-  val settle_way     = Bool()
+  val settle_way = Bool()
 }
 
 class LoadDAInstData extends Bundle{
@@ -88,7 +88,7 @@ class LoadDA_DCHit extends Bundle{
 
 class LoadDA2SQ extends Bundle {
   val data_discard_vld = Bool()
-  val fwd_id = UInt(12.W)
+  val fwd_id = Vec(LSUConfig.SQ_ENTRY, Bool())
   val fwd_multi_vld = Bool()
   val global_discard_vld = Bool()
 }
@@ -111,16 +111,16 @@ class LoadDA2Mcic extends Bundle{
 class LoadDA2Ctrl extends Bundle{
   val borrow_vld              = Bool()
   val ecc_wakeup              = UInt(12.W)
-  val idu_already_da          = UInt(12.W)
-  val idu_bkpta_data          = UInt(12.W)
-  val idu_bkptb_data          = UInt(12.W)
-  val idu_boundary_gateclk_en = UInt(12.W)
-  val idu_pop_entry           = UInt(12.W)
+  val idu_already_da          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_bkpta_data          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_bkptb_data          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_boundary_gateclk_en = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_pop_entry           = Vec(LSUConfig.LSIQ_ENTRY, Bool())
   val idu_pop_vld             = Bool()
-  val idu_rb_full             = UInt(12.W)
-  val idu_secd                = UInt(12.W)
-  val idu_spec_fail           = UInt(12.W)
-  val idu_wait_fence          = UInt(12.W)
+  val idu_rb_full             = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_secd                = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_spec_fail           = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_wait_fence          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
   val rb_full_gateclk_en      = Bool()
   val special_gateclk_en      = Bool()
   val wait_fence_gateclk_en   = Bool()
@@ -142,7 +142,7 @@ class LoadDA2PFU extends Bundle{
   val ppn_ff = UInt(28.W)
 }
 //
-class LoadDA2RB extends {
+class LoadDA2RB extends Bundle {
   val boundary_after_mask = Bool()
   val bytes_vld = UInt(16.W)
   val data_ori = UInt(64.W)
@@ -244,7 +244,7 @@ class LoadDAInput extends Bundle{
     val data_discard_req = Bool()
     val fwd_bypass_multi = Bool()
     val fwd_bypass_req = Bool()
-    val fwd_id = UInt(12.W)
+    val fwd_id = Vec(LSUConfig.SQ_ENTRY, Bool())
     val fwd_multi = Bool()
     val fwd_multi_mask = Bool()
     val newest_fwd_data_vld_req = Bool()
@@ -292,7 +292,7 @@ class LoadDAOutput extends Bundle{
   val ld_da_iid = UInt(7.W)
   val ld_da_inst_vfls = Bool()
   val ld_da_inst_vld = Bool()
-  val ld_da_lsid = UInt(12.W)
+  val ld_da_lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
   val ld_da_preg = UInt(7.W)
   val ld_da_snq_borrow_icc = Bool()
   val ld_da_snq_borrow_sndb = Bool()
@@ -309,8 +309,8 @@ class LoadDAOutput extends Bundle{
     val ld_unalign_inst = Bool()
   }
   val toIDU = new Bundle{
-    val da_pipe3_fwd_pre = UInt(7.W)
-    val da_pipe3_fwd_preg_dat = UInt(64.W)
+    val da_pipe3_fwd_preg = UInt(7.W)
+    val da_pipe3_fwd_preg_data = UInt(64.W)
     val da_pipe3_fwd_preg_vld = Bool()
     val da_pipe3_fwd_vreg = UInt(7.W)
     val da_pipe3_fwd_vreg_fr_data = UInt(64.W)
@@ -351,6 +351,11 @@ class LoadDA extends Module {
   val share_data = RegInit(0.U.asTypeOf(new LoadDAShareData))
   val dcache_hit_info = RegInit(0.U.asTypeOf(new LoadDA_DCHit))
   val ld_da_ppfu_va = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_da_split_miss_ff = RegInit(false.B)
+
+  val ld_da_ppn_ff        = RegInit(0.U((LSUConfig.PA_WIDTH-12).W))
+  val ld_da_page_sec_ff   = RegInit(false.B)
+  val ld_da_page_share_ff = RegInit(false.B)
   //Wire
   val ld_da_ecc_stall_gate = Wire(Bool())
   val ld_da_ecc_stall = Wire(Bool())
@@ -365,6 +370,10 @@ class LoadDA extends Module {
   val ld_da_hit_idx_discard_vld = Wire(Bool())
   val ld_da_mask_lsid = Wire(Vec(LSUConfig.LSIQ_ENTRY, Bool()))
   val ld_da_mcic_borrow_mmu = Wire(Bool())
+  val ld_da_mcic_data_err = Wire(Bool())
+  val ld_da_boundary_first = Wire(Bool())
+  val ld_da_inst_cmplt = Wire(Bool())
+  val ld_da_ecc_spec_fail = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -407,6 +416,9 @@ class LoadDA extends Module {
   }.otherwise{
     ld_da_borrow_vld := false.B
   }
+
+  io.out.ld_da_inst_vld := ld_da_inst_vld
+  io.out.toCtrl.borrow_vld := ld_da_borrow_vld
 
   val ld_da_ecc_stall_already = false.B
   val ld_da_ecc_stall_fatal   = false.B
@@ -520,6 +532,20 @@ class LoadDA extends Module {
     inst_data.no_spec_exist             :=  io.in.fromDC.no_spec_exist
     inst_data.vector_nop                :=  io.in.fromDC.vector_nop
   }
+  io.out.toPFU.pfu_va := inst_data.pfu_va
+  io.out.toRB.inst_size := inst_data.inst_size
+  io.out.toRB.sign_extend := inst_data.sign_extend
+  io.out.ld_da_iid := inst_data.iid
+  io.out.ld_da_lsid := inst_data.lsid
+  io.out.ld_da_preg := inst_data.preg
+  io.out.toPFU.ldfifo_pc := inst_data.ldfifo_pc
+  io.out.toSQ.fwd_id := inst_data.sq_fwd_id
+  io.out.ld_da_bkpta_data := inst_data.bkpta_data
+  io.out.ld_da_bkptb_data := inst_data.bkptb_data
+  io.out.ld_da_vreg := inst_data.vreg
+  io.out.ld_da_inst_vfls := inst_data.inst_vfls
+  io.out.toWB.preg_sign_sel := inst_data.preg_sign_sel
+  io.out.toRB.vreg_sign_sel := inst_data.vreg_sign_sel
 
   //------------------inst/borrow share part------------------
   //+------+-----------------+------------------+
@@ -537,6 +563,14 @@ class LoadDA extends Module {
     share_data.data_rot_sel :=  io.in.fromDC.da_data_rot_sel
     share_data.bytes_vld    :=  io.in.fromDC.da_bytes_vld
   }
+  io.out.toRB.old          := share_data.old
+  io.out.toRB.page_so      := share_data.page_so
+  io.out.toRB.page_ca      := share_data.page_ca
+  io.out.toRB.page_buf     := share_data.page_buf
+  io.out.toRB.page_sec     := share_data.page_sec
+  io.out.toRB.page_share   := share_data.page_share
+  io.out.toRB.data_rot_sel := share_data.data_rot_sel
+  io.out.toRB.bytes_vld    := share_data.bytes_vld
 
   when((io.in.fromDC.inst_vld || io.in.fromDC.borrow_vld && io.in.fromDC.borrow_mmu) && !ld_da_ecc_stall){
     dcache_hit_info.dcache_hit           :=  io.in.fromDC.dcache_hit
@@ -545,6 +579,7 @@ class LoadDA extends Module {
     dcache_hit_info.hit_high_region      :=  io.in.fromDC.hit_high_region
     dcache_hit_info.hit_high_region_dup  :=  VecInit(Seq.fill(4)(io.in.fromDC.hit_high_region))
   }
+  io.out.ld_da_dcache_hit := dcache_hit_info.dcache_hit
 
   //+----------+
   //| pfu_addr |
@@ -553,6 +588,7 @@ class LoadDA extends Module {
   when(io.in.fromDC.pfu_info_set_vld && !ld_da_ecc_stall){
     ld_da_ppfu_va := io.in.fromDC.pfu_va
   }
+  io.out.toPFU.ppfu_va := ld_da_ppfu_va
 
   //==========================================================
   //        Generate expt info
@@ -647,7 +683,7 @@ class LoadDA extends Module {
   ld_da_data256_way(0) := ld_da_dcache_data_bank.asUInt
   ld_da_data256_way(1) := Cat(ld_da_dcache_data_bank.asUInt(127,0), ld_da_dcache_data_bank.asUInt(255,128))
 
-  val ld_da_data256 = Mux(borrow_data.settle_way, ld_da_data256_way(1), ld_da_data256_way(0))
+  io.out.ld_da_data256 := Mux(borrow_data.settle_way, ld_da_data256_way(1), ld_da_data256_way(0))
 
   //------------------cache data settle-----------------------
   val ld_da_high_region_data128_am = Wire(Vec(16, UInt(8.W)))
@@ -783,10 +819,362 @@ class LoadDA extends Module {
   io.out.toLfb.wakeup_queue_next := Cat(ld_da_mcic_borrow_mmu, ld_da_mask_lsid.asUInt)
 
   //------------------create read buffer info-----------------
+  val ld_da_rb_create_vld = ld_da_rb_create_vld_unmask && !ld_da_ecc_stall && !ld_da_mcic_data_err && !ld_da_hit_idx_discard_req
+  io.out.toRB.create_vld := ld_da_rb_create_vld
 
+  io.out.toRB.create_dp_vld := ld_da_rb_create_vld_unmask
 
+  val ld_da_rb_create_gateclk_en = ld_da_rb_create_vld_unmask
+  io.out.toRB.create_gateclk_en := ld_da_rb_create_gateclk_en
 
+  io.out.toCtrl.special_gateclk_en := ld_da_rb_create_gateclk_en
 
+  //-----------merge signal---------------
+  //merge signal is used for secd ld instruction
+  ld_da_rb_merge_vld_unmask := ld_da_inst_vld && !ld_da_wait_fence_req && !ld_da_expt_vld && !ld_da_discard_dc_req &&
+    !ld_da_sq_fwd_ecc_discard && ld_da_ld_inst && inst_data.secd && inst_data.boundary
+
+  val ld_da_rb_merge_vld = ld_da_rb_merge_vld_unmask && !ld_da_ecc_stall && !ld_da_hit_idx_discard_req
+  io.out.toRB.merge_vld := ld_da_rb_merge_vld
+
+  io.out.toRB.merge_dp_vld := ld_da_rb_merge_vld_unmask
+
+  //for data merge
+  //assign ld_da_rb_merge_ecc_stall     = ld_da_ecc_data_req_mask;
+
+  //merge expt is for secd ld inst has exception
+  io.out.toRB.merge_expt_vld := ld_da_inst_vld && !ld_da_expt_vld && ld_da_ld_inst && inst_data.secd && inst_data.boundary
+
+  io.out.toRB.merge_gateclk_en := ld_da_rb_merge_vld_unmask
+
+  //-----------rb create signal-----------
+  //this inst will request lfb addr entry in rb
+  io.out.toRB.create_lfb          := share_data.page_ca
+  io.out.toRB.atomic              := ld_da_inst_vld && inst_data.atomic
+  io.out.toRB.ldamo               := ld_da_inst_vld && ld_da_ldamo_inst
+  io.out.toRB.cmplt_success       := ld_da_borrow_vld || ld_da_inst_vld && !ld_da_boundary_first && ld_da_inst_cmplt
+  io.out.toRB.dest_vld            := ld_da_inst_vld
+
+  //==========================================================
+  //        Compare index
+  //==========================================================
+  //it's for the corner condition of read buffer creating port
+  //if both ld_da & st_da create rb and their index are the same
+  //------------------compare st_da stage---------------------
+  val ld_da_cmp_st_da_addr = io.in.st_da_addr
+  io.out.ld_da_st_da_hit_idx := (ld_da_rb_create_vld_unmask || ld_da_rb_merge_vld_unmask) && ld_da_idx === ld_da_cmp_st_da_addr(13,6)
+
+  //------------------compare pfu-----------------------------
+  //if timing is not enough, change ld_da_rb_create_vld_unmask to judge
+  val ld_da_cmp_pfu_biu_req_addr = io.in.pfu_biu_req_addr
+  io.out.toPFU.biu_req_hit_idx  := (ld_da_rb_create_vld_unmask || ld_da_rb_merge_vld_unmask) && ld_da_idx === ld_da_cmp_pfu_biu_req_addr(13,6)
+
+  //==========================================================
+  //        Generage commit signal
+  //==========================================================
+  val ld_da_cmit_hit = Wire(Vec(3, Bool()))
+  for(i <- 0 until 3){
+    ld_da_cmit_hit(i) := io.in.fromRTU.yy_xx_commit(i) && io.in.fromRTU.yy_xx_commit_iid(i) === inst_data.iid
+  }
+
+  io.out.toRB.cmit := ld_da_cmit_hit.asUInt.orR
+
+  //==========================================================
+  //        Restart signal
+  //==========================================================
+  ld_da_fwd_sq_bypass_vld := inst_data.fwd_sq_bypass && io.in.fromSdEx1.inst_vld
+
+  val ld_da_data_discard_sq_final = inst_data.data_discard_sq || inst_data.fwd_sq_bypass && !io.in.fromSdEx1.inst_vld
+
+  val ld_da_fwd_sq_multi_final = inst_data.fwd_sq_multi && !inst_data.fwd_sq_multi_mask || inst_data.fwd_bypass_sq_multi
+
+  val ld_da_discard_wmb_final = share_data.page_ca && inst_data.fwd_wmb_vld || inst_data.discard_wmb
+
+  //-------------------dc reastart req------------------------
+  ld_da_discard_dc_req := inst_data.other_discard_sq || ld_da_data_discard_sq_final || ld_da_fwd_sq_multi_final || ld_da_discard_wmb_final
+
+  //------------------arbitrate-------------------------------
+  //1. other discard sq
+  //2. fwd sq data not vld
+  //3. fwd sq multi
+  //4. discard wmb
+  //5. wait_fence
+  //6. discard rb/lfb
+  //7. rb_full
+  val ld_da_other_discard_sq_req = ld_da_inst_vld && inst_data.other_discard_sq
+  val ld_da_data_discard_sq_req  = ld_da_inst_vld && ld_da_data_discard_sq_final
+  val ld_da_fwd_sq_multi_req     = ld_da_inst_vld && ld_da_fwd_sq_multi_final
+  val ld_da_discard_wmb_req      = ld_da_inst_vld && ld_da_discard_wmb_final
+  ld_da_wait_fence_req          := ld_da_inst_vld && ld_da_ld_inst && ld_da_data_vld && inst_data.wait_fence
+  val ld_da_rb_full_req          = ld_da_rb_create_vld && io.in.fromRB.full
+
+  val ld_da_other_discard_sq_vld = ld_da_other_discard_sq_req
+  io.out.toSQ.data_discard_vld := !ld_da_other_discard_sq_req && ld_da_data_discard_sq_req
+
+  // &Force("output","ld_da_sq_fwd_multi_vld"); @1573
+  val ld_da_sq_fwd_multi_vld = !ld_da_other_discard_sq_req && !ld_da_data_discard_sq_req && ld_da_fwd_sq_multi_req
+  io.out.toSQ.fwd_multi_vld := ld_da_sq_fwd_multi_vld
+
+  io.out.ld_da_wmb_discard_vld := !ld_da_other_discard_sq_req && !ld_da_fwd_sq_multi_req && !ld_da_data_discard_sq_req && ld_da_discard_wmb_req
+
+  val ld_da_wait_fence_vld = !ld_da_other_discard_sq_req && !ld_da_fwd_sq_multi_req && !ld_da_data_discard_sq_req && !ld_da_discard_wmb_req && ld_da_wait_fence_req
+
+  io.out.toCtrl.wait_fence_gateclk_en := ld_da_wait_fence_req
+  //this logic may be redundant, ld_da_hit_idx_discard_req
+  //needn't judge other condition, because this signal has already see other
+  //signals
+  ld_da_hit_idx_discard_vld  := ld_da_hit_idx_discard_req && !ld_da_ecc_stall
+
+  val ld_da_rb_full_vld = !ld_da_other_discard_sq_req && !ld_da_fwd_sq_multi_req && !ld_da_data_discard_sq_req &&
+    !ld_da_discard_wmb_req && !ld_da_wait_fence_req && !ld_da_hit_idx_discard_req && ld_da_rb_full_req
+
+  io.out.toCtrl.rb_full_gateclk_en := ld_da_rb_create_gateclk_en && io.in.fromRB.full
+
+  val ld_da_restart_vld = ld_da_other_discard_sq_req || ld_da_fwd_sq_multi_req || ld_da_data_discard_sq_req ||
+    ld_da_discard_wmb_req || ld_da_hit_idx_discard_req || ld_da_rb_full_req || ld_da_wait_fence_req
+
+  //interface to sq
+  io.out.toSQ.global_discard_vld := ld_da_other_discard_sq_vld || ld_da_sq_fwd_multi_vld
+
+  //==========================================================
+  //                    Settle data
+  //==========================================================
+  //------------------settle data to register mode------------
+  //rot_set signal is set in da stage and plays a role in wb stage
+
+  //==========================================================
+  //                    ECC handling
+  //==========================================================
+  ld_da_tag_ecc_stall_ori := false.B
+  ld_da_ecc_stall_gate    := false.B
+  ld_da_ecc_stall         := false.B
+  val ld_da_ecc_data_req_mask = false.B
+  val ld_da_ecc_mcic_wakup    = false.B
+  io.out.toCtrl.ecc_wakeup := 0.U(12.W)
+  io.out.toLm.ecc_err := false.B
+  io.out.ld_da_vb_snq_data_reissue := false.B
+  ld_da_mcic_data_err := false.B
+  io.out.toMcic.data_err := ld_da_mcic_data_err
+  io.out.ld_da_fwd_ecc_stall := false.B
+  ld_da_sq_fwd_ecc_discard := false.B
+  io.out.toIDU.ld_da_wait_old := 0.U(12.W)
+  io.out.toIDU.ld_da_wait_old_gateclk_en := false.B
+  val ld_da_restart_no_cache = false.B
+
+  //==========================================================
+  //        Generage interface to cache buffer
+  //==========================================================
+  io.out.toCB.data := Mux(dcache_hit_info.hit_low_region, ld_da_data256_way(0)(127,0), 0.U(128.W)) |
+    Mux(dcache_hit_info.hit_high_region, ld_da_data256_way(0)(255,128), 0.U(128.W))
+
+  io.out.toCB.data_vld := ld_da_inst_vld && ld_da_ld_inst && inst_data.cb_addr_create && dcache_hit_info.dcache_hit &&
+    !ld_da_expt_vld && !ld_da_restart_no_cache && !io.in.fromRTU.yy_xx_flush && !ld_da_fwd_vld
+
+  io.out.toCB.ld_inst_vld := ld_da_inst_vld && ld_da_ld_inst && inst_data.cb_addr_create
+
+  io.out.toCB.ecc_cancel := ld_da_ecc_data_req_mask || ld_da_ecc_stall_already
+
+  //==========================================================
+  //        Generage interface to prefetch buffer
+  //==========================================================
+  io.out.toPFU.pf_inst_vld := ld_da_inst_vld && inst_data.pf_inst && !inst_data.already_da && !ld_da_expt_ori
+
+  val ld_da_boundary_cross_2k = inst_data.pfu_va(11) =/= share_data.addr0(11)
+  //if cache miss and not hit idx, then it can create pmb
+  io.out.toPFU.act_vld := ld_da_inst_vld && inst_data.pf_inst && !ld_da_expt_ori &&
+    (ld_da_rb_create_vld || ld_da_split_miss_ff) && !ld_da_data_vld && !ld_da_boundary_cross_2k
+
+  io.out.toPFU.act_dp_vld := ld_da_inst_vld && inst_data.pf_inst && !ld_da_expt_ori && !ld_da_data_vld && !ld_da_boundary_cross_2k
+
+  //for evict count
+  io.out.toPFU.evict_cnt_vld := io.out.toPFU.pf_inst_vld
+
+  //==========================================================
+  //        Generage interface to WB stage signal
+  //==========================================================
+  //------------------write back cmplt part request-----------
+  ld_da_inst_cmplt := ld_da_expt_vld ||
+    (inst_data.vector_nop || ld_da_expt_ori) && !(inst_data.secd  && ld_da_inst_fof) ||
+    ld_da_ld_inst && !share_data.page_so && !ld_da_inst_fof ||
+    ld_da_inst_fof && ld_da_data_vld && !inst_data.secd ||
+    ld_da_lr_inst && ld_da_data_vld
+
+  io.out.toWB.cmplt_req := ld_da_inst_vld && !ld_da_ecc_stall && !ld_da_sq_fwd_ecc_discard && !ld_da_restart_vld &&
+    !ld_da_boundary_first && ld_da_inst_cmplt
+
+  //------------------write back data part request------------
+  val ld_da_wb_data_req_mask = ld_da_other_discard_sq_req || ld_da_fwd_sq_multi_req || ld_da_data_discard_sq_req ||
+    ld_da_discard_wmb_req || ld_da_wait_fence_req
+
+  io.out.toWB.data_req := ld_da_inst_vld &&
+    (ld_da_ld_inst  || ld_da_lr_inst  || ld_da_ldamo_inst  && (ld_da_ecc_stall_fatal  || inst_data.vector_nop)) &&
+    (!ld_da_expt_vld  && ld_da_rb_data_vld  || ld_da_ecc_stall_fatal) &&
+    !ld_da_ecc_data_req_mask && !ld_da_sq_fwd_ecc_discard && !ld_da_wb_data_req_mask && !ld_da_boundary_after_mask
+
+  io.out.toWB.data_req_gateclk_en := ld_da_inst_vld &&
+    (dcache_hit_info.dcache_hit  || inst_data.fwd_sq_vld  ||inst_data.fwd_wmb_vld  || inst_data.fwd_sq_bypass  ||
+      inst_data.vector_nop  || ld_da_fof_not_first  || ld_da_ecc_stall_fatal)
+
+  //------------------other signal---------------------------
+  io.out.toWB.spec_fail := (inst_data.spec_fail || ld_da_ecc_spec_fail) && !ld_da_expt_vld && !inst_data.split
+
+  //==========================================================
+  //        Generate interface to borrow module
+  //==========================================================
+  val ld_da_borrow_db_vld = ld_da_borrow_vld && (borrow_data.sndb || borrow_data.vb)
+
+  io.out.ld_da_vb_borrow_vb := Mux(ld_da_borrow_db_vld, borrow_data.db, 0.U(LSUConfig.VB_DATA_ENTRY.W))
+
+  io.out.ld_da_snq_borrow_sndb := ld_da_borrow_vld && borrow_data.sndb
+
+  io.out.ld_da_snq_borrow_icc := ld_da_borrow_vld && borrow_data.icc
+
+  //for icc, settle way actually means high region
+  val ld_da_icc_tag_read = Cat(0.U(101.W), ld_da_tag_read)
+  val ld_da_icc_data_read = Mux(borrow_data.settle_way, ld_da_data256_way(0)(255,128), ld_da_data256_way(0)(127,0))
+
+  io.out.ld_da_icc_read_data := Mux(borrow_data.icc_tag, ld_da_icc_tag_read, ld_da_icc_data_read)
+
+  ld_da_mcic_borrow_mmu := ld_da_borrow_vld && borrow_data.mmu
+  io.out.toRB.mcic_borrow_mmu := ld_da_mcic_borrow_mmu
+
+  io.out.toMcic.borrow_mmu_req := ld_da_mcic_borrow_mmu && !ld_da_ecc_data_req_mask
+
+  io.out.toMcic.wakeup := ld_da_mcic_borrow_mmu && !ld_da_ecc_stall && io.in.fromRTU.yy_xx_flush || ld_da_ecc_mcic_wakup
+
+  //rb_full_vld has exclude ld_da_hit_idx_discard_req
+  io.out.toMcic.rb_full := ld_da_borrow_vld && borrow_data.mmu && !io.in.fromRTU.yy_xx_flush && ld_da_rb_full_vld
+
+  val ld_da_mcic_bypass_data_ori = Mux(share_data.addr0(3), ld_da_dcache_pass_data128_am(127,64), ld_da_dcache_pass_data128_am(63,0))
+
+  io.out.toMcic.bypass_data := Mux(ld_da_mcic_data_err, 0.U(64.W), ld_da_mcic_bypass_data_ori)
+
+  //==========================================================
+  //              Interface to other module
+  //==========================================================
+  //-----------interface to local monitor---------------------
+  io.out.toLm.no_req := ld_da_inst_vld && ld_da_lr_inst && ld_da_data_vld
+
+  io.out.toLm.vector_nop := ld_da_inst_vld && ld_da_ldamo_inst && inst_data.vector_nop
+
+  //==========================================================
+  //        Generate lsiq signal
+  //==========================================================
+  ld_da_mask_lsid := Mux(ld_da_inst_vld, inst_data.lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  val ld_da_merge_mask = ld_da_merge_from_cb && dcache_hit_info.dcache_hit && !ld_da_fwd_vld
+
+  ld_da_boundary_after_mask := ld_da_inst_vld && inst_data.boundary && !ld_da_merge_mask && !ld_da_expt_vld
+  io.out.toRB.boundary_after_mask := ld_da_boundary_after_mask
+
+  ld_da_boundary_first := ld_da_boundary_after_mask && !inst_data.secd
+
+  ld_da_ecc_spec_fail := false.B
+
+  //-----------lsiq signal----------------
+  io.out.toCtrl.idu_already_da := ld_da_mask_lsid
+  io.out.toCtrl.idu_rb_full := Mux(ld_da_rb_full_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_wait_fence := Mux(ld_da_wait_fence_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  io.out.toCtrl.idu_pop_vld := ld_da_inst_vld && !ld_da_boundary_first && !ld_da_ecc_stall && !ld_da_sq_fwd_ecc_discard && !ld_da_restart_vld
+
+  io.out.toCtrl.idu_pop_entry := Mux(io.out.toCtrl.idu_pop_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  io.out.toCtrl.idu_spec_fail := Mux(inst_data.spec_fail && ld_da_boundary_first || ld_da_ecc_spec_fail,
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  io.out.toCtrl.idu_bkpta_data := Mux(inst_data.bkpta_data && ld_da_boundary_first,
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  io.out.toCtrl.idu_bkptb_data := Mux(inst_data.bkptb_data && ld_da_boundary_first,
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  //---------boundary gateclk-------------
+  val ld_da_idu_boundary_gateclk_vld       = ld_da_inst_vld && ld_da_boundary_first
+
+  io.out.toCtrl.idu_boundary_gateclk_en := Mux(ld_da_idu_boundary_gateclk_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  //-----------imme wakeup----------------
+  val ld_da_idu_secd_vld = ld_da_boundary_first && !ld_da_ecc_stall && !ld_da_sq_fwd_ecc_discard && !ld_da_restart_vld
+
+  io.out.toCtrl.idu_secd := Mux(ld_da_idu_secd_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+
+  //==========================================================
+  //        Generate interface to rtu
+  //==========================================================
+  io.out.toRTU.da_pipe3_split_spec_fail_vld := ld_da_inst_vld && !ld_da_expt_vld &&
+    inst_data.split && (inst_data.spec_fail || ld_da_ecc_spec_fail)
+
+  io.out.toRTU.da_pipe3_split_spec_fail_iid := inst_data.iid
+
+  //==========================================================
+  //        pipe3 data wb
+  //==========================================================
+  io.out.toIDU.da_pipe3_fwd_preg_vld  := ld_da_ahead_preg_wb_vld && !inst_data.expt_access_fault_mmu
+  io.out.toIDU.da_pipe3_fwd_preg      := inst_data.preg
+  io.out.toIDU.da_pipe3_fwd_preg_data := ld_da_preg_data_sign_extend
+  io.out.toIDU.da_pipe3_fwd_vreg_vld  := ld_da_ahead_vreg_wb_vld && !inst_data.expt_access_fault_mmu
+
+  io.out.toIDU.da_pipe3_fwd_vreg          := 0.U(7.W)
+  io.out.toIDU.da_pipe3_fwd_vreg_fr_data  := 0.U(64.W)
+  io.out.toIDU.da_pipe3_fwd_vreg_vr0_data := 0.U(64.W)
+  io.out.toIDU.da_pipe3_fwd_vreg_vr1_data := 0.U(64.W)
+
+  //==========================================================
+  //                Flop for ld_da
+  //==========================================================
+  val ld_da_ff_clk_en = ld_da_inst_vld && (io.in.fromCp0.yy_dcache_pref_en || io.in.fromCp0.lsu_l2_pref_en)
+
+  when(ld_da_inst_vld){
+    ld_da_ppn_ff        := share_data.addr0
+    ld_da_page_sec_ff   := share_data.page_sec
+    ld_da_page_share_ff := share_data.page_share
+  }
+  io.out.toPFU.ppn_ff      := ld_da_ppn_ff
+  io.out.toPFU.page_sec_ff := ld_da_page_sec_ff
+  io.out.toPFU.page_share_ff := ld_da_page_share_ff
+
+  //for preload
+  //when split load cache miss,record
+  val ld_da_split_miss = ld_da_inst_vld && ld_da_ld_inst && share_data.page_ca && io.in.fromCp0.lsu_dcache_en &&
+    inst_data.split && !inst_data.secd && !ld_da_expt_vld && ld_da_rb_create_vld && !ld_da_data_vld
+
+  val ld_da_split_last = ld_da_inst_vld && ld_da_ld_inst && !inst_data.split
+
+  when(ld_da_split_miss){
+    ld_da_split_miss_ff := true.B
+  }.elsewhen(ld_da_split_last){
+    ld_da_split_miss_ff := false.B
+  }
+
+  //==========================================================
+  //        interface for spec_fail prediction
+  //==========================================================
+  val ld_da_spec_chk_req  = ld_da_inst_vld && ld_da_ld_inst && io.in.fromCp0.lsu_nsfe && !share_data.page_so &&
+    !inst_data.expt_vld_except_access_err && !ld_da_restart_vld
+
+  io.out.toSF.spec_chk_req := ld_da_spec_chk_req
+  io.out.toSF.addr_tto4 := share_data.addr0(LSUConfig.PA_WIDTH-1,4)
+  io.out.toSF.bytes_vld := share_data.bytes_vld
+
+  //wb_cmplt
+  io.out.toWB.no_spec_miss    := ld_da_inst_vld && io.in.fromCp0.lsu_nsfe && !inst_data.no_spec && io.in.fromSF.spec_mark
+  io.out.toWB.no_spec_hit     := ld_da_inst_vld && io.in.fromCp0.lsu_nsfe && inst_data.no_spec && io.in.fromSF.spec_hit
+  io.out.toWB.no_spec_mispred := ld_da_inst_vld && io.in.fromCp0.lsu_nsfe && inst_data.no_spec && (!inst_data.no_spec_exist || !io.in.fromSF.spec_hit)
+
+  //==========================================================
+  //        interface to hpcp
+  //==========================================================
+  io.out.toHpcp.ld_cache_access := ld_da_inst_vld && ld_da_ld_inst && share_data.page_ca && io.in.fromCp0.lsu_dcache_en && !inst_data.already_da
+
+  io.out.toHpcp.ld_cache_miss := ld_da_inst_vld && ld_da_ld_inst && share_data.page_ca && io.in.fromCp0.lsu_dcache_en &&
+    !ld_da_data_vld && (ld_da_rb_create_vld  && !io.in.fromRB.full  || ld_da_rb_merge_vld  || ld_da_discard_from_lfb_req  && io.in.ld_hit_prefetch)
+
+  io.out.toHpcp.ld_discard_sq := ld_da_inst_vld && (ld_da_other_discard_sq_req  || ld_da_fwd_sq_multi_req) && !inst_data.already_da
+
+  io.out.toHpcp.ld_data_discard := ld_da_inst_vld && ld_da_data_discard_sq_req && !inst_data.already_da
+
+  io.out.toHpcp.ld_unalign_inst := ld_da_inst_vld && !inst_data.already_da && inst_data.secd
 
 
 }
