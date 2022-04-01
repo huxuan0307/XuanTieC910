@@ -117,6 +117,10 @@ trait LsuConfig{
 
   def DCACHE_DIRTY_ARRAY_WITDH = 7
   def DCACHE_TAG_ARRAY_WITDH   = 52
+
+  def PREG_SIGN_SEL = 4
+  def VREG_SIGN_SEL = 2
+  def DATA_UPDATE_PATH_WIDTH = 5
 }
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
