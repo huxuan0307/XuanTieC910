@@ -55,7 +55,7 @@ class StoreDaIn extends Bundle with LsuConfig{
 //==========================================================
 //                        Output
 //==========================================================
-class LsuDcToCtrl extends Bundle with LsuConfig {
+class StDaToCtrl extends Bundle with LsuConfig {
   val  hpcpCacheAccess   = Bool()
   val  hpcpCacheMiss     = Bool()
   val  hpcpUnalignInst   = Bool()
@@ -73,7 +73,18 @@ class LsuDcToCtrl extends Bundle with LsuConfig {
   val  rbFullGateclkEn   = Bool()
   val  borrowVld         = Bool()
 }
-class LsuDcToSq extends Bundle with LsuConfig {
+
+class StDaToWb extends Bundle with LsuConfig{
+  val cmpltReq          = Bool()
+  val exptVec           = UInt(ExceptionVecWidth.W)
+  val exptVld           = Bool()
+  val mtValue           = UInt(PA_WIDTH.W)
+  val noSpecHit         = Bool()
+  val noSpecMispred     = Bool()
+  val noSpecMiss        = Bool()
+  val specFail          = Bool()
+}
+class StDaToSq extends Bundle with LsuConfig {
   val secd                = Bool()
   val sfAddrTto4          = UInt(32.W)
   val sfBytesVld          = UInt(BYTES_ACCESS_WIDTH.W)
@@ -101,18 +112,10 @@ class LsuDcToSq extends Bundle with LsuConfig {
   val vbFeedbackDddrTto14 = UInt(26.W)
   val vbTagReissue        = Bool()
   val waitFenceGateclkEn  = Bool()
-  val wbCmpltReq          = Bool()
-  val wbExptVec           = UInt(ExceptionVecWidth.W)
-  val wbExptVld           = Bool()
-  val wbMtValue           = UInt(PA_WIDTH.W)
-  val wbNoSpecHit         = Bool()
-  val wbNoSpecMispred     = Bool()
-  val wbNoSpecMiss        = Bool()
-  val wbSpecFail          = Bool()
+  val wb = new StDaToWb
   val wbVstartVld         = Bool()
-
 }
-class LsuDcToRb extends Bundle with LsuConfig {
+class StDaToRb extends Bundle with LsuConfig {
    val dcacheHit       = Bool() //to rb && vb
    val instSize        = UInt(INST_SIZE_WIDTH.W)
    val fenceInst       = Bool()
@@ -130,7 +133,7 @@ class LsuDcToRb extends Bundle with LsuConfig {
    val pageShare       = Bool()
 
 }
-class LsuDcToPfu extends Bundle with LsuConfig {
+class StDaToPfu extends Bundle with LsuConfig {
   val pageSecFf       = Bool()
   val pageShareFf     = Bool()
   val pc              = UInt(LSU_PC_WIDTH.W)
@@ -142,7 +145,7 @@ class LsuDcToPfu extends Bundle with LsuConfig {
   val ppfuVa          = UInt(PA_WIDTH.W)
   val ppnFf           = UInt(VPN_WIDTH.W)
 }
-class LsuDcToVb extends Bundle with LsuConfig {
+class StDaToVb extends Bundle with LsuConfig {
   val dirty         = Bool()
   val miss          = Bool()
   val replaceDirty  = Bool()
@@ -150,24 +153,24 @@ class LsuDcToVb extends Bundle with LsuConfig {
   val replaceWay    = Bool()
   val way           = Bool()
 }
-class LsuDcToIcc extends Bundle with LsuConfig {
+class StDaToIcc extends Bundle with LsuConfig {
   val borrowIccVld = Bool()
   val dirtyInfo = UInt(3.W)
   val tagInfo   = UInt(DCACHE_TAG_ARRAY_WITDH.W)
 }
-class LsuDcToRtu extends Bundle with LsuConfig {
+class StDaToRtu extends Bundle with LsuConfig {
   val splitSpecFailIid = UInt(RobPtrWidth.W)
   val splitSpecFailVld = Bool()
 }
 //----------------------------------------------------------
 class StoreDaOut extends Bundle with LsuConfig{
-  val toCtrl    = new LsuDcToCtrl
-  val toSq      = new LsuDcToSq
-  val toRb      = new LsuDcToRb
-  val toPfu     = new LsuDcToPfu
-  val toVb      = new LsuDcToVb
-  val toIcc     = new LsuDcToIcc
-  val toRtu     = new LsuDcToRtu
+  val toCtrl    = new StDaToCtrl
+  val toSq      = new StDaToSq
+  val toRb      = new StDaToRb
+  val toPfu     = new StDaToPfu
+  val toVb      = new StDaToVb
+  val toIcc     = new StDaToIcc
+  val toRtu     = new StDaToRtu
   // these io is multi-used
   val addr      = UInt(PA_WIDTH.W)    // rb/lfb/lm/ldda
   val bkptaData = Bool()              // sq/wb
@@ -230,8 +233,8 @@ class StoreDa extends Module with LsuConfig {
   //+-----+-------+
   //| tag | dirty |
   //+-----+-------+
-  val st_da_dcache_tag_array   = RegInit(0.U(DCACHE_TAG_ARRAY_WITDH))
-  val st_da_dcache_dirty_array = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH))
+  val st_da_dcache_tag_array   = RegInit(0.U(DCACHE_TAG_ARRAY_WITDH.W))
+  val st_da_dcache_dirty_array = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
   val st_da_tag_hit            = Vec(2,Bool())
   when(io.in.dcIn.getDcacheTagDirty){
     st_da_dcache_tag_array  := io.in.dcIn.dcacheTagArray
@@ -361,10 +364,10 @@ class StoreDa extends Module with LsuConfig {
   //+--------------+----------------+----------------+
   //| dcwp_hit_idx | dcwp_dirty_din | dcwp_dirty_wen |
   //+--------------+----------------+----------------+
-  val st_da_addr0             = RegInit(0.U(PA_WIDTH))
+  val st_da_addr0             = RegInit(0.U(PA_WIDTH.W))
   val st_da_dcwp_dc_hit_idx   = RegInit(Bool())
-  val st_da_dcwp_dc_dirty_din = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH))
-  val st_da_dcwp_dc_dirty_wen = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH))
+  val st_da_dcwp_dc_dirty_din = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
+  val st_da_dcwp_dc_dirty_wen = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
   when(io.in.dcIn.instVld && io.in.dcIn.toSqDa.borrowVld){
     st_da_addr0             := io.in.dcIn.toPwdDa.addr0
     st_da_dcwp_dc_hit_idx   := io.in.dcIn.dcwpHitIdx
@@ -378,14 +381,14 @@ class StoreDa extends Module with LsuConfig {
   val st_da_expt_vld          = (st_da_expt_vld_except_access_err || st_da_expt_access_fault || st_da_ecc_stall_fatal) && !(st_da_vector_nop)
   val st_da_wb_expt_vld       = (st_da_expt_vld_except_access_err || st_da_expt_access_fault) && !(st_da_vector_nop)
   when(st_da_expt_access_fault &&  !st_da_st){
-    io.out.toSq.wbExptVec := 5.U(ExceptionVecWidth.W)
-    io.out.toSq.wbExptVec := 0.U(PA_WIDTH.W)
+    io.out.toSq.wb.exptVec := 5.U(ExceptionVecWidth.W)
+    io.out.toSq.wb.exptVec := 0.U(PA_WIDTH.W)
   }.elsewhen(st_da_expt_access_fault &&  st_da_st){
-    io.out.toSq.wbExptVec := 7.U(ExceptionVecWidth.W)
-    io.out.toSq.wbExptVec := 0.U(PA_WIDTH.W)
+    io.out.toSq.wb.exptVec := 7.U(ExceptionVecWidth.W)
+    io.out.toSq.wb.exptVec := 0.U(PA_WIDTH.W)
   }.otherwise{
-    io.out.toSq.wbExptVec := st_da_expt_vec
-    io.out.toSq.wbExptVec := st_da_mt_value
+    io.out.toSq.wb.exptVec := st_da_expt_vec
+    io.out.toSq.wb.exptVec := st_da_mt_value
   }
   val st_da_wb_vstart_vld = false.B
   //==========================================================
@@ -453,7 +456,7 @@ class StoreDa extends Module with LsuConfig {
   //when inst is in da stage, then tag & dirty array may be changed
   //-------update dirty info if index hit in dc stage---------
   val st_da_dirty_dc_update      = Mux(st_da_dcwp_dc_hit_idx, io.in.dcacheIn.dirtyWen,0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
-  val st_da_dirty_dc_update_dout = (st_da_dirty_dc_update & st_da_dcwp_dc_dirty_din)|((~st_da_dirty_dc_update) & st_da_dcache_dirty_array)
+  val st_da_dirty_dc_update_dout = (st_da_dirty_dc_update & st_da_dcwp_dc_dirty_din) | (st_da_dcache_dirty_array & (~st_da_dirty_dc_update))
   //select cache hit info
   val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(2,0),st_da_dirty_dc_update_dout(5,3))
   val st_da_dcache_dc_up_dirty         = st_da_dcache_dirty_dc_up_hit_info[2];
@@ -547,12 +550,12 @@ class StoreDa extends Module with LsuConfig {
   //==========================================================
   //------------------write back cmplt part request-----------
   val st_da_boundary_first = Wire(Bool())
-  io.out.toSq.wbCmpltReq :=  st_da_inst_vld  &&  !st_da_restart_vld  &&  !st_da_ecc_stall  &&
+  io.out.toSq.wb.cmpltReq :=  st_da_inst_vld  &&  !st_da_restart_vld  &&  !st_da_ecc_stall  &&
     !st_da_ecc_stall_dcache_update  &&  !st_da_boundary_first  &&
     (st_da_wb_expt_vld    ||  st_da_vector_nop    ||  (st_da_ctc_inst    ||  st_da_dcache_1line_inst    ||  st_da_l2cache_inst
     ||  st_da_st_inst &&  !st_da_page_so))
   //------------------other signal---------------------------
-  io.out.toSq.wbSpecFail := st_da_spec_fail  &&  !st_da_split
+  io.out.toSq.wb.specFail := st_da_spec_fail  &&  !st_da_split
   //==========================================================
   //        Generate interface to borrow module
   //==========================================================
@@ -599,9 +602,9 @@ class StoreDa extends Module with LsuConfig {
   io.out.toSq.sfBytesVld := st_da_bytes_vld
   val st_da_no_spec_hit = st_da_inst_vld  && io.in.cp0In.lsuNsfe && st_da_no_spec && !st_da_spec_fail
   val st_da_no_spec_mispred = st_da_inst_vld  && io.in.cp0In.lsuNsfe  && st_da_no_spec && st_da_spec_fail
-  io.out.toSq.wbNoSpecMiss    := st_da_no_spec_miss && !st_da_no_spec
-  io.out.toSq.wbNoSpecHit     := st_da_no_spec_hit
-  io.out.toSq.wbNoSpecMispred := st_da_no_spec_mispred
+  io.out.toSq.wb.noSpecMiss    := st_da_no_spec_miss && !st_da_no_spec
+  io.out.toSq.wb.noSpecHit     := st_da_no_spec_hit
+  io.out.toSq.wb.noSpecMispred := st_da_no_spec_mispred
   //for spec mispred check
   io.out.toSq.sfSpecChk     :=  st_da_inst_vld && io.in.cp0In.lsuNsfe  && !st_da_restart_vld  && !st_da_spec_fail  && st_da_no_spec
   io.out.toSq.sfSpecChkGate := st_da_inst_vld && io.in.cp0In.lsuNsfe && st_da_no_spec

@@ -121,6 +121,7 @@ trait LsuConfig{
   def PREG_SIGN_SEL = 4
   def VREG_SIGN_SEL = 2
   def DATA_UPDATE_PATH_WIDTH = 5
+  def VMB_ENTRY = 8
 }
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
