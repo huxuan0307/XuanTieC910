@@ -22,4 +22,12 @@ object ZeroExt {
     if (aLen >= len) a(len-1,0) else Cat(0.U((len - aLen).W), a)
   }
 }
+object UIntToMask {
+  def apply(ptr: UInt, length: Integer) = leftmask(ptr, length)
+  def reverseUInt(input: UInt): UInt = {
+    VecInit(input.asBools.reverse).asUInt
+  }
+  def leftmask(ptr: UInt, length: Integer) = UIntToOH(ptr)(length - 1, 0) - 1.U
+  def rightmask(ptr: UInt, length: Integer) = reverseUInt(reverseUInt(UIntToOH(ptr)(length - 1, 0)) - 1.U)
+}
 
