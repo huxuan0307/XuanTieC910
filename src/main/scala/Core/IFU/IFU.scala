@@ -159,11 +159,15 @@ class IFU extends Module with Config {
     io.ifu_idu(i).bits.bkptb_inst   := false.B
     io.ifu_idu(i).bits.bkpta_inst   := false.B
     io.ifu_idu(i).bits.split_short  := false.B
+    io.ifu_idu(i).bits.fence        := false.B
+    io.ifu_idu(i).bits.split_long  := false.B
     io.ifu_idu(i).bits.high_hw_expt := false.B
     io.ifu_idu(i).bits.expt_vec     := 0.U
     io.ifu_idu(i).bits.expt_vld     := false.B
     io.ifu_idu(i).bits.opcode       := ibuf.io.out(i).bits.inst
     io.ifu_idu(i).valid             := ibuf.io.out(i).valid
+    ibuf.io.out(i).ready            := true.B
+//    io.ifu_idu(i).ready             := ibuf.io.out(i).ready
   }
 
   ibuf.io.flush := backend_redirect
