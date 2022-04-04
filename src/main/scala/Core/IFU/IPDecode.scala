@@ -2,7 +2,7 @@ package Core.IFU
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
-import Core.utils._
+import Utils._
 
 class IPDecodeOutput extends CoreBundle {
   val auipc   = Output(Vec(8+1,Bool()))

@@ -149,7 +149,22 @@ class IFU extends Module with Config {
   ibuf.io.in(0).bits.is_inst32 := ip_out.inst_32_9(0)
   ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld//ip_out.bits.chgflw_vld_mask(0)
 
-  ibuf.io.out <> io.ifu_inst_out
+  for(i <- 0 to 2){
+    io.ifu_idu(i).bits.vl_pred      := false.B
+    io.ifu_idu(i).bits.vl           := 0.U
+    io.ifu_idu(i).bits.pc           := ibuf.io.out(i).bits.pc(14,0)
+    io.ifu_idu(i).bits.vsew         := 0.U
+    io.ifu_idu(i).bits.vlmul        := 0.U
+    io.ifu_idu(i).bits.no_spec      := false.B
+    io.ifu_idu(i).bits.bkptb_inst   := false.B
+    io.ifu_idu(i).bits.bkpta_inst   := false.B
+    io.ifu_idu(i).bits.split_short  := false.B
+    io.ifu_idu(i).bits.high_hw_expt := false.B
+    io.ifu_idu(i).bits.expt_vec     := 0.U
+    io.ifu_idu(i).bits.expt_vld     := false.B
+    io.ifu_idu(i).bits.opcode       := ibuf.io.out(i).bits.inst
+    io.ifu_idu(i).valid             := ibuf.io.out(i).valid
+  }
 
   ibuf.io.flush := backend_redirect
 }

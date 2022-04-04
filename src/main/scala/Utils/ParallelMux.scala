@@ -13,8 +13,7 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-package Core.utils
-
+package Utils
 import chisel3._
 import chisel3.util._
 
