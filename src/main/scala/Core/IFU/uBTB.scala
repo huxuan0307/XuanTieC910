@@ -1,5 +1,5 @@
 package Core.IFU
-import Core.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, ParallelPriorityMux}
+import Utils.{CircularQueuePtr, HasCircularQueuePtrHelper, ParallelPriorityMux}
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._

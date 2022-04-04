@@ -1,7 +1,26 @@
 package Core.IFU
+//import Core.IDU.IDData
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
+
+class IDData extends  Bundle {
+  val vl_pred      = Bool()//72
+  val vl           = UInt(8.W)
+  val pc           = UInt(15.W)
+  val vsew         = UInt(3.W)
+  val vlmul        = UInt(2.W)
+  val no_spec      = Bool()//43
+  val bkptb_inst   = Bool()
+  val bkpta_inst   = Bool()
+  val split_short  = Bool()
+  val fence        = Bool()
+  val split_long   = Bool()
+  val high_hw_expt = Bool()//37
+  val expt_vec     = UInt(4.W)
+  val expt_vld     = Bool()//32
+  val opcode       = UInt(32.W)//31
+}
 
 class PCGenIO extends CoreBundle{
   //0 IFStage, 1 IPStage, 2 IBStage, 3 BRU
@@ -117,7 +136,7 @@ class IFUIO extends CoreBundle {
   //val cache_req  = Decoupled(new ICacheReq)
   //val cache_resp = Flipped(Valid(new ICacheResp))
   //inst out
-  val ifu_inst_out = Vec(3, Decoupled(new IBuf2Decode))
+  val ifu_idu = Vec(3, Decoupled(new IDData))
   //bht, btb update
   val bpu_update = new BPUUpdate
   val pc = Output(UInt(VAddrBits.W))

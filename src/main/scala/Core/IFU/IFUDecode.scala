@@ -2,7 +2,7 @@ package Core.IFU
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
-import Core.utils._
+import Utils._
 
 class IFUDecodeIO extends CoreBundle {
   val inst      = Input(UInt(32.W))

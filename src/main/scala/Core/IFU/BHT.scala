@@ -1,5 +1,5 @@
 package Core.IFU
-import Core.Utils.ZeroExt
+import Utils.ZeroExt
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._

@@ -1,6 +1,6 @@
 package Core.IFU
 import Core.{Config, CoreBundle}
-import Core.utils._
+import Utils._
 import chisel3._
 import chisel3.util._
 

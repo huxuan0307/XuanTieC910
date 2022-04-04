@@ -1,5 +1,4 @@
-package Core.utils
-
+package Utils
 import chisel3._
 
 class RAMHelper extends BlackBox {
