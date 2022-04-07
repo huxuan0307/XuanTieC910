@@ -3,49 +3,49 @@ import chisel3._
 import chisel3.util._
 import com.sun.webkit.dom.UIEventImpl
 
-class LQInput extends Bundle{
-  val fromCP0 = new Bundle{
-    val lsu_corr_dis = Bool()
-    val lsu_icg_en = Bool()
-    val yy_clk_en = Bool()
-  }
-  val fromLdDC = new Bundle {
-    val addr = Vec(2, UInt(40.W))
-    val bytes_vld = Vec(2, UInt(16.W))
-    val chk_ld_addr1_vld = Bool()
-    val iid = UInt(7.W)
-    val inst_chk_vld = Bool()
-    val secd = Bool()
-  }
-  val EntryCreate = new Bundle {
-    val dp_vld = Vec(2, Bool())
-    val gateclk_en = Vec(2, Bool())
-    val vld = Vec(2, Bool())
-  }
-  val fromPad = new Bundle{
-    val yy_icg_scan_en = Bool()
-  }
-  val fromRTU = new Bundle{
-    val yy_xx_commit = Vec(3, Bool())
-    val yy_xx_commit_iid = Vec(3, UInt(7.W))
-    val yy_xx_flush = Bool()
-  }
-  val fromStDC = new Bundle{
-    val addr0 = UInt(40.W)
-    val bytes_vld = UInt(16.W)
-    val chk_st_inst_vld = Bool()
-    val chk_statomic_inst_vld = Bool()
-    val iid = UInt(7.W)
-  }
-}
+//class LQInput extends Bundle{
+//  val fromCP0 = new Bundle{
+//    val lsu_corr_dis = Bool()
+//    val lsu_icg_en = Bool()
+//    val yy_clk_en = Bool()
+//  }
+//  val fromLdDC = new Bundle {
+//    val addr = Vec(2, UInt(40.W))
+//    val bytes_vld = Vec(2, UInt(16.W))
+//    val chk_ld_addr1_vld = Bool()
+//    val iid = UInt(7.W)
+//    val inst_chk_vld = Bool()
+//    val secd = Bool()
+//  }
+//  val EntryCreate = new Bundle {
+//    val dp_vld = Vec(2, Bool())
+//    val gateclk_en = Vec(2, Bool())
+//    val vld = Vec(2, Bool())
+//  }
+//  val fromPad = new Bundle{
+//    val yy_icg_scan_en = Bool()
+//  }
+//  val fromRTU = new Bundle{
+//    val yy_xx_commit = Vec(3, Bool())
+//    val yy_xx_commit_iid = Vec(3, UInt(7.W))
+//    val yy_xx_flush = Bool()
+//  }
+//  val fromStDC = new Bundle{
+//    val addr0 = UInt(40.W)
+//    val bytes_vld = UInt(16.W)
+//    val chk_st_inst_vld = Bool()
+//    val chk_statomic_inst_vld = Bool()
+//    val iid = UInt(7.W)
+//  }
+//}
 
 class LQEntryIO extends Bundle{
   val in = Input(new LQInput)
   val out = Output(new Bundle{
-    val inst_hit = Bool()
+    val inst_hit      = Bool()
     val rar_spec_fail = Bool()
     val raw_spec_fail = Bool()
-    val vld = Bool()
+    val vld           = Bool()
   })
 }
 

@@ -4,6 +4,7 @@ trait LSUConfig {
   def PA_WIDTH = 40
 
   def LSIQ_ENTRY  = 12
+  def LQ_ENTRY    = 16
   def SQ_ENTRY    = 12
   def PC_LEN      = 15
 
