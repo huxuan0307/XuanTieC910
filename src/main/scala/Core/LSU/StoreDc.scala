@@ -110,11 +110,11 @@ class StDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
   val instSize      = UInt(INST_SIZE_WIDTH.W)
   val instType      = UInt(INST_TYPE_WIDTH.W)
 }
-class StDcToDa extends Bundle with LsuConfig{
+class StDcToDa extends Bundle with LsuConfig with DCacheConfig {
   val toSqDa                       = new StDcToSqDa
   val toPwdDa                      = new StDcToLq
-  val dcacheDirtyArray             = UInt(DCACHE_DIRTY_ARRAY_WITDH.W)
-  val dcacheTagArray               = UInt(DCACHE_TAG_ARRAY_WITDH.W)
+  val dcacheDirtyArray             = UInt((OFFSET_WIDTH+1).W)
+  val dcacheTagArray               = UInt(((TAG_WIDTH+1)*WAYS).W)
   val exptVldGateEn                = Bool()
   val instVld                      = Bool()
   val tagHit                       = Vec(2, Bool())

@@ -1,4 +1,5 @@
 package Core.LSU
+import Core.DCacheConfig.{TAG_WIDTH, WAYS}
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.ROBConfig.{NumCommitEntry, RobPtrWidth}
 import Core.{DCacheConfig, LsuConfig}
@@ -15,11 +16,11 @@ class Cp0ToStDa extends Bundle with LsuConfig{
   val yyClkEn       = Bool()
 }
 class DcacheToStDa extends Bundle with LsuConfig with DCacheConfig{
-  val dirtyDin = UInt(DCACHE_DIRTY_ARRAY_WITDH.W)
+  val dirtyDin = UInt((OFFSET_WIDTH+1).W)
   val dirtyGwen= Bool()
-  val dirtyWen = UInt(DCACHE_DIRTY_ARRAY_WITDH.W)
+  val dirtyWen = UInt((OFFSET_WIDTH+1).W)
   val idx      = UInt(INDEX_WIDTH.W)
-  val tagDin   = UInt(DCACHE_TAG_ARRAY_WITDH.W)
+  val tagDin   = UInt(((TAG_WIDTH+1)*WAYS).W)
   val tagGwen  = Bool()
   val tagWen   = UInt(2.W)
 }
@@ -153,10 +154,10 @@ class StDaToVb extends Bundle with LsuConfig {
   val replaceWay    = Bool()
   val way           = Bool()
 }
-class StDaToIcc extends Bundle with LsuConfig {
+class StDaToIcc extends Bundle with LsuConfig with DCacheConfig {
   val borrowIccVld = Bool()
   val dirtyInfo = UInt(3.W)
-  val tagInfo   = UInt(DCACHE_TAG_ARRAY_WITDH.W)
+  val tagInfo   = UInt(((TAG_WIDTH+1)*WAYS).W)
 }
 class StDaToRtu extends Bundle with LsuConfig {
   val splitSpecFailIid = UInt(RobPtrWidth.W)
@@ -233,8 +234,8 @@ class StoreDa extends Module with LsuConfig {
   //+-----+-------+
   //| tag | dirty |
   //+-----+-------+
-  val st_da_dcache_tag_array   = RegInit(0.U(DCACHE_TAG_ARRAY_WITDH.W))
-  val st_da_dcache_dirty_array = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
+  val st_da_dcache_tag_array   = RegInit(0.U(((TAG_WIDTH+1)*WAYS).W))
+  val st_da_dcache_dirty_array = RegInit(0.U((OFFSET_WIDTH+1).W))
   val st_da_tag_hit            = Vec(2,Bool())
   when(io.in.dcIn.getDcacheTagDirty){
     st_da_dcache_tag_array  := io.in.dcIn.dcacheTagArray
@@ -366,8 +367,8 @@ class StoreDa extends Module with LsuConfig {
   //+--------------+----------------+----------------+
   val st_da_addr0             = RegInit(0.U(PA_WIDTH.W))
   val st_da_dcwp_dc_hit_idx   = RegInit(Bool())
-  val st_da_dcwp_dc_dirty_din = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
-  val st_da_dcwp_dc_dirty_wen = RegInit(0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
+  val st_da_dcwp_dc_dirty_din = RegInit(0.U((OFFSET_WIDTH+1).W))
+  val st_da_dcwp_dc_dirty_wen = RegInit(0.U((OFFSET_WIDTH+1).W))
   when(io.in.dcIn.instVld && io.in.dcIn.toSqDa.borrowVld){
     st_da_addr0             := io.in.dcIn.toPwdDa.addr0
     st_da_dcwp_dc_hit_idx   := io.in.dcIn.dcwpHitIdx
@@ -439,7 +440,7 @@ class StoreDa extends Module with LsuConfig {
   when(feedback_selecet === "b10".U){
     io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(25,0)
   }.elsewhen(feedback_selecet === "b11".U){
-    io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(DCACHE_TAG_ARRAY_WITDH,26)
+    io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(((TAG_WIDTH+1)*WAYS),26)
   }.otherwise{
     io.out.toSq.vbFeedbackDddrTto14 := st_da_addr0(PA_WIDTH-1,14)
   }
@@ -455,7 +456,7 @@ class StoreDa extends Module with LsuConfig {
   //when inst is in dc stage, then only dcache dirty array may be changed
   //when inst is in da stage, then tag & dirty array may be changed
   //-------update dirty info if index hit in dc stage---------
-  val st_da_dirty_dc_update      = Mux(st_da_dcwp_dc_hit_idx, io.in.dcacheIn.dirtyWen,0.U(DCACHE_DIRTY_ARRAY_WITDH.W))
+  val st_da_dirty_dc_update      = Mux(st_da_dcwp_dc_hit_idx, io.in.dcacheIn.dirtyWen,0.U((OFFSET_WIDTH+1).W))
   val st_da_dirty_dc_update_dout = (st_da_dirty_dc_update & st_da_dcwp_dc_dirty_din) | (st_da_dcache_dirty_array & (~st_da_dirty_dc_update))
   //select cache hit info
   val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(2,0),st_da_dirty_dc_update_dout(5,3))
@@ -539,7 +540,6 @@ class StoreDa extends Module with LsuConfig {
     io.in.cp0In.lsuDcacheEn    && st_da_split &&
     !st_da_secd && !st_da_expt_vld  && io.out.toRb.createVld
   val st_da_split_last = st_da_inst_vld && st_da_st_inst && !st_da_split
-  val st_da_split_miss_ff = RegInit(false.B)
   when(st_da_split_miss){
     st_da_split_miss_ff := true.B
   }.elsewhen(st_da_split_last){
@@ -568,7 +568,7 @@ class StoreDa extends Module with LsuConfig {
   //        Generate lsiq signal
   //==========================================================
   val st_da_mask_lsid = Mux(st_da_inst_vld, st_da_lsid, 0.U(LSIQ_ENTRY.W))
-  val st_da_boundary_first = st_da_boundary  &&  !st_da_expt_vld  &&  !st_da_secd
+  st_da_boundary_first := st_da_boundary  &&  !st_da_expt_vld  &&  !st_da_secd
   //-----------lsiq signal----------------
   // &Force("output","st_da_ecc_wakeup"); @1045
   //for avoid dc vector nop from wakeup sdiq multiple times.use already_da as

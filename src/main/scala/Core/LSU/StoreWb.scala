@@ -84,9 +84,8 @@ class StoreWb extends Module with LsuConfig{
   val st_wb_pre_vstart_vld = false.B
   val st_wb_pre_expt_vld   = Wire(Bool())
   val st_wb_pre_flush      = st_wb_pre_inst_flush || st_wb_pre_spec_fail || st_wb_pre_vstart_vld && !st_wb_pre_expt_vld
-  val st_wb_pre_expt_vld   = st_wb_da_cmplt_grnt   &&  io.in.stDaIn.exptVld;
-  val st_wb_pre_iid        = Mux(st_wb_da_cmplt_grnt,io.in.iid,0.U(RobPtrWidth.W)) || Mux(io.out.wmbCmpltGrnt,io.in.wmbIn.iid,0.U(RobPtrWidth.W))
-  //for spec fail prediction
+  st_wb_pre_expt_vld   := st_wb_da_cmplt_grnt   &&  io.in.stDaIn.exptVld
+  val st_wb_pre_iid        = Mux(st_wb_da_cmplt_grnt,io.in.iid,0.U(RobPtrWidth.W)) | Mux(io.out.wmbCmpltGrnt,io.in.wmbIn.iid,0.U(RobPtrWidth.W))
   //for spec fail prediction
   val st_wb_pre_no_spec_miss    = st_wb_da_cmplt_grnt &&  io.in.stDaIn.noSpecMiss
   val st_wb_pre_no_spec_hit     = st_wb_da_cmplt_grnt &&  io.in.stDaIn.noSpecHit

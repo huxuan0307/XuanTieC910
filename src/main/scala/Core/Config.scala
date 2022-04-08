@@ -115,8 +115,8 @@ trait LsuConfig{
 
   def SDID_WIDTH = log2Up(LSIQ_ENTRY)
 
-  def DCACHE_DIRTY_ARRAY_WITDH = 7
-  def DCACHE_TAG_ARRAY_WITDH   = 52
+  //def DCACHE_DIRTY_ARRAY_WITDH = 7
+  //def DCACHE_TAG_ARRAY_WITDH   = 52
 
   def PREG_SIGN_SEL = 4
   def VREG_SIGN_SEL = 2
