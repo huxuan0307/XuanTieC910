@@ -3,7 +3,7 @@ import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IU.Cp0.Define.Exceptions.ExceptionVec
 import Core.IntConfig.{NumLogicRegsBits, NumPhysicRegs, XLEN}
 import Core.LsuConfig
-import Core.ROBConfig.RobPtrWidth
+import Core.ROBConfig.IidWidth
 import chisel3._
 import chisel3.util._
 //==========================================================
@@ -17,7 +17,7 @@ class WmbToWb extends Bundle with LsuConfig{
   val bkptaData = Bool()
   val bkptbData = Bool()
   val cmpltReq  = Bool()
-  val iid        = UInt(RobPtrWidth.W)
+  val iid        = UInt(IidWidth.W)
   val instFlush = Bool()
   val specFail  = Bool()
 }
@@ -30,7 +30,7 @@ class StoreWbIn extends Bundle with LsuConfig{
   val bkptaData = Bool()
   val bkptbData = Bool()
   val instVld   = Bool()
-  val iid       = UInt(RobPtrWidth.W)
+  val iid       = UInt(IidWidth.W)
   //}
   val rtuFlush = Bool()
   val wmbIn   = new WmbToWb
@@ -46,7 +46,7 @@ class StWbToRtu extends Bundle with LsuConfig {
   val exptVec       = UInt(ExceptionVecWidth.W)
   val exptVld       = Bool()
   val flush         = Bool()
-  val iid           = UInt(RobPtrWidth.W)
+  val iid           = UInt(IidWidth.W)
   val mtval         = UInt(PA_WIDTH.W)
   val noSpechit     = Bool()
   val noSpecMispred = Bool()
@@ -85,7 +85,7 @@ class StoreWb extends Module with LsuConfig{
   val st_wb_pre_expt_vld   = Wire(Bool())
   val st_wb_pre_flush      = st_wb_pre_inst_flush || st_wb_pre_spec_fail || st_wb_pre_vstart_vld && !st_wb_pre_expt_vld
   st_wb_pre_expt_vld   := st_wb_da_cmplt_grnt   &&  io.in.stDaIn.exptVld
-  val st_wb_pre_iid        = Mux(st_wb_da_cmplt_grnt,io.in.iid,0.U(RobPtrWidth.W)) | Mux(io.out.wmbCmpltGrnt,io.in.wmbIn.iid,0.U(RobPtrWidth.W))
+  val st_wb_pre_iid        = Mux(st_wb_da_cmplt_grnt,io.in.iid,0.U(IidWidth.W)) | Mux(io.out.wmbCmpltGrnt,io.in.wmbIn.iid,0.U(IidWidth.W))
   //for spec fail prediction
   val st_wb_pre_no_spec_miss    = st_wb_da_cmplt_grnt &&  io.in.stDaIn.noSpecMiss
   val st_wb_pre_no_spec_hit     = st_wb_da_cmplt_grnt &&  io.in.stDaIn.noSpecHit
@@ -115,7 +115,7 @@ class StoreWb extends Module with LsuConfig{
   //| iid | flush | spec_fail | bkpt_data |
   //+-----+-------+-----------+-----------+
   val st_wb_expt_vld        = RegInit(false.B)
-  val st_wb_iid             = RegInit(0.U(RobPtrWidth.W))
+  val st_wb_iid             = RegInit(0.U(IidWidth.W))
   val st_wb_spec_fail       = RegInit(false.B)
   val st_wb_flush           = RegInit(false.B)
   val st_wb_bkpta_data      = RegInit(false.B)

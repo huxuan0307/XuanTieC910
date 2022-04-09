@@ -3,7 +3,7 @@ import Core.DCacheConfig.{LINE_SIZE, TAG_WIDTH}
 import Core.IUConfig.{MPPWidth, XLEN}
 import Core.LsuAccessSize.{word, _}
 import Core.{DCacheConfig, LsuConfig, ROBConfig}
-import Core.ROBConfig.{NumCommitEntry, RobPtrWidth}
+import Core.ROBConfig.{NumCommitEntry, IidWidth}
 import Utils.{LookupTree, sext}
 import chisel3._
 import chisel3.util._
@@ -34,7 +34,7 @@ class RfPipe4 extends Bundle with LsuConfig{
   val fenceMode      = UInt(FENCE_MODE_WIDTH.W)
   val gateclkSel     = Bool()
   val icc            = Bool()
-  val iid            = UInt(RobPtrWidth.W)
+  val iid            = UInt(IidWidth.W)
   val instCode       = UInt(INST_CODE_WIDTH.W)
   val instFls        = Bool()
   val instFlush      = Bool()
@@ -114,7 +114,7 @@ class StAgToIdu extends Bundle with LsuConfig{
 }
 class StAgToMmu extends Bundle with LsuConfig{
  val abort1    = Bool()
- val id1       = UInt(RobPtrWidth.W)
+ val id1       = UInt(IidWidth.W)
  val stInst1   = Bool()
  val stamoPa   = UInt(ADDR_PA_WIDTH.W)
  val stamoVld  = Bool()
@@ -141,7 +141,7 @@ class StAgToDc extends Bundle with LsuConfig{
   val exptVld                 = Bool()
   val fenceMode               = UInt(FENCE_MODE_WIDTH.W)
   val icc                     = Bool()
-  val iid                     = UInt(RobPtrWidth.W)
+  val iid                     = UInt(IidWidth.W)
   val instFlush               = Bool()
   val instMode                = UInt(INST_MODE_WIDTH.W)
   val instType                = UInt(INST_TYPE_WIDTH.W)

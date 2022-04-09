@@ -1,7 +1,8 @@
 package Core.LSU
 import Core.DCacheConfig.{TAG_WIDTH, WAYS}
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.ROBConfig.{NumCommitEntry, RobPtrWidth}
+import Core.LSU.Sq.DcacheDirtyDataEn
+import Core.ROBConfig.{NumCommitEntry, IidWidth}
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
@@ -33,7 +34,7 @@ class RbToStDa extends Bundle with LsuConfig{
   val hitIdx      = Bool()
 }
 class RtuToStDa extends Bundle with LsuConfig{
-  val commitIid = Vec(NumCommitEntry, UInt(RobPtrWidth.W))
+  val commitIid = Vec(NumCommitEntry, UInt(IidWidth.W))
   val commit    = Vec(NumCommitEntry, Bool())
   val flush     = Bool()
 }
@@ -89,7 +90,7 @@ class StDaToSq extends Bundle with LsuConfig {
   val secd                = Bool()
   val sfAddrTto4          = UInt(32.W)
   val sfBytesVld          = UInt(BYTES_ACCESS_WIDTH.W)
-  val sfIid               = UInt(RobPtrWidth.W)
+  val sfIid               = UInt(IidWidth.W)
   val sfNoSpecMiss        = Bool()
   val sfNoSpecMissGate    = Bool()
   val sfSpecChk           = Bool()
@@ -100,9 +101,7 @@ class StDaToSq extends Bundle with LsuConfig {
   val snqDcacheValid      = Bool()
   val snqDcacheWay        = Bool()
   val snqEccErr           = Bool()
-  val sqDcacheDirty       = Bool()
-  val sqDcacheShare       = Bool()
-  val sqDcacheValid       = Bool()
+  val sqDcacheMesi       = new DcacheDirtyDataEn
   val sqDcacheWay         = Bool()
   val sqEccStall          = Bool()
   val sqNoRestart         = Bool()
@@ -160,7 +159,7 @@ class StDaToIcc extends Bundle with LsuConfig with DCacheConfig {
   val tagInfo   = UInt(((TAG_WIDTH+1)*WAYS).W)
 }
 class StDaToRtu extends Bundle with LsuConfig {
-  val splitSpecFailIid = UInt(RobPtrWidth.W)
+  val splitSpecFailIid = UInt(IidWidth.W)
   val splitSpecFailVld = Bool()
 }
 //----------------------------------------------------------
@@ -177,7 +176,7 @@ class StoreDaOut extends Bundle with LsuConfig{
   val bkptaData = Bool()              // sq/wb
   val bkptbData = Bool()              // sq/wb
   val instVld   = Bool()              // sq/ctrl/wb/
-  val iid       = UInt(RobPtrWidth.W) // sq/rb/wb/pfu
+  val iid       = UInt(IidWidth.W) // sq/rb/wb/pfu
 }
 //==========================================================
 //                          IO
@@ -301,7 +300,7 @@ class StoreDa extends Module with LsuConfig {
   val st_da_st                         = RegInit(false.B)
   val st_da_secd                       = RegInit(false.B)
   val st_da_atomic                     = RegInit(false.B)
-  val st_da_iid                        = RegInit((0.U(RobPtrWidth.W)))
+  val st_da_iid                        = RegInit((0.U(IidWidth.W)))
   val st_da_lsid                       = RegInit((0.U(LSIQ_ENTRY.W)))
   val st_da_old                        = RegInit(false.B)
   val st_da_boundary                   = RegInit(false.B)
@@ -447,7 +446,7 @@ class StoreDa extends Module with LsuConfig {
   //---------------feedback dirty info to snq-----------------
   val st_da_snq_dcache_dirty_hit_info = Mux(st_da_tag_hit.reduce(_ || _),Mux(st_da_tag_hit(0),st_da_dcache_dirty_array(2,0),st_da_dcache_dirty_array(5,3)),0.U(3.W))
   io.out.toSq.snqDcacheValid := st_da_snq_dcache_dirty_hit_info(0) && io.in.cp0In.lsuDcacheEn
-  io.out.toSq.sqDcacheShare  := st_da_snq_dcache_dirty_hit_info(1)
+  io.out.toSq.sqDcacheMesi.share  := st_da_snq_dcache_dirty_hit_info(1)
   io.out.toSq.snqDcacheDirty := st_da_snq_dcache_dirty_hit_info(2)
   io.out.toSq.snqDcacheWay   := st_da_snq_dcache_dirty_hit_info(3) && st_da_tag_hit(1)
   //==========================================================

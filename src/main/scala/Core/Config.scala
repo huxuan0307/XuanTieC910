@@ -43,6 +43,7 @@ trait IntConfig {
 trait ROBConfig {
   def NumRobEntry     = 64
   def NumRobEntryBits : Int = log2Up(NumRobEntry)
+  def IidWidth        = NumRobEntryBits+1
   def RobPtrWidth     : Int = NumRobEntry
   def RobPtrNum       = 4
   def RobReadPtrNum   = 6

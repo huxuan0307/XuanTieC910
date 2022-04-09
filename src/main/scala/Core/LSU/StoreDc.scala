@@ -1,7 +1,7 @@
 package Core.LSU
 import Core.DCacheConfig.INDEX_WIDTH
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.ROBConfig.{NumCommitEntry, RobPtrWidth}
+import Core.ROBConfig.{NumCommitEntry, IidWidth}
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
@@ -36,7 +36,7 @@ class MmuToStDc extends Bundle with LsuConfig{
   val tlbBusy = Bool()
 }
 class RtuToStDc extends Bundle with LsuConfig{
-  val commitIidUpdata = Vec(NumCommitEntry, UInt(RobPtrWidth.W))
+  val commitIidUpdata = Vec(NumCommitEntry, UInt(IidWidth.W))
   val flush = Bool()
 }
 class SdEx1ToStDc extends Bundle with LsuConfig{
@@ -70,7 +70,7 @@ class StDcToMmu extends Bundle with LsuConfig {
   val vabuf1 = UInt(VPN_WIDTH.W)
 }
 class StDcToSq extends Bundle with LsuConfig{
-  val cmitIidCrtHit        = Vec(NumCommitEntry,UInt(RobPtrWidth.W))
+  val cmitIidCrtHit        = Vec(NumCommitEntry,UInt(IidWidth.W))
   val boundaryFirst        = Bool()
   val instFlush            = Bool()
   val rotSelRev            = UInt(ROT_SEL_WIDTH.W)
@@ -82,13 +82,16 @@ class StDcToSq extends Bundle with LsuConfig{
   val sqDataVld            = Bool()
   val sqFullGateclkEn      = Bool()
   val woStInst             = Bool()
+  val iid                  = UInt(IidWidth.W)
+  val addr0                = UInt(PA_WIDTH.W)
+  val bytesVld             = UInt(BYTES_ACCESS_WIDTH.W)
 }
 class StDcToLq extends Bundle with LsuConfig{
   val addr0                = UInt(PA_WIDTH.W)
   val bytesVld             = UInt(BYTES_ACCESS_WIDTH.W)
   val chkStInstVld         = Bool()
   val chkStatomicInstVld   = Bool()
-  val iid                  = UInt(RobPtrWidth.W)
+  val iid                  = UInt(IidWidth.W)
   val instVld              = Bool()
 }
 class StDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
@@ -273,7 +276,7 @@ class StoreDc extends Module with LsuConfig{
   val st_dc_lsiq_bkpta_data            = RegInit(false.B)
   val st_dc_lsiq_bkptb_data            = RegInit(false.B)
   val st_dc_atomic                     = RegInit(false.B)
-  val st_dc_iid                        = RegInit(UInt(RobPtrWidth.W))
+  val st_dc_iid                        = RegInit(UInt(IidWidth.W))
   val st_dc_lsid                       = RegInit(UInt(LSIQ_ENTRY.W))
   val st_dc_sdid_oh                    = RegInit(UInt(LSIQ_ENTRY.W))
   val st_dc_old                        = RegInit(false.B)
@@ -330,6 +333,8 @@ class StoreDc extends Module with LsuConfig{
     st_dc_pc                         := io.in.agIn.pc
     st_dc_lsfifo                     := io.in.agIn.lsfifo
   }
+  io.out.toSq.iid := st_dc_iid
+  io.out.toSq.bytesVld := st_dc_bytes_vld
   //------------------inst/borrow share part------------------
   //+-------+
   //| addr0 |
@@ -339,6 +344,7 @@ class StoreDc extends Module with LsuConfig{
     st_dc_addr0 := io.in.agIn.dcAddr0
   }
   io.out.toDa.toPwdDa.addr0 := st_dc_addr0
+  io.out.toSq.addr0         := st_dc_addr0
   //==========================================================
   //        Generate  va
   //==========================================================

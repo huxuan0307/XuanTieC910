@@ -19,7 +19,7 @@ class LsuDcacheInfoUpdateIn extends Bundle with DCacheConfig{
   val compareDcwpAddr    = UInt(PA_WIDTH.W)
   val compareDcwpSwInst  = Bool()
   val dcacheIn           = new DcacheToSqEntry
-  val originDcache       = new DcacheDirtyDataEn
+  val originDcacheMesi   = new DcacheDirtyDataEn
   val originDcacheWay    = Bool()
 }
 //==========================================================
@@ -28,10 +28,8 @@ class LsuDcacheInfoUpdateIn extends Bundle with DCacheConfig{
 class LsuDcacheInfoUpdateOut extends Bundle with DCacheConfig{
   val compareDcwpHitIdx      = Bool() // DCWP - dCache write port
   val compareDcwpUpdateVld   = Bool()
-  val updateDcacheDirty      = Bool()
-  val updateDcacheShare      = Bool()
-  val updateDcacheValid      = Bool()
-  val updateDcacheWay      = Bool()
+  val updateDcacheMesi       = new DcacheDirtyDataEn
+  val updateDcacheWay        = Bool()
 }
 //==========================================================
 //                          IO
@@ -50,15 +48,15 @@ class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   compare_dcwp_hit_dirty_din := Mux(io.in.originDcacheWay ,io.in.dcacheIn.dirtyDin.bits(1), io.in.dcacheIn.dirtyDin.bits(0))
   val compare_dcwp_hit_dirty_wen = WireInit(0.U.asTypeOf(new DcacheDirtyDataEn))
   compare_dcwp_hit_dirty_wen := Mux(io.in.originDcacheWay ,io.in.dcacheIn.dirtyWen.bits(1), io.in.dcacheIn.dirtyWen.bits(0))
-  val compare_dcwp_hit_up_vld = Mux(io.in.originDcacheWay , io.in.originDcache.valid, compare_dcwp_hit_idx)
+  val compare_dcwp_hit_up_vld = Mux(io.in.originDcacheWay , io.in.originDcacheMesi.valid, compare_dcwp_hit_idx)
   // choose dcache or sq by Wen
   // MESI?
-  val compare_dcwp_hit_dirty  = Mux(compare_dcwp_hit_dirty_wen.dirty , compare_dcwp_hit_dirty_din.dirty, io.in.originDcache.dirty)
-  val compare_dcwp_hit_share  = Mux(compare_dcwp_hit_dirty_wen.share , compare_dcwp_hit_dirty_din.share, io.in.originDcache.share)
-  val compare_dcwp_hit_valid  = Mux(compare_dcwp_hit_dirty_wen.valid , compare_dcwp_hit_dirty_din.valid, io.in.originDcache.valid)
+  val compare_dcwp_hit_dirty  = Mux(compare_dcwp_hit_dirty_wen.dirty , compare_dcwp_hit_dirty_din.dirty, io.in.originDcacheMesi.dirty)
+  val compare_dcwp_hit_share  = Mux(compare_dcwp_hit_dirty_wen.share , compare_dcwp_hit_dirty_din.share, io.in.originDcacheMesi.share)
+  val compare_dcwp_hit_valid  = Mux(compare_dcwp_hit_dirty_wen.valid , compare_dcwp_hit_dirty_din.valid, io.in.originDcacheMesi.valid)
   //---------------update if dcache miss----------------------
   //dcache set&way inst will NOT APPEAR dcache miss update
-  val compare_dcwp_miss_up_pre = io.in.dcacheIn.dirtyGwen && !io.in.compareDcwpSwInst && !io.in.originDcache.valid
+  val compare_dcwp_miss_up_pre = io.in.dcacheIn.dirtyGwen && !io.in.compareDcwpSwInst && !io.in.originDcacheMesi.valid
   val compare_dcwp_tag = io.in.compareDcwpAddr(PA_WIDTH-1,OFFSET_WIDTH+INDEX_WIDTH-1)
   val compare_dcwp_miss_up_way_sel = Seq.fill(WAYS)(Wire(Bool()))
   val compare_dcwp_miss_up_way = Seq.fill(WAYS)(Wire(Bool()))
@@ -81,15 +79,15 @@ class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   val compare_dcwp_sw_up_vld = io.in.dcacheIn.dirtyGwen && io.in.compareDcwpSwInst && compare_dcwp_hit_idx
   //---------------------select-------------------------------
   val compare_dcwp_update_vld =  compare_dcwp_hit_up_vld || compare_dcwp_miss_up_vld || compare_dcwp_sw_up_vld
-  io.out.updateDcacheValid := compare_dcwp_update_vld
-  val compare_dcwp_hit_sel = io.in.originDcache.valid || compare_dcwp_sw_up_vld
+  io.out.updateDcacheMesi.valid := compare_dcwp_update_vld
+  val compare_dcwp_hit_sel = io.in.originDcacheMesi.valid || compare_dcwp_sw_up_vld
   val update_dcache_dirty_new = Mux(compare_dcwp_hit_sel,compare_dcwp_hit_dirty ,compare_dcwp_miss_dirty )
   val update_dcache_share_new = Mux(compare_dcwp_hit_sel,compare_dcwp_hit_share ,compare_dcwp_miss_share )
   val update_dcache_valid_new = Mux(compare_dcwp_hit_sel,compare_dcwp_hit_valid ,compare_dcwp_miss_valid )
   val update_dcache_way_new   = Mux(compare_dcwp_hit_sel,io.in.originDcacheWay  ,compare_dcwp_miss_up_way(1))
   //if donot need to update, choose origin value
-  io.out.updateDcacheDirty := Mux(compare_dcwp_update_vld,update_dcache_dirty_new ,io.in.originDcache.dirty)
-  io.out.updateDcacheShare := Mux(compare_dcwp_update_vld,update_dcache_share_new ,io.in.originDcache.share)
-  io.out.updateDcacheValid := Mux(compare_dcwp_update_vld,update_dcache_valid_new ,io.in.originDcache.valid)
+  io.out.updateDcacheMesi.dirty := Mux(compare_dcwp_update_vld,update_dcache_dirty_new ,io.in.originDcacheMesi.dirty)
+  io.out.updateDcacheMesi.share := Mux(compare_dcwp_update_vld,update_dcache_share_new ,io.in.originDcacheMesi.share)
+  io.out.updateDcacheMesi.valid := Mux(compare_dcwp_update_vld,update_dcache_valid_new ,io.in.originDcacheMesi.valid)
   io.out.updateDcacheWay   := Mux(compare_dcwp_update_vld,update_dcache_way_new   ,io.in.originDcacheWay)
 }
