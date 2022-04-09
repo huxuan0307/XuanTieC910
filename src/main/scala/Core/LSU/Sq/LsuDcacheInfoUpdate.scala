@@ -18,8 +18,8 @@ class DcacheDirtyDataEn extends Bundle{
 class LsuDcacheInfoUpdateIn extends Bundle with DCacheConfig{
   val compareDcwpAddr    = UInt(PA_WIDTH.W)
   val compareDcwpSwInst  = Bool()
-  val dcacheIn = new DcacheToSqEntry
-  val originDcache  = new DcacheDirtyDataEn
+  val dcacheIn           = new DcacheToSqEntry
+  val originDcache       = new DcacheDirtyDataEn
   val originDcacheWay    = Bool()
 }
 //==========================================================
