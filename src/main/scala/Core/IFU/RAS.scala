@@ -4,9 +4,7 @@ import Utils._
 import chisel3._
 import chisel3.util._
 
-class RASPtr extends CircularQueuePtr[RASPtr](16) with HasCircularQueuePtrHelper{
-  override def cloneType = (new RASPtr).asInstanceOf[this.type]
-}
+class RASPtr extends CircularQueuePtr[RASPtr](16) with HasCircularQueuePtrHelper
 
 class RASEntry extends Bundle with Config{
   val retAddr = UInt(VAddrBits.W)

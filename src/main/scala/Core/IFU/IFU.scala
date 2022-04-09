@@ -150,25 +150,39 @@ class IFU extends Module with Config {
   ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld//ip_out.bits.chgflw_vld_mask(0)
 
   for(i <- 0 to 2){
-    io.ifu_idu(i).bits.vl_pred      := false.B
-    io.ifu_idu(i).bits.vl           := 0.U
-    io.ifu_idu(i).bits.pc           := ibuf.io.out(i).bits.pc(14,0)
-    io.ifu_idu(i).bits.vsew         := 0.U
-    io.ifu_idu(i).bits.vlmul        := 0.U
-    io.ifu_idu(i).bits.no_spec      := false.B
-    io.ifu_idu(i).bits.bkptb_inst   := false.B
-    io.ifu_idu(i).bits.bkpta_inst   := false.B
-    io.ifu_idu(i).bits.split_short  := false.B
-    io.ifu_idu(i).bits.fence        := false.B
-    io.ifu_idu(i).bits.split_long  := false.B
-    io.ifu_idu(i).bits.high_hw_expt := false.B
-    io.ifu_idu(i).bits.expt_vec     := 0.U
-    io.ifu_idu(i).bits.expt_vld     := false.B
-    io.ifu_idu(i).bits.opcode       := ibuf.io.out(i).bits.inst
-    io.ifu_idu(i).valid             := ibuf.io.out(i).valid
-    ibuf.io.out(i).ready            := true.B
+    io.instData(i).bits.vl_pred      := false.B
+    io.instData(i).bits.vl           := 0.U
+    io.instData(i).bits.pc           := ibuf.io.out(i).bits.pc(14,0)
+    io.instData(i).bits.vsew         := 0.U
+    io.instData(i).bits.vlmul        := 0.U
+    io.instData(i).bits.no_spec      := false.B
+    io.instData(i).bits.bkptb_inst   := false.B
+    io.instData(i).bits.bkpta_inst   := false.B
+    io.instData(i).bits.split_short  := false.B
+    io.instData(i).bits.fence        := false.B
+    io.instData(i).bits.split_long   := false.B
+    io.instData(i).bits.high_hw_expt := false.B
+    io.instData(i).bits.expt_vec     := 0.U
+    io.instData(i).bits.expt_vld     := false.B
+    io.instData(i).bits.opcode       := ibuf.io.out(i).bits.inst
+    io.instData(i).valid             := ibuf.io.out(i).valid
+    ibuf.io.out(i).ready             := true.B
+//    io.instVld(i)                    := ibuf.io.out(i).valid
 //    io.ifu_idu(i).ready             := ibuf.io.out(i).ready
   }
-
+  io.toROB.curPcLoad := true.B
+  io.toROB.curPc := 0.U    //from had???
   ibuf.io.flush := backend_redirect
+
+  for(i <- 0 to 1){
+    io.ifuForward.bits(i).curPc := 0.U
+    io.ifuForward.bits(i).tarPc := 0.U
+    io.ifuForward.bits(i).jal   := false.B
+    io.ifuForward.bits(i).jalr  := false.B
+    io.ifuForward.bits(i).dstVld := false.B
+    io.ifuForward.bits(i).predStore.bhtPred := false.B
+    io.ifuForward.bits(i).predStore.chkIdx  := 0.U
+    io.ifuForward.bits(i).predStore.jmpMispred := false.B
+    io.ifuForward.valid := true.B
+  }
 }

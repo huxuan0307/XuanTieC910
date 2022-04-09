@@ -4,9 +4,7 @@ import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
 
-class IbufPtr extends CircularQueuePtr[IbufPtr](Config.IBufSize){
-  override def cloneType = (new IbufPtr).asInstanceOf[this.type]
-}
+class IbufPtr extends CircularQueuePtr[IbufPtr](Config.IBufSize)
 
 class IBufferData extends CoreBundle {
   val pc   = UInt(VAddrBits.W)

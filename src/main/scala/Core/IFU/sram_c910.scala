@@ -25,7 +25,7 @@ class ct_spsram_2048x32_split extends ExtModule with HasExtModuleResource with S
   val WEN = IO(Input(UInt(WenWidth32.W)))
 
 
-  addResource("/vsrc/ct_spsram_2048x32_split.v")
+  addResource("/ct_spsram_2048x32_split.v")
 }
 
 

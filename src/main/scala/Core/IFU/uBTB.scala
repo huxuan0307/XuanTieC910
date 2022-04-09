@@ -4,9 +4,7 @@ import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
 
-class uBTBPtr extends CircularQueuePtr[uBTBPtr](Config.uBTBSize) with HasCircularQueuePtrHelper{
-  override def cloneType = (new uBTBPtr).asInstanceOf[this.type]
-}
+class uBTBPtr extends CircularQueuePtr[uBTBPtr](Config.uBTBSize) with HasCircularQueuePtrHelper
 
 class uBTBResp extends CoreBundle {
   val target_pc = UInt(VAddrBits.W)

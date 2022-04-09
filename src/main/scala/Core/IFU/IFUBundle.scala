@@ -1,5 +1,6 @@
 package Core.IFU
 //import Core.IDU.IDData
+import Core.AddrConfig.PcWidth
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
@@ -127,7 +128,24 @@ class BPUUpdate extends CoreBundle {
   val ind_btb_rtu_jmp_mispred = Input(Bool())
   val ind_btb_rtu_jmp_pc      = Input(UInt(VAddrBits.W))//pc(21,1)
 }
-
+class RobFromIfu extends Bundle {
+  val curPc : UInt = UInt(PcWidth.W)
+  val curPcLoad : Bool = Bool()
+}
+class BhtPredDataForward extends Bundle{ // @ct_iu_bju_pcfifo @1677-1684
+  var curPc = UInt(PcWidth.W)
+  var tarPc = UInt(PcWidth.W)
+  var jal = Bool()
+  var jalr = Bool()
+  var dstVld = Bool()
+  val predStore = new IfuPredStore
+}
+class IfuPredStore extends Bundle{
+//  val pc = UInt(PcWidth.W)
+  val bhtPred = Bool()
+  val chkIdx = UInt(25.W)
+  val jmpMispred = Bool()
+}
 class IFUIO extends CoreBundle {
   //flush
   val bru_redirect = Flipped(Valid(UInt(VAddrBits.W)))
@@ -136,8 +154,11 @@ class IFUIO extends CoreBundle {
   //val cache_req  = Decoupled(new ICacheReq)
   //val cache_resp = Flipped(Valid(new ICacheResp))
   //inst out
-  val ifu_idu = Vec(3, Decoupled(new IDData))
+  val instData = Vec(3, Decoupled(new IDData))
+  val instVld  = Input(Vec(3, Bool()))
   //bht, btb update
   val bpu_update = new BPUUpdate
   val pc = Output(UInt(VAddrBits.W))
+  val toROB = Output(new RobFromIfu)
+  val ifuForward = DecoupledIO(Vec(2,new BhtPredDataForward))
 }
