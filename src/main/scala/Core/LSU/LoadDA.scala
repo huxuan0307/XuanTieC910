@@ -401,7 +401,11 @@ class LoadDA extends Module {
   //+----------+------------+
   //| inst_vld | borrow_vld |
   //+----------+------------+
-  when(io.in.fromDC.da_inst_vld){
+  when(io.in.fromRTU.yy_xx_flush){
+    ld_da_inst_vld := false.B
+    ld_da_ahead_preg_wb_vld := false.B
+    ld_da_ahead_vreg_wb_vld := false.B
+  }.elsewhen(io.in.fromDC.da_inst_vld){
     ld_da_inst_vld := true.B
     ld_da_ahead_preg_wb_vld := io.in.fromDC.ahead_preg_wb_vld
     ld_da_ahead_vreg_wb_vld := io.in.fromDC.ahead_vreg_wb_vld

@@ -289,7 +289,13 @@ class LoadDC extends Module {
   //+----------+------------+
   //| inst_vld | borrow_vld |
   //+----------+------------+
-  when(io.in.fromAG.dc_inst_vld){
+  when(io.in.fromRTU.yy_xx_flush){
+    ld_dc_inst_vld := false.B
+    ld_dc_load_inst_vld_dup       := WireInit(VecInit(Seq.fill(5)(false.B)))
+    ld_dc_load_ahead_inst_vld_dup := WireInit(VecInit(Seq.fill(5)(false.B)))
+    ld_dc_vload_inst_vld_dup      := WireInit(VecInit(Seq.fill(4)(false.B)))
+    ld_dc_vload_ahead_inst_vld    := false.B
+  }.elsewhen(io.in.fromAG.dc_inst_vld){
     ld_dc_inst_vld := true.B
     ld_dc_load_inst_vld_dup       := WireInit(VecInit(Seq.fill(5)(io.in.fromAG.dc_load_inst_vld)))
     ld_dc_load_ahead_inst_vld_dup := WireInit(VecInit(Seq.fill(5)(io.in.fromAG.dc_load_ahead_inst_vld)))

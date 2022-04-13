@@ -288,7 +288,9 @@ class LoadWB extends Module {
   //+----------+----------+
   //| inst_vld | expt_vld |
   //+----------+----------+
-  when(ld_wb_pre_inst_vld){
+  when(io.in.fromRTU.yy_xx_flush){
+    ld_wb_inst_vld := false.B
+  }.elsewhen(ld_wb_pre_inst_vld){
     ld_wb_inst_vld := true.B
   }.otherwise{
     ld_wb_inst_vld := false.B
@@ -322,7 +324,13 @@ class LoadWB extends Module {
   //+----------+---------+
   //| data_vld | bus_err |
   //+----------+---------+
-  when(ld_wb_pre_data_vld){
+  when(io.in.fromRTU.yy_xx_flush){
+    ld_wb_data_vld        := false.B
+    ld_wb_preg_wb_vld     := false.B
+    ld_wb_preg_wb_vld_dup := WireInit(VecInit(Seq.fill(5)(false.B)))
+    ld_wb_vreg_wb_vld     := false.B
+    ld_wb_vreg_wb_vld_dup := WireInit(VecInit(Seq.fill(4)(false.B)))
+  }.elsewhen(ld_wb_pre_data_vld){
     ld_wb_data_vld        := true.B
     ld_wb_preg_wb_vld     := ld_wb_pre_preg_wb_vld
     ld_wb_preg_wb_vld_dup := WireInit(VecInit(Seq.fill(5)(ld_wb_pre_preg_wb_vld)))
@@ -337,7 +345,9 @@ class LoadWB extends Module {
   }
   io.out.ld_wb_data_vld := ld_wb_data_vld
 
-  when(ld_wb_pre_data_vld){
+  when(io.in.fromRTU.yy_xx_flush){
+    ld_wb_bus_err := false.B
+  }.elsewhen(ld_wb_pre_data_vld){
     ld_wb_bus_err := ld_wb_pre_bus_err
   }.otherwise{
     ld_wb_bus_err := false.B
