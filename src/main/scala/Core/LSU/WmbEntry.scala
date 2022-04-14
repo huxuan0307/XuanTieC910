@@ -311,7 +311,7 @@ class WmbEntry extends Module {
   val wmb_entry_wo_st_write_biu_req = Wire(Bool())
   val wmb_entry_data_req = Wire(Bool())
   val wmb_dcache_req_ptr = Wire(Bool())
-
+  val wmb_entry_wo_st_inst = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -607,6 +607,115 @@ class WmbEntry extends Module {
   wmb_entry_bytes_vld_clk_en := wmb_entry_create_merge_data_gateclk_en
 
   //------------------merge data------------------------------
+  for(i <- 0 until 16){
+    wmb_entry_data_next(i) := Mux(io.in.fromWmbCe.bytes_vld(i), io.in.fromWmbCe.data128(8*i+7,8*i), wmb_entry_data.asUInt(8*i+7,8*i))
+  }
+
+  //------------------merge bytes_vld-------------------------
+  wmb_entry_bytes_vld_and := wmb_entry_bytes_vld | io.in.fromWmbCe.bytes_vld
+  wmb_entry_bytes_vld_full_and := wmb_entry_bytes_vld_and.andR
+
+  //----------ready to send dcache line of this entry---------
+  val wmb_entry_ready_to_dcache_line = wmb_entry_vld && wmb_entry_wo_st_inst && inst_info.page_ca &&
+    wmb_entry_bytes_vld_full && !wmb_entry_write_req_success && wmb_entry_read_resp
+
+  //==========================================================
+  //        Generate inst type
+  //==========================================================
+  val wmb_entry_atomic_and_vld = inst_info.atomic && wmb_entry_vld
+
+  val wmb_entry_icc_and_vld = inst_info.icc && wmb_entry_vld
+
+  val wmb_entry_sync_fence_inst  = !inst_info.atomic && inst_info.sync_fence
+
+  val wmb_entry_ctc_inst = inst_info.icc && !inst_info.atomic && (inst_info.inst_type =/= 2.U(2.W))
+
+  val wmb_entry_dcache_inst = inst_info.inst_is_dcache
+
+  wmb_entry_st_inst := !inst_info.icc && !inst_info.atomic && !inst_info.sync_fence
+
+  wmb_entry_wo_st_inst := wmb_entry_st_inst && !inst_info.page_so
+
+  val wmb_entry_so_st_inst = wmb_entry_st_inst &&  inst_info.page_so
+
+  val wmb_entry_stamo_inst = inst_info.atomic && (inst_info.inst_type === 0.U(2.W))
+
+  val wmb_entry_sc_inst = inst_info.atomic && (inst_info.inst_type === 1.U(2.W))
 
 
+  val wmb_entry_dcache_all_inst = wmb_entry_dcache_inst && (inst_info.inst_mode === 0.U(2.W))
+
+  val wmb_entry_dcache_1line_inst = wmb_entry_dcache_inst && (inst_info.inst_mode =/= 0.U(2.W))
+
+  val wmb_entry_dcache_addr_inst = wmb_entry_dcache_inst && inst_info.inst_mode(0)
+
+  val wmb_entry_dcache_sw_inst = wmb_entry_dcache_inst && (inst_info.inst_mode === 2.U(2.W))
+
+  val wmb_entry_dcache_clr_addr_inst = wmb_entry_dcache_addr_inst && (inst_info.inst_size(1,0) =/= 2.U(2.W))
+
+  val wmb_entry_dcache_clr_sw_inst = wmb_entry_dcache_sw_inst && (inst_info.inst_size(1,0) =/= 2.U(2.W))
+
+  val wmb_entry_dcache_clr_1line_inst = wmb_entry_dcache_clr_addr_inst || wmb_entry_dcache_clr_sw_inst
+
+  val wmb_entry_dcache_addr_l1_inst = wmb_entry_dcache_addr_inst && (inst_info.inst_size(1,0) === 0.U(2.W))
+
+  val wmb_entry_dcache_addr_not_l1_inst = wmb_entry_dcache_addr_inst && (inst_info.inst_size(1,0) =/= 0.U(2.W))
+
+  val wmb_entry_dcache_only_inv_addr_inst = wmb_entry_dcache_addr_inst && (inst_info.inst_size(1,0) === 2.U(2.W))
+
+  val wmb_entry_dcache_only_inv_sw_inst = wmb_entry_dcache_sw_inst && (inst_info.inst_size(1,0) === 2.U(2.W))
+
+  val wmb_entry_dcache_only_inv_1line_inst = wmb_entry_dcache_only_inv_addr_inst || wmb_entry_dcache_only_inv_sw_inst
+
+  val wmb_entry_dcache_except_only_inv_1line_inst  = wmb_entry_dcache_inst && !wmb_entry_dcache_only_inv_1line_inst
+
+  //==========================================================
+  //            Compare dcache write port(dcwp)
+  //==========================================================
+  //TODO: Module ct_lsu_dcache_info_update
+  update_dcache_info := dcache_info
+  val wmb_entry_dcache_hit_idx = WireInit(false.B)
+  val wmb_entry_dcache_update_vld_unmask = WireInit(false.B)
+
+  wmb_entry_dcache_update_vld := wmb_entry_dcache_update_vld_unmask && wmb_entry_vld
+
+  //==========================================================
+  //                 Dependency check
+  //==========================================================
+
+  // situat ld pipe         sq/wmb          addr    bytes_vld data_vld  manner
+  // --------------------------------------------------------------------------
+  // 1      ld              st              :4      part      x         discard
+  // 2      ld atomic       any             x       x         x         discard
+  // 3      ld              atomic          :4      do        x         discard
+  // 4      ld              st              :4      whole     x         forward
+  // 5      ld(addr1)       st              :4      x         x         !acclr_en
+
+  //------------------compare signal--------------------------
+  //-----------addr compare---------------
+  //addr compare
+  val wmb_entry_depd_addr_tto12_hit = inst_info.addr(LSUConfig.PA_WIDTH-1,12) === io.in.fromLoadDC.addr0(LSUConfig.PA_WIDTH-1,12)
+  val wmb_entry_depd_addr_11to4_hit = inst_info.addr(11,4) === io.in.fromLoadDC.addr0(11,4)
+  val wmb_entry_depd_addr1_11to4_hit = inst_info.addr(11,4) === io.in.fromLoadDC.addr1_11to4
+
+  val wmb_entry_depd_addr_tto4_hit  = wmb_entry_depd_addr_tto12_hit && wmb_entry_depd_addr_11to4_hit
+  val wmb_entry_depd_addr1_tto4_hit = wmb_entry_depd_addr_tto12_hit && wmb_entry_depd_addr1_11to4_hit
+
+  //-----------bytes_vld compare----------
+  val wmb_entry_and_ld_dc_bytes_vld = wmb_entry_bytes_vld & io.in.fromLoadDC.bytes_vld
+  val wmb_entry_and_ld_dc_bytes_vld_hit = wmb_entry_and_ld_dc_bytes_vld.orR
+
+  //example:
+  //depd_bytes_vld          ld_dc_bytes_vld     depd kinds
+  //1111                    0011                do & whole
+  //0011                    0011                do & whole
+  //0110                    0011                do & part
+  //0110                    1111                do & part
+  //1100                    0011                /
+
+  val wmb_entry_depd_do_hit = wmb_entry_and_ld_dc_bytes_vld_hit
+
+  //------------------cancel amr------------------------------
+
+  //------------------fwd data pop entry----------------------
 }
