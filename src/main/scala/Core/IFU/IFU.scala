@@ -150,23 +150,23 @@ class IFU extends Module with Config {
   ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld//ip_out.bits.chgflw_vld_mask(0)
 
   for(i <- 0 to 2){
-    io.instData(i).bits.vl_pred      := false.B
-    io.instData(i).bits.vl           := 0.U
-    io.instData(i).bits.pc           := ibuf.io.out(i).bits.pc(14,0)
-    io.instData(i).bits.vsew         := 0.U
-    io.instData(i).bits.vlmul        := 0.U
-    io.instData(i).bits.no_spec      := false.B
-    io.instData(i).bits.bkptb_inst   := false.B
-    io.instData(i).bits.bkpta_inst   := false.B
-    io.instData(i).bits.split_short  := false.B
-    io.instData(i).bits.fence        := false.B
-    io.instData(i).bits.split_long   := false.B
-    io.instData(i).bits.high_hw_expt := false.B
-    io.instData(i).bits.expt_vec     := 0.U
-    io.instData(i).bits.expt_vld     := false.B
-    io.instData(i).bits.opcode       := ibuf.io.out(i).bits.inst
-    io.instData(i).valid             := ibuf.io.out(i).valid
-    ibuf.io.out(i).ready             := true.B
+    io.instData(i).vl_pred      := false.B
+    io.instData(i).vl           := 0.U
+    io.instData(i).pc           := ibuf.io.out(i).bits.pc(14,0)
+    io.instData(i).vsew         := 0.U
+    io.instData(i).vlmul        := 0.U
+    io.instData(i).no_spec      := false.B
+    io.instData(i).bkptb_inst   := false.B
+    io.instData(i).bkpta_inst   := false.B
+    io.instData(i).split_short  := false.B
+    io.instData(i).fence        := false.B
+    io.instData(i).split_long   := false.B
+    io.instData(i).high_hw_expt := false.B
+    io.instData(i).expt_vec     := 0.U
+    io.instData(i).expt_vld     := false.B
+    io.instData(i).opcode       := ibuf.io.out(i).bits.inst
+//    io.instData(i)             := ibuf.io.out(i).valid
+//    ibuf.io.out(i).ready             := true.B
 //    io.instVld(i)                    := ibuf.io.out(i).valid
 //    io.ifu_idu(i).ready             := ibuf.io.out(i).ready
   }
@@ -176,7 +176,7 @@ class IFU extends Module with Config {
 
   for(i <- 0 to 1){
     io.ifuForward.bits(i).curPc := 0.U
-    io.ifuForward.bits(i).tarPc := 0.U
+    io.ifuForward.bits(i).tarPc := Mux(RegNext(ipstage.io.out.bits.pret),ibstage.io.ras_target_pc,ibstage.io.ind_btb_target)
     io.ifuForward.bits(i).jal   := false.B
     io.ifuForward.bits(i).jalr  := false.B
     io.ifuForward.bits(i).dstVld := false.B
