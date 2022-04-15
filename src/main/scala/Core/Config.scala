@@ -14,10 +14,16 @@ trait IntConfig {
     NumMu + NumDu + NumVfUnit
   def NumFuHasDstReg : Int = NumAlu + NumLu + NumMu + NumDu + NumVfUnit
   def NumLogicRegs = 32
+  def NumFPregs = 64
+  def NumVPregs = 64
+  def NumEregs = 32
   def NumPhysicRegs = 96
   def OpcodeBits = 32
   def NumInstructionId = 128
   def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
+  def NumFPregsBits : Int = log2Up(NumFPregs)
+  def NumVPregsBits : Int = log2Up(NumVPregs)
+  def NumEregsBits : Int = log2Up(NumEregs)
   def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)
   def InstructionIdWidth : Int = log2Up(NumInstructionId)
   def XLEN = 64
@@ -41,7 +47,9 @@ trait ROBConfig {
 
 trait PipelineConfig {
   def NumIuPipe = 2
-  def NumLsuPipe = 1
+  def NumLsuPipe = 2
+  def NumLuPipe = 1
+  def NumSuPipe = 1
   def NumPipeline = 7
 }
 
@@ -59,6 +67,8 @@ trait VectorUnitConfig {
   def VlmaxBits = 8
   def VlmulBits = 3
   def VsewBits = 3
+  def VregNum = 64
+  def VregNumBits : Int = log2Up(VregNum)
 }
 
 trait FuTypeConfig {

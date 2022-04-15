@@ -1,7 +1,7 @@
 package Core.IU
 
 
-import Core.IUConfig
+import Core.IntConfig._
 import Utils.{LookupTree, SignExt}
 import chisel3._
 import chisel3.util._
@@ -41,7 +41,7 @@ class AluIO extends Bundle{
   val out = Output(new AluOut)
 }
 
-class Alu extends Module with IUConfig{
+class Alu extends Module {
   val io = IO(new AluIO)
   //----------------------------------------------------------
   //              Pipe2 EX1 Instruction valid

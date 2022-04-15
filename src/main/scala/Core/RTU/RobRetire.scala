@@ -22,21 +22,19 @@ class PcFifoData extends Bundle {
   def checkIdx : UInt = pcNext(10, 3)
 }
 
-class RobRouteFromLsuBundle extends Bundle {
-  val wb        = new Bundle() {
-    val iid       : UInt = UInt(InstructionIdWidth.W)
-    val cmplt     : Bool = Bool()
-    val abnormal  : Bool = Bool()
-    val breakpointData = new RobBreakpointDataBundle
-    val noSpec  = new RobNoSpecBundle
-  }
+class RobRetireFromLsuBundle extends Bundle {
+  val iid       : UInt = UInt(InstructionIdWidth.W)
+  val cmplt     : Bool = Bool()
+  val abnormal  : Bool = Bool()
+  val breakpointData = new RobBreakpointDataBundle
+  val noSpec  = new RobNoSpecBundle
 }
 
-class RobRouteInput extends Bundle {
+class RobRetireInput extends Bundle {
   val fromCp0       = new RobFromCp0Bundle
   val fromExptEntry = new RobExceptEntryBundle
   val fromHad       = new RobFromHadBundle
-  val fromHpcp      = new RobFromHpcpBundle
+  val fromHpcp      = new RtuFromHpcpBundle
   val fromIdu       = new Bundle() {
     val fenceIdle   : Bool = Bool()
   }
@@ -61,10 +59,10 @@ class RobRouteInput extends Bundle {
     }
   }
   val fromLsu       = new Bundle() {
-    val pipe3       = new RobRouteFromLsuBundle
-    val pipe4       = new RobRouteFromLsuBundle
+    val pipe3       = new RobRetireFromLsuBundle
+    val pipe4       = new RobRetireFromLsuBundle
   }
-  val fromPad       = new RobFromPad
+  val fromPad       = new RtuFromPadBundle
   val fromRetire    = new RobFromRetire {}
   val fromRobReadData : Vec[RobEntryData] = Vec(NumRobReadEntry, new RobEntryData)
   val fromRobReadIid  : Vec[UInt] = Vec(NumRobReadEntry, UInt(InstructionIdWidth.W))
@@ -72,7 +70,7 @@ class RobRouteInput extends Bundle {
   val fromVfpu = new RobFromVfpu
 }
 
-class RobRouteOutput extends Bundle {
+class RobRetireOutput extends Bundle {
   val retire = new Bundle() {
     val updateGateClkValid  : Bool = Bool()
     val entryUpdateValidVec : Vec[Bool] = Vec(NumRobReadEntry, Bool())
@@ -87,13 +85,11 @@ class RobRouteOutput extends Bundle {
     // Todo: check if needed move into retire bundle
     val exceptInst0Iid  : UInt = UInt(InstructionIdWidth.W)
   }
-  val pstRetire       = Vec(3, new Bundle() {
+  val toPst       = Vec(3, new Bundle() {
     val iid           : UInt = UInt(InstructionIdWidth.W)
     val gateClkValid  : Bool = Bool()
   })
-  val toRetire = new RobToRetireBundle {
-    val interruptSrtEn : Bool = Bool()
-  }
+  val toRetire = new RobToRetireBundle {}
   val toTop = new Bundle() {
     val robCurPc : UInt = UInt(7.W)
   }
@@ -108,12 +104,12 @@ class RobRouteOutput extends Bundle {
   val yyXx = new RobYyXx
 }
 
-class RobRouteIO extends Bundle {
-  val in  : RobRouteInput   = Input(new RobRouteInput)
-  val out : RobRouteOutput  = Output(new RobRouteOutput)
+class RobRetireIO extends Bundle {
+  val in  : RobRetireInput   = Input(new RobRetireInput)
+  val out : RobRetireOutput  = Output(new RobRetireOutput)
 }
 
-class RobRoute extends Module {
+class RobRetire extends Module {
   /**
    * Config
    */
@@ -126,7 +122,7 @@ class RobRoute extends Module {
    */
   def fpga = false
 
-  val io : RobRouteIO = IO(new RobRouteIO)
+  val io : RobRetireIO = IO(new RobRetireIO)
   class DebugRetireInfo extends Bundle {
     // Todo: imm
     val info        : UInt = UInt(22.W)
@@ -226,22 +222,22 @@ class RobRoute extends Module {
   private val robReadIidVec = WireInit(io.in.fromRobReadIid)
   // output for pst iid update
   for (i <- 0 until NumRobReadEntry) {
-    io.out.pstRetire(i).gateClkValid := robReadDataVec(i).ctrl.valid
+    io.out.toPst(i).gateClkValid := robReadDataVec(i).ctrl.valid
   }
   private val pipeCmpltVec = Wire(Vec(NumPipeline, Bool()))
   pipeCmpltVec(0) := io.in.fromIu.pipe0.cmplt
   pipeCmpltVec(1) := io.in.fromIu.pipe1.cmplt
   pipeCmpltVec(2) := io.in.fromIu.pipe2.cmplt
-  pipeCmpltVec(3) := io.in.fromLsu.pipe3.wb.cmplt
-  pipeCmpltVec(4) := io.in.fromLsu.pipe4.wb.cmplt
+  pipeCmpltVec(3) := io.in.fromLsu.pipe3.cmplt
+  pipeCmpltVec(4) := io.in.fromLsu.pipe4.cmplt
   pipeCmpltVec(5) := io.in.fromVfpu.pipe6.cmplt
   pipeCmpltVec(6) := io.in.fromVfpu.pipe7.cmplt
   private val pipeIidVec = Wire(Vec(NumPipeline, UInt(InstructionIdWidth.W)))
   pipeIidVec(0) := io.in.fromIu.pipe0.iid
   pipeIidVec(1) := io.in.fromIu.pipe1.iid
   pipeIidVec(2) := io.in.fromIu.pipe2.iid
-  pipeIidVec(3) := io.in.fromLsu.pipe3.wb.iid
-  pipeIidVec(4) := io.in.fromLsu.pipe4.wb.iid
+  pipeIidVec(3) := io.in.fromLsu.pipe3.iid
+  pipeIidVec(4) := io.in.fromLsu.pipe4.iid
   pipeIidVec(5) := io.in.fromVfpu.pipe6.iid
   pipeIidVec(6) := io.in.fromVfpu.pipe7.iid
   private val pipeAbnormalVec = Wire(Vec(NumPipeline, Bool()))
@@ -249,8 +245,8 @@ class RobRoute extends Module {
   pipeAbnormalVec(0) := io.in.fromIu.pipe0.abnormal
   pipeAbnormalVec(1) := false.B
   pipeAbnormalVec(2) := io.in.fromIu.pipe2.abnormal
-  pipeAbnormalVec(3) := io.in.fromLsu.pipe3.wb.abnormal
-  pipeAbnormalVec(4) := io.in.fromLsu.pipe4.wb.abnormal
+  pipeAbnormalVec(3) := io.in.fromLsu.pipe3.abnormal
+  pipeAbnormalVec(4) := io.in.fromLsu.pipe4.abnormal
   pipeAbnormalVec(5) := false.B
   pipeAbnormalVec(6) := false.B
   private val pipeBreakpointVec = Wire(Vec(NumPipeline, new RobBreakpointDataBundle))
@@ -258,8 +254,8 @@ class RobRoute extends Module {
   pipeBreakpointVec(0) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(1) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(2) := 0.U.asTypeOf(new RobBreakpointDataBundle)
-  pipeBreakpointVec(3) := io.in.fromLsu.pipe3.wb.breakpointData
-  pipeBreakpointVec(4) := io.in.fromLsu.pipe4.wb.breakpointData
+  pipeBreakpointVec(3) := io.in.fromLsu.pipe3.breakpointData
+  pipeBreakpointVec(4) := io.in.fromLsu.pipe4.breakpointData
   pipeBreakpointVec(5) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   pipeBreakpointVec(6) := 0.U.asTypeOf(new RobBreakpointDataBundle)
   private val pipeNoSpecVec = Wire(Vec(NumPipeline, new RobNoSpecBundle))
@@ -267,8 +263,8 @@ class RobRoute extends Module {
   pipeNoSpecVec(0) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(1) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(2) := 0.U.asTypeOf(new RobNoSpecBundle)
-  pipeNoSpecVec(3) := io.in.fromLsu.pipe3.wb.noSpec
-  pipeNoSpecVec(4) := io.in.fromLsu.pipe4.wb.noSpec
+  pipeNoSpecVec(3) := io.in.fromLsu.pipe3.noSpec
+  pipeNoSpecVec(4) := io.in.fromLsu.pipe4.noSpec
   pipeNoSpecVec(5) := 0.U.asTypeOf(new RobNoSpecBundle)
   pipeNoSpecVec(6) := 0.U.asTypeOf(new RobNoSpecBundle)
 
@@ -661,12 +657,12 @@ class RobRoute extends Module {
   //----------------------------------------------------------
 
   for (i <- 0 until NumRetireEntry) {
-    io.out.pstRetire(i).iid := retireInstVec(i).bits.data.iid
+    io.out.toPst(i).iid := retireInstVec(i).bits.data.iid
   }
   io.out.toRob.exceptInst0Iid := retireInstVec(0).bits.data.iid
   // Todo: check if need to add inst1/2.iid output
   io.out.toRetire.instExtra.iid := retireInstVec(0).bits.data.iid
-  io.out.toRetire.instExtra.pret := retireInstVec(0).bits.data.bju && retireInstVec(0).bits.data.pret
+  io.out.toRetire.instExtra.pReturn := retireInstVec(0).bits.data.bju && retireInstVec(0).bits.data.pret
 
   // robToRetireInstVec
   for (i <- 0 until NumRetireEntry) {
@@ -723,7 +719,7 @@ class RobRoute extends Module {
     !io.in.fromCp0.xxIntB && !io.in.fromHad.xxTme && !robCommitIid(2).valid
   robRead0InterruptVec.bits := io.in.fromCp0.xxVec
 
-  io.out.toRetire.interruptSrtEn := robRead0InterruptVec.valid
+  io.out.toRetire.intSrtEn := robRead0InterruptVec.valid
   private val interruptCommitMask = !io.in.fromCp0.xxIntB && !io.in.fromHad.xxTme
 
   //----------------------------------------------------------
@@ -765,7 +761,7 @@ class RobRoute extends Module {
 
   io.out.toRetire.instExtra.interruptVec  := retireInst0Special.interruptVec
   io.out.toRetire.instExtra.interruptMask := retireInst0Special.intMask
-  io.out.toRetire.instExtra.pcal          := retireInstVec(0).bits.data.bju && retireInst0Special.pcal
+  io.out.toRetire.instExtra.pCall          := retireInstVec(0).bits.data.bju && retireInst0Special.pcal
   io.out.toRetire.instExtra.ras           := retireInstVec(0).bits.data.bju && retireInst0Special.ras
   io.out.toRetire.instExtra.dataBreakpoint:= retireInst0Special.dataBreakpoint
   io.out.toRetire.instExtra.debugDisable  := retireInst0Special.debugDisable
@@ -888,7 +884,7 @@ class RobRoute extends Module {
     retireInst0Special.pcCur := robRead0PcCur
   }
 
-  io.out.toRetire.instVec(0).pcCur := retireInst0Special.pcCur
+  io.out.toRetire.instVec(0).pc := retireInst0Special.pcCur
   io.out.toPad.retirePc(0).bits := Cat(retireInst0Special.pcCur, 0.U(1.W))
   // Todo: figure out bjuLength
   //retire inst0 branch increase pc
@@ -897,7 +893,7 @@ class RobRoute extends Module {
   //retire inst0 next pc
   io.out.toRetire.instVec(0).npc := Mux(
     retireInstVec(1).valid,
-    io.out.toRetire.instVec(1).pcCur,
+    io.out.toRetire.instVec(1).pc,
     robPcCur
   )
 
@@ -910,11 +906,11 @@ class RobRoute extends Module {
     retireInstVec(1).bits.pcAddend1 := robRead1PcCurAddend1
   }
 
-  io.out.toRetire.instVec(1).pcCur := retireInstVec(1).bits.pcAddend0 + retireInstVec(1).bits.pcAddend1
+  io.out.toRetire.instVec(1).pc := retireInstVec(1).bits.pcAddend0 + retireInstVec(1).bits.pcAddend1
   io.out.toPad.retirePc(1).bits := Cat(retireInstVec(1).bits.pcAddend0, 0.U(1.W))
   io.out.toRetire.instVec(1).npc := Mux(
     retireInstVec(2).valid,
-    io.out.toRetire.instVec(2).pcCur,
+    io.out.toRetire.instVec(2).pc,
     robPcCur
   )
 
@@ -926,7 +922,7 @@ class RobRoute extends Module {
     retireInstVec(2).bits.pcAddend0 := robRead2PcCurAddend0
     retireInstVec(2).bits.pcAddend1 := robRead2PcCurAddend1
   }
-  io.out.toRetire.instVec(2).pcCur := retireInstVec(2).bits.pcAddend0 + retireInstVec(2).bits.pcAddend1
+  io.out.toRetire.instVec(2).pc := retireInstVec(2).bits.pcAddend0 + retireInstVec(2).bits.pcAddend1
   io.out.toPad.retirePc(2).bits := Cat(retireInstVec(2).bits.pcAddend0, 0.U(1.W))
   io.out.toRetire.instVec(2).npc := robPcCur
 
@@ -1166,6 +1162,8 @@ class RobRoute extends Module {
   io.out.toRetire.instExtra.vsetvl := DontCare
   io.out.toRetire.instExtra.vstart := DontCare
 
-
+  io.out.toRetire.splitSpecFailSrt := DontCare
+  io.out.toRetire.intSrtEn := DontCare
+  io.out.toRetire.ssfIid := DontCare
 
 }
