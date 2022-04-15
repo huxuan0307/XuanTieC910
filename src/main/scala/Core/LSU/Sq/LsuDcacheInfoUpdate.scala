@@ -1,5 +1,6 @@
 package Core.LSU.Sq
 import Core.DCacheConfig
+import Core.LsuConfig.PA_WIDTH
 import chisel3._
 import chisel3.util._
 

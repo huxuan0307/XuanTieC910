@@ -26,7 +26,7 @@ class DcacheArbToStAg extends Bundle with LsuConfig{ // for acceleration
   val addr = UInt(PA_WIDTH.W)
   val borrowAddrVld = Bool()
 }
-class RfPipe4 extends Bundle with LsuConfig{
+class RfPipe4 extends Bundle with LsuConfig with DCacheConfig {
   val alreadyDa      = Bool()
   val atomic         = Bool()
   val bkptaData      = Bool()
@@ -187,7 +187,7 @@ class StoreAgIO extends Bundle with LsuConfig{
   val out = Output(new StoreAgOut)
 }
 
-class StoreAg extends Module with LsuConfig{
+class StoreAg extends Module with LsuConfig with DCacheConfig {
   val io = IO(new StoreAgIO)
   //==========================================================
   //                        RF signal

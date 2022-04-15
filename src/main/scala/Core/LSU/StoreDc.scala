@@ -15,7 +15,7 @@ class Cp0ToStDc extends Bundle with LsuConfig{
   val l2StPrefEn    = Bool()
   val clkEn         = Bool()
 }
-class DcacheToStDc extends Bundle with LsuConfig with DCacheConfig{
+class DcacheToStDc extends Bundle with LsuConfig{
   val arbBorrowIcc      = Bool()
   val arbBorrowSnq      = Bool()
   val arbBorrowSnqId    = UInt(SNOOP_ID_WIDTH.W)
@@ -94,7 +94,7 @@ class StDcToLq extends Bundle with LsuConfig{
   val iid                  = UInt(IidWidth.W)
   val instVld              = Bool()
 }
-class StDcToSqDa extends Bundle with LsuConfig with DCacheConfig {
+class StDcToSqDa extends Bundle with LsuConfig{
   val borrowVld     = Bool()
   val atomic        = Bool()
   val boundary      = Bool()
@@ -168,7 +168,7 @@ class StoreDcIO extends Bundle with LsuConfig{
   val in  = Input(new StoreDcIn)
   val out = Output(new StoreDcOut)
 }
-class StoreDc extends Module with LsuConfig{
+class StoreDc extends Module with LsuConfig with DCacheConfig{
   val io = IO(new StoreDcIO)
   //==========================================================
   //                 Instance of Gated Cell

@@ -16,7 +16,7 @@ class Cp0ToStDa extends Bundle with LsuConfig{
   val lsuNsfe       = Bool()
   val yyClkEn       = Bool()
 }
-class DcacheToStDa extends Bundle with LsuConfig with DCacheConfig{
+class DcacheToStDa extends Bundle with DCacheConfig{
   val dirtyDin = UInt((OFFSET_WIDTH+1).W)
   val dirtyGwen= Bool()
   val dirtyWen = UInt((OFFSET_WIDTH+1).W)
@@ -153,7 +153,7 @@ class StDaToVb extends Bundle with LsuConfig {
   val replaceWay    = Bool()
   val way           = Bool()
 }
-class StDaToIcc extends Bundle with LsuConfig with DCacheConfig {
+class StDaToIcc extends Bundle  with DCacheConfig {
   val borrowIccVld = Bool()
   val dirtyInfo = UInt(3.W)
   val tagInfo   = UInt(((TAG_WIDTH+1)*WAYS).W)
@@ -163,7 +163,7 @@ class StDaToRtu extends Bundle with LsuConfig {
   val splitSpecFailVld = Bool()
 }
 //----------------------------------------------------------
-class StoreDaOut extends Bundle with LsuConfig{
+class StoreDaOut extends Bundle with LsuConfig with DCacheConfig {
   val toCtrl    = new StDaToCtrl
   val toSq      = new StDaToSq
   val toRb      = new StDaToRb
@@ -185,7 +185,7 @@ class StoreDaIO extends Bundle with LsuConfig {
   val in  = Input(new StoreDaIn)
   val out = Output(new StoreDaOut)
 }
-class StoreDa extends Module with LsuConfig {
+class StoreDa extends Module with LsuConfig with DCacheConfig {
   val io = IO(new StoreDaIO)
   //==========================================================
   //                 Instance of Gated Cell
@@ -459,9 +459,9 @@ class StoreDa extends Module with LsuConfig {
   val st_da_dirty_dc_update_dout = (st_da_dirty_dc_update & st_da_dcwp_dc_dirty_din) | (st_da_dcache_dirty_array & (~st_da_dirty_dc_update))
   //select cache hit info
   val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(2,0),st_da_dirty_dc_update_dout(5,3))
-  val st_da_dcache_dc_up_dirty         = st_da_dcache_dirty_dc_up_hit_info[2];
-  val st_da_dcache_dc_up_share         = st_da_dcache_dirty_dc_up_hit_info[1];
-  val st_da_dcache_dc_up_valid         = st_da_dcache_dirty_dc_up_hit_info[0];
+  val st_da_dcache_dc_up_dirty         = st_da_dcache_dirty_dc_up_hit_info(2)
+  val st_da_dcache_dc_up_share         = st_da_dcache_dirty_dc_up_hit_info(1)
+  val st_da_dcache_dc_up_valid         = st_da_dcache_dirty_dc_up_hit_info(0)
   val st_da_dcache_dc_up_way           = io.out.toVb.way
   //-------------update dcache info in da stage---------------
   //TODO

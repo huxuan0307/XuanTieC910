@@ -1,5 +1,6 @@
 package Core
 
+import Core.LsuConfig.PA_WIDTH
 import chisel3._
 import chisel3.util._
 
@@ -98,7 +99,6 @@ trait LsuConfig{
   def INST_MODE_WIDTH = 2
   def INST_SIZE_WIDTH = 2
   def INST_TYPE_WIDTH = 2
-  def OFFSET_WIDTH = 12
   def LSU_PC_WIDTH = 15 //@ ct_lst_st_ag.v  534  parameter PC_LEN = 15;
   def SDIQ_ENYTY_ADDR = 12
   def SHITF_WIDTH = 4
@@ -109,6 +109,7 @@ trait LsuConfig{
   def ACCESS_SIZE_CHOOSE = 3
   def BYTES_ACCESS_WIDTH = 16
   def ROT_SEL_WIDTH = 4
+  def ROT_SEL_WIDTH_8 = 8
   def LSIQ_ENTRY = 12
   def VPN_WIDTH = 28
 
@@ -132,14 +133,13 @@ object LsuAccessSize extends LsuConfig{
   def qword: UInt = 4.U(ACCESS_SIZE_CHOOSE.W)
 }
 trait DCacheConfig {
-  def PA_WIDTH = 40
   def TOTAL_SIZE = 64 //Kb
   def WAYS = 2
   def LINE_SIZE = 64 // byte
   def SET: Int = TOTAL_SIZE * 1024 / LINE_SIZE / WAYS // 512
   def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
   def INDEX_WIDTH: Int = log2Up(SET) // 9
-  def TAG_WIDTH: Int = PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
+  def TAG_WIDTH: Int = LsuConfig.PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
 }
 trait Cp0Config {
   def APB_BASE_WIDTH = 40

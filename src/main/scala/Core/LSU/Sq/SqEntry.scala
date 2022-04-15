@@ -43,12 +43,12 @@ class RtuToSqEntry extends Bundle with LsuConfig {
   val commit     = Vec(NumCommitEntry, Bool())
   val flush      = Bool()
 }
-class SqIn extends Bundle with LsuConfig {
-  val asyncFlush = Bool()
-  val commitIid  = Vec(NumCommitEntry, UInt(IidWidth.W))
-  val commit     = Vec(NumCommitEntry, Bool())
-  val flush      = Bool()
-}
+//class SqIn extends Bundle with LsuConfig {
+//  val asyncFlush = Bool()
+//  val commitIid  = Vec(NumCommitEntry, UInt(IidWidth.W))
+//  val commit     = Vec(NumCommitEntry, Bool())
+//  val flush      = Bool()
+//}
 class SqToSqEntry extends Bundle with LsuConfig {
   val ageVecSet              = Bool()
   val createAgeVec           = UInt(LSIQ_ENTRY.W)
@@ -80,8 +80,8 @@ class StDaToSqTotal extends Bundle with LsuConfig {
 }
 //----------------------------------------------------------
 class SqEntryIn extends Bundle with LsuConfig{
-  val cp0in    = new Cp0ToSqEntry
-  val dcachein = new DcacheToSqEntry
+  val cp0In    = new Cp0ToSqEntry
+  val dcacheIn = new DcacheToSqEntry
   val ldDaLsid = UInt(LSIQ_ENTRY.W)
   val ldDcIn   = new LdDcToSqEntry
   val rtuIn    = new RtuToSqEntry
@@ -139,9 +139,9 @@ class SqEntryOut extends Bundle with LsuConfig{
   val pageWa_x                   = Bool()
   val popReq_x                   = Bool()
   val privMode_v                 = UInt(MPPWidth.W)
-  val rotSel_v                   = UInt(ROT_SEL_WIDTH.W)
+  val rotSel_v                   = UInt(ROT_SEL_WIDTH_8.W)
   val sameAddrNewest_x           = Bool()
-  val settleDataJit_x            = Bool()
+  val settleDataHit_x            = Bool()
   val specFail_x                 = Bool()
   val stDcCreateAgeVec_x         = Bool()
   val stDcSameAddrNewer_x        = Bool()
@@ -247,7 +247,7 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_addr0            = RegInit(0.U(PA_WIDTH.W))
   val sq_entry_bytes_vld        = RegInit(0.U(BYTES_ACCESS_WIDTH.W))
   val sq_entry_priv_mode        = RegInit(0.U(MPPWidth.W))
-  val sq_entry_rot_sel          = RegInit(0.U(ROT_SEL_WIDTH.W))
+  val sq_entry_rot_sel          = RegInit(0.U(ROT_SEL_WIDTH_8.W))
   when(sq_entry_create_dp_vld){
     sq_entry_sync_fence := io.in.dcIn.sqda.syncFence
     sq_entry_atomic     := io.in.dcIn.sqda.atomic
@@ -270,7 +270,7 @@ class SqEntry extends Module with LsuConfig {
     sq_entry_secd       := io.in.dcIn.sqda.secd
     sq_entry_addr0      := io.in.dcIn.sq.addr0
     sq_entry_bytes_vld  := io.in.dcIn.sq.bytesVld
-    sq_entry_priv_mode  := io.in.cp0in.privMode
+    sq_entry_priv_mode  := io.in.cp0In.privMode
     sq_entry_rot_sel    := io.in.dcIn.sq.rotSelRev
   }
   //+------+
@@ -457,7 +457,7 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_dcache_info_updata = Module(new LsuDcacheInfoUpdate)
   sq_entry_dcache_info_updata.io.in.compareDcwpAddr := sq_entry_addr0
   sq_entry_dcache_info_updata.io.in.compareDcwpSwInst := sq_entry_dcache_sw_inst
-  sq_entry_dcache_info_updata.io.in.dcacheIn  := io.in.dcachein
+  sq_entry_dcache_info_updata.io.in.dcacheIn  := io.in.dcacheIn
   sq_entry_dcache_info_updata.io.in.originDcacheMesi := sq_entry_dcache_mesi
   sq_entry_dcache_info_updata.io.in.originDcacheWay  := sq_entry_dcache_way
   sq_entry_update_dcache_mesi := sq_entry_dcache_info_updata.io.out.updateDcacheMesi
@@ -486,7 +486,7 @@ class SqEntry extends Module with LsuConfig {
    * 2. inherit old ptr, only old age_vec
    * 3. create new ptr but sq iid is old than dc iid
    */
-  val sq_entry_age_vec_create = io.in.sqIn.createVld & Cat(Seq. fill(LSIQ_ENTRY)(sq_entry_iid_newer_than_st_dc)) | sq_entry_age_vec
+  val sq_entry_age_vec_create = io.in.sqIn.createVld & Cat(Seq.fill(LSIQ_ENTRY)(sq_entry_iid_newer_than_st_dc)) | sq_entry_age_vec
   //-------------------age_vecafter pop-----------------------
   // consider pop ptr,add to age vec, then the ageVecNext is created
   sq_entry_age_vec_next := io.in.sqIn.popToCeGrntB & sq_entry_age_vec_create
@@ -651,7 +651,7 @@ class SqEntry extends Module with LsuConfig {
   io.out.newestFwdReqDataVldShort_x := sq_entry_newest_fwd_req_data_vld_short
   //-----------others---------------------
   io.out.stDcCreateAgeVec_x := sq_entry_age_vec
-  io.out.settleDataJit_x := sq_entry_settle_data_hit
+  io.out.settleDataHit_x := sq_entry_settle_data_hit
   io.out.stDcSameAddrNewer_x := sq_entry_st_dc_same_addr_newer
   io.out.addr1DepDiscard_x := sq_entry_addr1_dep_discard
   io.out.fwdBypassReq_x := sq_entry_fwd_bypass_req
