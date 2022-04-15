@@ -1,6 +1,6 @@
 package Core.IU
 import Core.IU.Du.DuOut
-import Core.IUConfig
+import Core.IntConfig
 import chisel3._
 import chisel3.util.{is, _}
 
@@ -10,7 +10,7 @@ class RbusIn extends Bundle {
   val duIn = new DuOut
   val specialIn = new SpecialOut // althoug only need (data, dataVld, preg)
 }
-class RbusOut extends Bundle with IUConfig{
+class RbusOut extends Bundle  {
   val wbPreg = UInt(7.W)
   val wbData = UInt(XLEN.W)
   val wbPregVld = Bool()
