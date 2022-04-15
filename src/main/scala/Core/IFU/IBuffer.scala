@@ -25,7 +25,7 @@ class IBuf2Decode extends CoreBundle {
 
 class IBufferIO extends CoreBundle {
   val in   = Vec(8+1, Flipped(Valid(new IBufferData)))
-  val out  = Vec(3, Decoupled(new IBuf2Decode))
+  val out  = Vec(3, Valid(new IBuf2Decode))
   val allowEnq = Output(Bool())
   val flush = Input(Bool())
 }

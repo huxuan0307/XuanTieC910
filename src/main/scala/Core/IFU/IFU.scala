@@ -24,6 +24,12 @@ class IFU extends Module with Config {
 
   //pc select
   val pc_gen = Module(new PCGen)
+  //todo:add ct_ifu_vector, had to ifu
+  pc_gen.io.had_ifu_pcload := false.B
+  pc_gen.io.had_ifu_pc := DontCare
+  pc_gen.io.vector_pcgen_pcload := false.B
+  pc_gen.io.vector_pcgen_pc := DontCare
+  //
   pc_gen.io.redirect(0).valid := ubtb.io.ubtb_resp.valid
   pc_gen.io.redirect(0).bits  := ubtb.io.ubtb_resp.bits.target_pc
   pc_gen.io.redirect(1) := ipstage.io.ip_redirect
@@ -170,8 +176,8 @@ class IFU extends Module with Config {
 //    io.instVld(i)                    := ibuf.io.out(i).valid
 //    io.ifu_idu(i).ready             := ibuf.io.out(i).ready
   }
-  io.toROB.curPcLoad := true.B
-  io.toROB.curPc := 0.U    //from had???
+  io.toROB.curPcLoad := pc_gen.io.ifu_rtu_cur_pc_load
+  io.toROB.curPc := pc_gen.io.ifu_rtu_cur_pc//0.U    //from had???
   ibuf.io.flush := backend_redirect
 
   for(i <- 0 to 1){

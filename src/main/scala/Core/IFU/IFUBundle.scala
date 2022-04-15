@@ -1,6 +1,7 @@
 package Core.IFU
 //import Core.IDU.IDData
 import Core.AddrConfig.PcWidth
+import Core.RTU._
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
@@ -28,6 +29,17 @@ class PCGenIO extends CoreBundle{
   val redirect = Vec(4,Flipped(Valid(UInt(VAddrBits.W))))
   val pc = Output(UInt(VAddrBits.W))
   val continue = Input(Bool())
+  val had_ifu_pc = Input(UInt(VAddrBits.W))
+  val had_ifu_pcload = Input(Bool())
+  val vector_pcgen_pc = Input(UInt(VAddrBits.W))
+  val vector_pcgen_pcload = Input(Bool())
+  //val vector_pcgen_reset_on = Input(Bool())
+  //val rtu_ifu_chgflw_pc = Input(UInt(VAddrBits.W))
+  //val rtu_ifu_chgflw_vld = Input(Bool())
+  //val rtu_ifu_xx_dbgon = Input(Bool())
+  //val rtu_ifu_xx_expt_vld = Input(Bool())
+  val ifu_rtu_cur_pc = Output(UInt(VAddrBits.W))
+  val ifu_rtu_cur_pc_load = Output(Bool())
 }
 
 class BHT_IP_Resp extends CoreBundle {
@@ -120,11 +132,11 @@ class BPUUpdate extends CoreBundle {
 
   val rtu_retire_condbr       = Input(Vec(3,Bool()))
   val rtu_retire_condbr_taken = Input(Vec(3,Bool()))
-  val bht_update = Flipped(Valid(new BHTUpdate))
+  val bht_update = Flipped(Valid(new BHTUpdate))//cur_condbr_taken from BJU
 
   val rtu_ras_update = new RASUpdateIO
 
-  val ind_btb_commit_jmp_path = Vec(3,Flipped(Valid(UInt(8.W))))//valid排序依次进入
+  val ind_btb_commit_jmp_path = Flipped(Vec(3,Valid(UInt(8.W))))//valid排序依次进入
   val ind_btb_rtu_jmp_mispred = Input(Bool())
   val ind_btb_rtu_jmp_pc      = Input(UInt(VAddrBits.W))//pc(21,1)
 }
@@ -154,7 +166,7 @@ class IFUIO extends CoreBundle {
   //val cache_req  = Decoupled(new ICacheReq)
   //val cache_resp = Flipped(Valid(new ICacheResp))
   //inst out
-  val instData = Flipped(Vec(3, new IDData))
+  val instData = Output(Vec(3, new IDData))
   val instVld  = Input(Vec(3, Bool()))
   //bht, btb update
   val bpu_update = new BPUUpdate
