@@ -1089,7 +1089,7 @@ class WmbEntry extends Module {
   io.out.bkptb_data      := inst_info.bkptb_data
   io.out.vstart_vld      := inst_info.vstart_vld
   io.out.dcache_way      := dcache_info.way
-  io.out.data            := wmb_entry_data
+  io.out.data            := wmb_entry_data.asUInt
   io.out.biu_id          := wmb_entry_biu_id
   io.out.w_last          := wmb_entry_w_last
   io.out.bytes_vld       := wmb_entry_bytes_vld
