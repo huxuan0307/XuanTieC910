@@ -60,6 +60,7 @@ class WmbEntryInput extends Bundle{
     val tag_gwen = Bool()
     val tag_wen = UInt(2.W)
   }
+  val wmb_dcache_req_ptr = Bool()
   val fromLoadDC = new Bundle{
     val addr0 = UInt(40.W)
     val addr1_11to4 = UInt(8.W)
@@ -136,7 +137,7 @@ class WmbEntryInput extends Bundle{
     val ptr_shift_imme_grnt = Bool()
     val ptr = Bool()
   }
-  val wmb_same_line_resp_ready = UInt(8.W)
+  val wmb_same_line_resp_ready = Vec(LSUConfig.WMB_ENTRY, Bool())
   val wmb_wakeup_queue_not_empty = Bool()
   val WmbWrite = new Bundle{
     val biu_dcache_line = Bool()
@@ -312,6 +313,17 @@ class WmbEntry extends Module {
   val wmb_entry_data_req = Wire(Bool())
   val wmb_dcache_req_ptr = Wire(Bool())
   val wmb_entry_wo_st_inst = Wire(Bool())
+
+  val wmb_entry_rb_biu_req_hit_idx = Wire(Bool())
+  val wmb_create_ptr_next1 = Wire(Bool())
+  val wmb_entry_snq_set_write_imme = Wire(Bool())
+  val wmb_read_ptr = Wire(Bool())
+  val wmb_write_ptr = Wire(Bool())
+  val wmb_entry_same_dcache_line_ready = Wire(Bool())
+
+  val wmb_data_ptr = Wire(Bool())
+  val wmb_entry_next_nc_bypass = Wire(Bool())
+  val wmb_entry_next_so_bypass = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -718,4 +730,420 @@ class WmbEntry extends Module {
   //------------------cancel amr------------------------------
 
   //------------------fwd data pop entry----------------------
+  val wmb_entry_fwd_data_pe_req = wmb_entry_vld && wmb_entry_wo_st_inst && wmb_entry_depd_addr_tto4_hit
+  io.out.fwd_data_pe_req := wmb_entry_fwd_data_pe_req
+
+  io.out.fwd_data_pe_gateclk_en := wmb_entry_vld && wmb_entry_wo_st_inst&& wmb_entry_depd_addr_11to4_hit
+
+  //------------------situation 1-----------------------------
+  val wmb_entry_fwd_data_pre = wmb_entry_fwd_data_pe_req && io.in.fromLoadDC.chk_ld_inst_vld
+
+  val wmb_entry_depd_hit1 = wmb_entry_fwd_data_pre && wmb_entry_depd_do_hit
+
+  io.out.fwd_bytes_vld := Mux(wmb_entry_fwd_data_pre, wmb_entry_and_ld_dc_bytes_vld, 0.U(16.W))
+
+  //------------------situation 2-----------------------------
+  val wmb_entry_depd_hit2  = wmb_entry_vld && io.in.fromLoadDC.chk_atomic_inst_vld
+
+  //------------------situation 3-----------------------------
+  val wmb_entry_depd_hit3  = wmb_entry_vld && inst_info.atomic && io.in.fromLoadDC.chk_ld_inst_vld &&
+    wmb_entry_depd_addr_tto4_hit && wmb_entry_depd_do_hit
+
+  //for cache buffer acceleration
+  val wmb_entry_depd_hit5  = wmb_entry_vld && wmb_entry_depd_addr1_tto4_hit
+  //------------------combine---------------------------------
+  wmb_entry_discard_req := wmb_entry_depd_hit2 || wmb_entry_depd_hit3
+  io.out.discard_req := wmb_entry_discard_req
+
+  wmb_entry_fwd_req := wmb_entry_depd_hit1
+  io.out.fwd_req := wmb_entry_fwd_req
+
+  io.out.cancel_acc_req := wmb_entry_depd_hit5
+
+  //==========================================================
+  //                 Set write_imme
+  //==========================================================
+  //-------------request ar channel if need-------------------
+  //if has write out, then clear write imme
+  wmb_entry_write_imme_set := wmb_entry_vld && !wmb_entry_write_req_success &&
+    (wmb_entry_discard_req || io.in.WmbEntry.merge_data_wait_not_vld_req || wmb_entry_rb_biu_req_hit_idx ||
+      wmb_create_ptr_next1 || wmb_entry_snq_set_write_imme || io.in.wmb_wakeup_queue_not_empty && wmb_entry_depd ||
+      wmb_entry_merge_data_write_imme_set)
+
+  //for timing, use write_imme_bypass to set wmb_write_imme
+  val wmb_entry_write_imme_bypass = wmb_entry_vld && !wmb_entry_write_req_success && wmb_create_ptr_next1
+
+  //==========================================================
+  //                    Request read
+  //==========================================================
+  val wmb_entry_read_ptr_not_already_success = wmb_entry_vld && wmb_read_ptr && !wmb_entry_read_req_success
+
+  //-------------request ar channel if need-------------------
+  wmb_entry_read_req := wmb_entry_read_ptr_not_already_success &&
+    (wmb_entry_st_inst && inst_info.page_ca && inst_info.page_share && dcache_info.share && !wmb_entry_same_dcache_line ||
+      wmb_entry_ctc_inst ||
+      wmb_entry_dcache_addr_inst && inst_info.page_ca && (wmb_entry_dcache_addr_not_l1_inst || inst_info.page_share) &&
+        inst_info.page_ca && wmb_entry_write_resp ||
+      wmb_entry_sc_inst && wmb_write_ptr && !wmb_entry_sc_wb_vld && inst_info.page_ca && inst_info.page_share &&
+        (dcache_info.valid && dcache_info.share))
+
+  val wmb_entry_read_dp_req  = wmb_entry_vld && !wmb_entry_read_req_success &&
+    (wmb_entry_st_inst && inst_info.page_ca && inst_info.page_share && (dcache_info.share || !dcache_info.valid) ||
+      wmb_entry_ctc_inst ||
+      wmb_entry_dcache_addr_inst && (wmb_entry_dcache_addr_not_l1_inst || inst_info.page_share) && inst_info.page_ca ||
+      wmb_entry_sc_inst && inst_info.page_ca && inst_info.page_share && !wmb_entry_sc_wb_vld)
+
+  val wmb_entry_read_ptr_chk_idx_shift_imme = wmb_entry_read_ptr_not_already_success &&
+    (wmb_entry_st_inst && inst_info.page_ca && (wmb_entry_same_dcache_line || !dcache_info.valid || dcache_info.valid && !dcache_info.share || !inst_info.page_share) ||
+      wmb_entry_stamo_inst ||
+      wmb_entry_sc_inst && wmb_write_ptr && !wmb_entry_sc_wb_vld && inst_info.page_ca &&
+        (dcache_info.valid && !dcache_info.share || !dcache_info.valid || !inst_info.page_share))
+
+  //if has sent read req and other condition, don't compare index
+  val wmb_entry_read_ptr_unconditional_shift_imme = wmb_entry_vld && wmb_read_ptr &&
+    (wmb_entry_read_req_success && !inst_info.page_ca || wmb_entry_dcache_sw_inst && wmb_entry_write_resp ||
+      wmb_entry_dcache_all_inst || wmb_entry_sync_fence_inst ||
+      wmb_entry_dcache_addr_l1_inst && !inst_info.page_share && wmb_entry_write_resp ||
+      wmb_entry_dcache_addr_inst && !inst_info.page_ca && wmb_entry_write_resp ||
+      wmb_entry_sc_inst && (!inst_info.page_ca || wmb_entry_sc_wb_vld))
+
+  //-------------read req_success/resp set--------------------
+  val wmb_entry_read_ptr_shift_imme = wmb_entry_read_ptr_unconditional_shift_imme || wmb_entry_read_ptr_chk_idx_shift_imme
+
+  wmb_entry_read_req_success_set := !wmb_entry_read_req_success &&
+    (wmb_entry_read_req && io.in.WmbRead.ptr_read_req_grnt ||
+      wmb_entry_read_ptr_shift_imme && io.in.WmbRead.ptr_shift_imme_grnt)
+
+  //if ctc has sent, then set read_resp
+  wmb_entry_read_resp_set := !wmb_entry_read_resp &&
+    (wmb_entry_read_ptr_shift_imme && io.in.WmbRead.ptr_shift_imme_grnt && !wmb_entry_read_req_success && !wmb_entry_sync_fence_inst &&
+      !(wmb_entry_st_inst && inst_info.page_ca && inst_info.page_share && dcache_info.valid &&
+        dcache_info.share && wmb_entry_same_dcache_line && !wmb_entry_same_dcache_line_ready) ||
+      wmb_entry_read_req_success && wmb_entry_st_inst && inst_info.page_ca && wmb_entry_same_dcache_line && wmb_entry_same_dcache_line_ready ||
+      wmb_entry_r_resp_vld || wmb_entry_read_req && wmb_entry_ctc_inst && io.in.WmbRead.ptr_read_req_grnt)
+
+  //for same dcache line
+  io.out.read_resp_ready := !(wmb_entry_vld && wmb_entry_read_req_success && !wmb_entry_read_resp)
+
+  wmb_entry_same_dcache_line_ready := (wmb_entry_same_dcache_line_ptr.asUInt & io.in.wmb_same_line_resp_ready.asUInt)
+
+  //==========================================================
+  //                    Request write
+  //==========================================================
+  //-------------request dcache/vb/aw channel if need---------
+  val wmb_entry_page_ca_dcache_valid = inst_info.page_ca && dcache_info.valid
+
+  //write req is used for write ptr shift
+  io.out.write_req := wmb_entry_vld && wmb_write_ptr && !wmb_entry_write_req_success && !wmb_entry_ctc_inst && !wmb_entry_dcache_all_inst
+
+  wmb_entry_write_biu_req := wmb_entry_vld && wmb_write_ptr && !wmb_entry_write_req_success && !wmb_entry_write_stall &&
+    (wmb_entry_so_st_inst && wmb_entry_read_resp ||
+      wmb_entry_wo_st_inst && wmb_entry_read_resp && !wmb_entry_page_ca_dcache_valid ||
+      wmb_entry_sync_fence_inst && wmb_entry_read_req_success && io.in.fromVb.empty ||
+      wmb_entry_stamo_inst && wmb_entry_read_resp && !dcache_info.valid ||
+      wmb_entry_sc_inst && wmb_entry_read_resp && !wmb_entry_sc_wb_vld && (!inst_info.page_ca || !dcache_info.valid))
+
+  //if write imme, then must write this cycle or next cycle
+  wmb_entry_wo_st_write_biu_req := wmb_entry_vld && wmb_write_ptr && inst_info.merge_en && !wmb_entry_write_req_success &&
+    wmb_entry_wo_st_inst && io.in.wmb_biu_write_en && wmb_entry_read_resp && !wmb_entry_page_ca_dcache_valid
+
+  val wmb_entry_write_biu_dp_req = wmb_entry_vld && !wmb_entry_write_req_success &&
+    (wmb_entry_so_st_inst ||
+      wmb_entry_wo_st_inst && !wmb_entry_page_ca_dcache_valid ||
+      wmb_entry_sync_fence_inst ||
+      wmb_entry_stamo_inst && !dcache_info.valid ||
+      wmb_entry_sc_inst && (!inst_info.page_ca || !dcache_info.valid) && !wmb_entry_sc_wb_vld)
+
+  val wmb_entry_write_dcache_req   = wmb_entry_vld && !wmb_entry_write_resp &&
+    (wmb_entry_page_ca_dcache_valid && !wmb_entry_write_req_success &&
+      (wmb_entry_st_inst && wmb_entry_read_resp ||
+        wmb_entry_stamo_inst && wmb_entry_read_resp ||
+        wmb_entry_sc_inst && wmb_entry_read_resp && !wmb_entry_sc_wb_vld) ||
+      wmb_entry_dcache_only_inv_1line_inst && wmb_entry_page_ca_dcache_valid && wmb_entry_write_req_success)
+
+  val wmb_entry_write_vb_req = wmb_entry_vld && wmb_write_ptr && !wmb_entry_write_req_success &&
+    wmb_entry_dcache_clr_1line_inst && wmb_entry_page_ca_dcache_valid
+
+  //if already mem_set success, then write ptr shift imme
+  val wmb_entry_write_ptr_unconditional_shift_imme = wmb_write_ptr &&
+    (!wmb_entry_vld || wmb_dcache_req_ptr && io.in.WmbWrite.dcache_success || wmb_entry_write_resp ||
+      wmb_entry_write_req_success && wmb_entry_mem_set_req ||
+      !wmb_entry_write_req_success && (wmb_entry_dcache_all_inst || wmb_entry_ctc_inst ||
+        wmb_entry_sc_inst && wmb_entry_read_resp && wmb_entry_sc_wb_vld))
+
+  val wmb_entry_write_ptr_chk_idx_shift_imme = wmb_entry_vld && wmb_write_ptr && !wmb_entry_write_req_success &&
+    (wmb_entry_dcache_except_only_inv_1line_inst && !wmb_entry_page_ca_dcache_valid)
+
+  //-------------write req_success/resp set-------------------
+  val wmb_entry_write_ptr_shift_imme = wmb_entry_write_ptr_chk_idx_shift_imme || wmb_entry_write_ptr_unconditional_shift_imme
+
+  wmb_entry_write_req_success_set := !wmb_entry_write_req_success &&
+    (wmb_entry_write_biu_req && io.in.fromBusArb.aw_grnt ||
+      wmb_entry_write_vb_req && io.in.wmb_create_vb_success ||
+      wmb_dcache_req_ptr && io.in.WmbWrite.dcache_success ||
+      wmb_entry_vld && wmb_entry_dcache_only_inv_1line_inst && io.in.wmb_dcache_inst_write_req_hit_idx && wmb_write_ptr ||
+      wmb_entry_mem_set_write_grnt || wmb_entry_write_ptr_shift_imme && io.in.WmbWrite.ptr_shift_imme_grnt)
+
+  wmb_entry_write_resp_set := !wmb_entry_write_resp && (io.in.fromVb.rcl_done ||
+    wmb_dcache_req_ptr && io.in.WmbWrite.dcache_success ||
+    wmb_entry_vld && wmb_entry_dcache_only_inv_1line_inst && wmb_entry_write_req_success && !wmb_entry_page_ca_dcache_valid ||
+    wmb_entry_b_resp_vld || wmb_entry_write_ptr_shift_imme && !wmb_entry_write_req_success && io.in.WmbWrite.ptr_shift_imme_grnt)
+
+  //==========================================================
+  //                    Request data
+  //==========================================================
+  //-------------request data channel if need-----------------
+  wmb_entry_data_req := wmb_entry_vld && wmb_data_ptr && !wmb_entry_data_req_success &&
+    (wmb_entry_read_resp || !(wmb_entry_st_inst || inst_info.atomic)) && wmb_entry_write_req_success
+
+  val wmb_entry_data_biu_req = wmb_data_ptr && wmb_entry_write_req_success && !wmb_entry_data_req_success &&
+    !wmb_entry_write_resp && (wmb_entry_st_inst || inst_info.atomic || wmb_entry_sync_fence_inst)
+
+  val wmb_entry_data_req_wns = wmb_data_ptr && !wmb_entry_sync_fence_inst && !inst_info.page_ca
+
+  val wmb_entry_data_ptr_after_write_shift_imme = wmb_data_ptr && (!wmb_entry_vld ||
+    wmb_dcache_req_ptr && io.in.WmbWrite.dcache_success || wmb_entry_write_resp ||
+    wmb_entry_write_req_success && (wmb_entry_dcache_except_only_inv_1line_inst ||
+      wmb_entry_ctc_inst || wmb_entry_sc_inst && wmb_entry_sc_wb_vld))
+
+  val wmb_entry_data_ptr_with_write_shift_imme = false.B
+
+  //-------------write req_success/resp set-------------------
+  wmb_entry_data_req_success_set := wmb_entry_data_biu_req && io.in.fromBusArb.w_grnt ||
+    wmb_dcache_req_ptr && io.in.WmbWrite.dcache_success || wmb_entry_data_ptr_after_write_shift_imme ||
+    wmb_entry_data_ptr_with_write_shift_imme && io.in.WmbWrite.ptr_shift_imme_grnt
+
+  //==========================================================
+  //                Compare biu r/b channel
+  //==========================================================
+  //---------------------biu id vld set-----------------------
+  wmb_entry_biu_r_id_vld_set := wmb_entry_read_req && !wmb_entry_ctc_inst || wmb_entry_sync_fence_inst && wmb_entry_write_biu_req
+
+  wmb_entry_biu_b_id_vld_set := wmb_entry_write_biu_req || wmb_entry_mem_set_write_grnt
+
+  //-----------------compare biu r channel--------------------
+  wmb_entry_r_id_hit := io.in.fromBiu.r_vld && wmb_entry_biu_r_id_vld && (wmb_entry_biu_id === io.in.fromBiu.r_id)
+
+  wmb_entry_r_resp_vld := wmb_entry_r_id_hit
+
+  //-----------------compare biu b channel--------------------
+  wmb_entry_b_id_hit := io.in.fromBiu.b_vld && wmb_entry_biu_b_id_vld && (wmb_entry_biu_id === io.in.fromBiu.b_id)
+
+  wmb_entry_b_resp_vld := wmb_entry_b_id_hit && (inst_info.page_ca || inst_info.atomic && !inst_info.page_so ||
+    wmb_entry_next_nc_bypass || wmb_entry_next_so_bypass || wmb_entry_dcache_clr_1line_inst || wmb_entry_sync_fence_inst)
+
+  //==========================================================
+  //                 Request wb cmplt/data
+  //==========================================================
+  //stex write data first, then request cmplt to ensure there is only 1 stex
+  //inst in wmb
+  val wmb_entry_wb_cmplt_req = wmb_entry_vld && !wmb_entry_wb_cmplt_success && wmb_entry_wb_data_success &&
+    (wmb_entry_dcache_all_inst || wmb_entry_sync_fence_inst && wmb_entry_read_resp && wmb_entry_write_resp ||
+      wmb_entry_so_st_inst && wmb_entry_write_req_success || wmb_entry_sc_inst && wmb_entry_sc_wb_vld ||
+      wmb_entry_stamo_inst && wmb_entry_write_resp)
+
+  val wmb_entry_wb_data_req  = wmb_entry_vld && !wmb_entry_wb_data_success && wmb_entry_sc_inst && wmb_entry_sc_wb_vld
+
+  //==========================================================
+  //                 sc execute
+  //==========================================================
+  wmb_entry_sc_wb_set := wmb_entry_vld && wmb_entry_sc_inst && !wmb_entry_sc_wb_vld &&
+    (io.in.fromLm.state_is_idle || wmb_entry_page_ca_dcache_valid && wmb_entry_write_resp ||
+      inst_info.page_ca && !dcache_info.valid && wmb_entry_b_resp_vld || !inst_info.page_ca && wmb_entry_b_resp_vld)
+
+  wmb_entry_sc_wb_success_set := io.in.fromLm.state_is_ex_wait_lock && (inst_info.page_ca || !inst_info.page_ca && io.in.wmb_b_resp_exokay)
+
+  val wmb_entry_preg = Cat(inst_info.icc, inst_info.inst_mode, inst_info.fence_mode)
+
+  //==========================================================
+  //                 Compare index
+  //==========================================================
+  val wmb_entry_idx_cmpare_inst  = wmb_entry_vld && (wmb_entry_st_inst || inst_info.atomic || wmb_entry_dcache_1line_inst) && inst_info.page_ca
+
+  //for snq dep
+  val wmb_entry_idx_snq_dep_inst = wmb_entry_vld &&
+    (wmb_entry_st_inst || wmb_entry_stamo_inst || wmb_entry_dcache_only_inv_1line_inst ||
+      wmb_entry_sc_inst && !wmb_entry_sc_wb_vld)
+
+  //------------------compare rb biu req----------------------
+  //because if hit index of rb_biu_req, this entry must set write_imme bit, so it
+  //must compare with req_unmask signal
+  wmb_entry_rb_biu_req_hit_idx := wmb_entry_idx_cmpare_inst && io.in.rb_biu_req_unmask && (inst_info.addr(13,6) === io.in.rb_biu_req_addr(13,6))
+
+  //------------------compare pfu pop entry--------------------
+  val wmb_entry_pfu_biu_req_hit_idx = wmb_entry_idx_cmpare_inst && (inst_info.addr(13,6) === io.in.pfu_biu_req_addr(13,6))
+
+  //------------------compare snq create port-----------------
+  //if hit snq create addr, then same_dcache_line will be cleared
+  //if wmb entry has not write, and has read_resp, then this entry must clr
+  val wmb_entry_snq_create_addr_hit_idx = inst_info.addr(13,6) === io.in.fromSnq.create_addr(13,6)
+
+  val wmb_entry_snq_create_hit_idx  = wmb_entry_idx_snq_dep_inst && io.in.fromSnq.can_create_snq_uncheck && wmb_entry_snq_create_addr_hit_idx
+
+  //if wmb entry has write and not resp, snq must wait
+  //assign wmb_entry_read_resp_already_write  = wmb_entry_read_req_success
+  //                                            &&  wmb_entry_read_resp
+  //                                            &&  wmb_entry_write_req_success;
+
+  //in this situation, then snq must wait, and set write imme of this entry
+  //assign wmb_entry_read_resp_hit_write_ptr  = wmb_entry_read_req_success
+  //                                            &&  wmb_entry_read_resp
+  //                                            &&  !wmb_entry_write_req_success
+  //                                            &&  wmb_write_ptr;
+
+  //read_req_success and read_resp and reset read_ptr
+  val wmb_entry_read_resp_not_write = wmb_entry_read_req_success && wmb_entry_read_resp && !wmb_entry_write_req_success
+
+  //set snq signal
+  val wmb_entry_snq_depd = wmb_entry_snq_create_hit_idx &&
+    (wmb_entry_read_resp_not_write && !wmb_entry_dcache_only_inv_1line_inst && wmb_entry_page_ca_dcache_valid ||
+      wmb_entry_vld && wmb_entry_write_req_success && wmb_entry_dcache_only_inv_1line_inst)
+
+  wmb_entry_snq_set_write_imme := wmb_entry_snq_create_hit_idx && wmb_entry_read_resp_not_write
+
+  val wmb_entry_snq_depd_remove = !wmb_entry_vld || wmb_entry_write_resp
+
+  //------------------compare snq dcache port-----------------
+  wmb_entry_same_dcache_line_clr := wmb_entry_vld && io.in.fromDCache.snq_st_sel && !wmb_entry_read_req_success && wmb_entry_dcache_hit_idx
+
+  //==========================================================
+  //                Generate no_op signal
+  //==========================================================
+  //if not vld/ read resp & not write & not write imme
+  val wmb_entry_no_op = !wmb_entry_vld || wmb_entry_read_resp && !wmb_entry_write_imme && !wmb_entry_write_req_success
+
+  //==========================================================
+  //                 Generate pop signal
+  //==========================================================
+  //if write dcache line and is not the last entry of dcache line, then fast pop
+  wmb_entry_pop_vld := wmb_entry_vld && wmb_entry_read_resp &&
+    (wmb_entry_write_resp || wmb_entry_write_resp_set || wmb_entry_mem_set_req && !wmb_entry_w_last) &&
+    (wmb_entry_data_req_success  ||  wmb_entry_data_req_success_set) && wmb_entry_wb_cmplt_success && wmb_entry_wb_data_success
+
+  //==========================================================
+  //                 Interface to rb
+  //==========================================================
+  val wmb_entry_sync_fence_biu_req_success = wmb_entry_vld && wmb_entry_sync_fence_inst && wmb_entry_write_req_success
+
+  //==========================================================
+  //                 Interface to had
+  //==========================================================
+  val wmb_entry_ar_pending = wmb_entry_vld && wmb_entry_read_req_success && !wmb_entry_read_resp
+
+  val wmb_entry_aw_pending = wmb_entry_vld && wmb_entry_write_req_success && !wmb_entry_write_resp
+
+  val wmb_entry_w_pending  = wmb_entry_vld && wmb_entry_data_req_success && !wmb_entry_write_resp
+
+  //==========================================================
+  //                 Generate interface
+  //==========================================================
+  //-----------------------input------------------------------
+  //-----------create signal--------------
+
+  //---------grnt/done signal-------------
+
+  wmb_entry_next_nc_bypass           := io.in.WmbEntry.next_nc_bypass
+  wmb_entry_next_so_bypass           := io.in.WmbEntry.next_so_bypass
+  wmb_entry_wb_cmplt_grnt            := io.in.WmbEntry.wb_cmplt_grnt
+  wmb_entry_wb_data_grnt             := io.in.WmbEntry.wb_data_grnt
+
+  //-----------pointer--------------------
+  wmb_create_ptr_next1         := io.in.wmb_create_ptr_next1
+  wmb_data_ptr                 := io.in.wmb_data_ptr
+  wmb_read_ptr                 := io.in.WmbRead.ptr
+  wmb_write_ptr                := io.in.WmbWrite.ptr
+  wmb_dcache_req_ptr           := io.in.wmb_dcache_req_ptr
+  wmb_entry_mem_set_write_grnt := io.in.WmbEntry.mem_set_write_grnt
+  wmb_entry_w_last_set         := io.in.WmbEntry.w_last_set
+
+  //-----------merge signal---------------
+
+  //-----------gateclk signal-------------
+  wmb_entry_mem_set_write_gateclk_en := io.in.WmbEntry.mem_set_write_gateclk_en
+
+  //-----------------------output-----------------------------
+  //-----------entry signal---------------
+  io.out.vld             := wmb_entry_vld
+  io.out.sync_fence      := inst_info.sync_fence
+  io.out.atomic          := inst_info.atomic
+  io.out.atomic_and_vld  := wmb_entry_atomic_and_vld
+  io.out.icc             := inst_info.icc
+  io.out.icc_and_vld     := wmb_entry_icc_and_vld
+  io.out.inst_flush      := inst_info.inst_flush
+  io.out.inst_is_dcache  := inst_info.inst_is_dcache
+  io.out.dcache_inst     := wmb_entry_dcache_inst
+  io.out.inst_type       := inst_info.inst_type
+  io.out.inst_size       := inst_info.inst_size
+  io.out.inst_mode       := inst_info.inst_mode
+  io.out.iid             := inst_info.iid
+  io.out.priv_mode       := inst_info.priv_mode
+  io.out.page_share      := inst_info.page_share
+  io.out.page_so         := inst_info.page_so
+  io.out.page_ca         := inst_info.page_ca
+  io.out.page_wa         := inst_info.page_wa
+  io.out.page_buf        := inst_info.page_buf
+  io.out.page_sec        := inst_info.page_sec
+  io.out.addr            := inst_info.addr
+  io.out.spec_fail       := inst_info.spec_fail
+  io.out.bkpta_data      := inst_info.bkpta_data
+  io.out.bkptb_data      := inst_info.bkptb_data
+  io.out.vstart_vld      := inst_info.vstart_vld
+  io.out.dcache_way      := dcache_info.way
+  io.out.data            := wmb_entry_data
+  io.out.biu_id          := wmb_entry_biu_id
+  io.out.w_last          := wmb_entry_w_last
+  io.out.bytes_vld       := wmb_entry_bytes_vld
+  io.out.write_imme      := wmb_entry_write_imme
+  io.out.depd            := wmb_entry_depd
+  io.out.sc_wb_success   := wmb_entry_sc_wb_success
+  io.out.preg            := wmb_entry_preg
+  io.out.sync_fence_inst := wmb_entry_sync_fence_inst
+  //-----------request--------------------
+  io.out.fwd_data_pe_req        := wmb_entry_fwd_data_pe_req
+  //io.out.fwd_data_pe_gateclk_en := wmb_entry_fwd_data_pe_gateclk_en
+  io.out.discard_req            := wmb_entry_discard_req
+  io.out.fwd_req                := wmb_entry_fwd_req
+  //io.out.fwd_bytes_vld          := wmb_entry_fwd_bytes_vld
+  io.out.wb_cmplt_req           := wmb_entry_wb_cmplt_req
+  io.out.wb_data_req            := wmb_entry_wb_data_req
+  io.out.read_req               := wmb_entry_read_req
+  io.out.read_dp_req            := wmb_entry_read_dp_req
+  //io.out.write_req              := wmb_entry_write_req
+  io.out.write_biu_req          := wmb_entry_write_biu_req
+  io.out.write_biu_dp_req       := wmb_entry_write_biu_dp_req
+  io.out.write_dcache_req       := wmb_entry_write_dcache_req
+  io.out.write_vb_req           := wmb_entry_write_vb_req
+  io.out.data_req               := wmb_entry_data_req
+  io.out.data_biu_req           := wmb_entry_data_biu_req
+  io.out.data_req_wns           := wmb_entry_data_req_wns
+  io.out.pop_vld                := wmb_entry_pop_vld
+  //io.out.cancel_acc_req         := wmb_entry_cancel_acc_req
+  io.out.merge_data_stall       := wmb_entry_merge_data_stall
+  io.out.merge_data_addr_hit    := wmb_entry_merge_data_addr_hit
+  io.out.write_stall            := wmb_entry_write_stall
+  //-------maintain pointer---------------
+  io.out.read_ptr_unconditional_shift_imme  := wmb_entry_read_ptr_unconditional_shift_imme
+  io.out.read_ptr_chk_idx_shift_imme        := wmb_entry_read_ptr_chk_idx_shift_imme
+  io.out.write_ptr_unconditional_shift_imme := wmb_entry_write_ptr_unconditional_shift_imme
+  io.out.write_ptr_chk_idx_shift_imme       := wmb_entry_write_ptr_chk_idx_shift_imme
+  io.out.data_ptr_after_write_shift_imme    := wmb_entry_data_ptr_after_write_shift_imme
+  io.out.data_ptr_with_write_shift_imme     := wmb_entry_data_ptr_with_write_shift_imme
+  //-----------hit idx--------------------
+  io.out.pfu_biu_req_hit_idx     := wmb_entry_pfu_biu_req_hit_idx
+  io.out.rb_biu_req_hit_idx      := wmb_entry_rb_biu_req_hit_idx
+  io.out.snq_depd                := wmb_entry_snq_depd
+  io.out.hit_sq_pop_dcache_line  := wmb_entry_hit_sq_pop_dcache_line
+  //-----------other signal---------------
+  io.out.write_imme_bypass       := wmb_entry_write_imme_bypass
+  io.out.ready_to_dcache_line    := wmb_entry_ready_to_dcache_line
+  io.out.last_addr_plus          := wmb_entry_last_addr_plus
+  io.out.last_addr_sub           := wmb_entry_last_addr_sub
+  io.out.no_op                   := wmb_entry_no_op
+  //io.out.read_resp_ready         := wmb_entry_read_resp_ready
+  io.out.snq_depd_remove         := wmb_entry_snq_depd_remove
+  //--------to other module signal--------
+  io.out.sync_fence_biu_req_success := wmb_entry_sync_fence_biu_req_success
+  io.out.ar_pending              := wmb_entry_ar_pending
+  io.out.aw_pending              := wmb_entry_aw_pending
+  io.out.w_pending               := wmb_entry_w_pending
 }
