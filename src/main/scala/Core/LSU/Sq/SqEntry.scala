@@ -52,7 +52,6 @@ class RtuToSqEntry extends Bundle with LsuConfig {
 class SqToSqEntry extends Bundle with LsuConfig {
   val ageVecSet              = Bool()
   val createAgeVec           = UInt(LSIQ_ENTRY.W)
-  //val create_pop_clk       = Bool()
   val createSameAddrNewest   = Bool()
   val createSuccess          = Bool()
   val createVld              = UInt(LSIQ_ENTRY.W)
@@ -65,6 +64,7 @@ class SqToSqEntry extends Bundle with LsuConfig {
   val popToCeGrntB           = UInt(LSIQ_ENTRY.W)
   val popToCeGrntX           = Bool()
   val popPtrX                = Bool()
+  //val create_pop_clk       = Bool()
 }
 class StDcToSqTotal extends Bundle{
   val sq    = new StDcToSq

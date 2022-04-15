@@ -24,10 +24,4 @@ class RotData extends Module with LsuConfig{
   for(i<- 0 until 8){
     io.dataSettle := Cat(Seq.fill(8)(rotSelU === i.U)) & data_rot(i)
   }
-
-
-
-
-
-
 }
