@@ -133,21 +133,21 @@ class PCfifo extends Module with Config {
 
   val ind_btb_miss = io.in.ind_btb_miss
 
-  io.out.ifuForward(0).curPc  := cur_pc_0
-  io.out.ifuForward(0).tarPc  := inst_0_targetpc
-  io.out.ifuForward(0).dstVld := dst_vld_0
-  io.out.ifuForward(0).jal    := jal_0
-  io.out.ifuForward(0).jalr   := jalr_0
-  io.out.ifuForward(0).predStore.bhtPred := bht_pre_result(1)
-  io.out.ifuForward(0).predStore.chkIdx  := Cat(bht_pre_result(0),bht_sel_result,inst0_vghr)
-  io.out.ifuForward(0).predStore.jmpMispred := ind_btb_miss
+  io.out(0).curPc  := cur_pc_0
+  io.out(0).tarPc  := inst_0_targetpc
+  io.out(0).dstVld := dst_vld_0
+  io.out(0).jal    := jal_0
+  io.out(0).jalr   := jalr_0
+  io.out(0).predStore.bhtPred := bht_pre_result(1)
+  io.out(0).predStore.chkIdx  := Cat(bht_pre_result(0),bht_sel_result,inst0_vghr)
+  io.out(0).predStore.jmpMispred := ind_btb_miss
 
-  io.out.ifuForward(1).curPc  := cur_pc_1
-  io.out.ifuForward(1).tarPc  := inst_1_targetpc
-  io.out.ifuForward(1).dstVld := dst_vld_1
-  io.out.ifuForward(1).jal    := jal_1
-  io.out.ifuForward(1).jalr   := jalr_1
-  io.out.ifuForward(1).predStore.bhtPred := bht_pre_result(1)
-  io.out.ifuForward(1).predStore.chkIdx  := Cat(bht_pre_result(0),bht_sel_result,inst1_vghr)
-  io.out.ifuForward(1).predStore.jmpMispred := ind_btb_miss
+  io.out(1).curPc  := cur_pc_1
+  io.out(1).tarPc  := inst_1_targetpc
+  io.out(1).dstVld := dst_vld_1
+  io.out(1).jal    := jal_1
+  io.out(1).jalr   := jalr_1
+  io.out(1).predStore.bhtPred := bht_pre_result(1)
+  io.out(1).predStore.chkIdx  := Cat(bht_pre_result(0),bht_sel_result,inst1_vghr)
+  io.out(1).predStore.jmpMispred := ind_btb_miss
 }
