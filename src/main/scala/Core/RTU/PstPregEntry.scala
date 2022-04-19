@@ -54,7 +54,7 @@ class PstPregEntryInput extends Bundle {
   val fromCp0                 : RegEntryFromCp0Bundle    = new RegEntryFromCp0Bundle
   val fromIdu                 : PstPregFromIduBundle = new PstPregFromIduBundle
   val fromIfu                 : RegEntryFromIfuBundle   = new RegEntryFromIfuBundle
-  val fromPad = new RobFromPad
+  val fromPad = new RtuFromPadBundle
   val fromRetire           : PregFromRetire     = new PregFromRetire(NumRetireEntry)
   val fromRob = new PstPregFromRobBundle
   val fromRtu = new PstPregFromRtuBundle

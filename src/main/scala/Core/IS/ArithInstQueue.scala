@@ -6,6 +6,7 @@ import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Core.PipelineConfig._
 import Core.IntConfig._
+import Utils.Bits._
 
 trait AiqConfig {
   def NumAiqEntry = 8
@@ -17,7 +18,7 @@ trait AiqConfig {
 
 object AiqConfig extends AiqConfig
 
-class InstQueFromCp0 extends Bundle {
+class IqFromCp0 extends Bundle {
   val icgEn           : Bool = Bool()
   val iqBypassDisable : Bool = Bool()
   val yyClkEn         : Bool = Bool()
@@ -68,7 +69,7 @@ class InstQueDataOutput extends Bundle with AiqConfig {
 class ArithInstQueueInput extends Bundle with AiqConfig with DepRegEntryConfig {
   val aiqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumAiqEntry.W))
   val biqEntryCreateVec : Vec[UInt] = Vec(2, UInt(NumBiqEntry.W))
-  val fromCp0 = new InstQueFromCp0
+  val fromCp0 = new IqFromCp0
   val ctrl = new Bundle {
     // 0, 1: arith, 2: biq, 3: lsiq, 4: sdiq
     val createVec : Vec[InstQueCtrlInput] = Vec(5, new InstQueCtrlInput(NumAiqEntry))
@@ -77,11 +78,7 @@ class ArithInstQueueInput extends Bundle with AiqConfig with DepRegEntryConfig {
     val xxRfPipe1PregLaunchValidDupx : Bool = Bool()
   }
   val data : InstQueDataInput = Flipped(Output(new InstQueDataInput(NumAiqEntry)))
-  val fromRtu = new Bundle {
-    val flushFe : Bool = Bool()
-    val flushIs : Bool = Bool()
-    val yyXXFlush : Bool = Bool()
-  }
+  val fromRtu = new InstQueFromRtu
   val fromIu = new Bundle {
     val div = new Bundle {
       val busy : Bool = Bool()
@@ -220,6 +217,7 @@ class ArithInstQueue extends Module with AiqConfig {
   io.out.ctrl.entryCntUpdate.bits  := entryCnt + entryCntCreate - ctrlAiq0.rfPopDlbValid.asUInt
 
   //--------------------aiq0 entry full-----------------------
+  // Todo: check
   private val fullUpdate = entryCntUpdate === entries.length.U
   private val oneLeftUpdate = entryCntUpdate === (entries.length - 1).U
   io.out.ctrl.fullUpdate := fullUpdate
@@ -284,20 +282,6 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryCreateSel : UInt = Fill(this.NumAiqEntry, ctrlAiq0.createEn(1)) &
     enq1OH.asUInt
 
-  def DropBit(src: UInt, idx: Int): UInt = {
-    val width = src.getWidth
-    if (idx == 0)
-      src(width-1, 1)
-    else if(idx == width - 1)
-      src(width-2, 0)
-    else if(idx > 0 && idx < width - 1)
-      Cat(src(width-1, idx+1), src(idx-1, 0))
-    else {
-      assert(cond = false, "idx out of width of src")
-      0.U
-    }
-  }
-
   for (i <- 0 until this.NumAiqEntry) {
     when(entryCreateSel(i) === 0.U) {
       entryCreateFrzVec(i) := bypassDpEn
@@ -318,11 +302,6 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryAluRegFwdValid = Wire(Vec(NumAlu, Vec(this.NumAiqEntry, UInt(NumSrcArith.W))))
 
   entryAluRegFwdValid := ctrlAiq0.rfAluRegFwdValid
-//  for (idxAlu <- 0 to NumAlu) {
-//    for (idxEntry <- 0 to this.NumAiqEntry) {
-//      entryAluRegFwdValid(idxAlu)(idxEntry) := ctrlAiq0.rfAluRegFwdValid(idxAlu)(idxEntry)
-//    }
-//  }
 
   //-------------------issue enable signals-------------------
   private val entryReadyVec = Wire(Vec(this.NumAiqEntry, Bool()))
@@ -343,8 +322,8 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryIssueEnVec = Wire(Vec(this.NumAiqEntry, Bool()))
   entryIssueEnVec := VecInit((entryReadyVec.asUInt & ~olderEntryReadyVec.asUInt).asBools)
 
-  // Todo: typo
   //-----------------issue entry indiction--------------------
+  // Todo: figure out
   io.out.data.issueEntryVec := Mux(
     createBypassEmpty,
     enq0OH,

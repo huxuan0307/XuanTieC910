@@ -11,7 +11,7 @@ import chisel3.util._
 // Todo: figure out: ssf: Split instruction spec fail
 object SsfState {
   def size : Int = 3
-  def bits : Int = log2Up(size)
+  def width : Int = log2Up(size)
   val idle :: wfRetire :: retiring :: Nil = Enum(3)
 }
 
@@ -81,7 +81,7 @@ class RobExceptInput extends Bundle {
     val pipe3 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
     val pipe4 : RobFromLsuPipeCommonBundle = new RobFromLsuPipeCommonBundle {}
   }
-  val fromPad = new RobFromPad
+  val fromPad = new RtuFromPadBundle
   val fromRetire = new Bundle {
     val inst0Abnormal : Bool = Bool()
     val inst0Valid    : Bool = Bool()
@@ -119,7 +119,7 @@ class RobExceptOutput extends Bundle {
     val ssfIid            : UInt = UInt(InstructionIdWidth.W)
   }
   val toTop = new Bundle() {
-    val ssfStateCur : UInt = UInt(SsfState.bits.W)
+    val ssfStateCur : UInt = UInt(SsfState.width.W)
   }
 }
 
@@ -144,8 +144,8 @@ class RobExcept extends Module with RobExceptConfig {
 
   private val pipe0ExceptCmplt = io.in.fromIu.pipe0.cmplt && io.in.fromIu.pipe0.abnormal
   private val pipe2ExceptCmplt = io.in.fromIu.pipe2.cmplt && io.in.fromIu.pipe2.abnormal
-  private val pipe3ExceptCmplt = io.in.fromLsu.pipe3.wb.cmplt && io.in.fromLsu.pipe3.wb.abnormal
-  private val pipe4ExceptCmplt = io.in.fromLsu.pipe4.wb.cmplt && io.in.fromLsu.pipe4.wb.abnormal
+  private val pipe3ExceptCmplt = io.in.fromLsu.pipe3.cmplt && io.in.fromLsu.pipe3.abnormal
+  private val pipe4ExceptCmplt = io.in.fromLsu.pipe4.cmplt && io.in.fromLsu.pipe4.abnormal
   private val exceptCmplt = pipe0ExceptCmplt || pipe2ExceptCmplt || pipe3ExceptCmplt || pipe4ExceptCmplt
 
   //==========================================================
@@ -175,8 +175,8 @@ class RobExcept extends Module with RobExceptConfig {
     res
   }
 
-  private val pipe4Iid = io.in.fromLsu.pipe4.wb.iid
-  private val pipe3Iid = io.in.fromLsu.pipe3.wb.iid
+  private val pipe4Iid = io.in.fromLsu.pipe4.iid
+  private val pipe3Iid = io.in.fromLsu.pipe3.iid
   private val pipe2Iid = io.in.fromIu.pipe2.iid
   private val pipe0Iid = io.in.fromIu.pipe0.iid
   private val exceptIid = exceptEntryData.iid
@@ -225,33 +225,33 @@ class RobExcept extends Module with RobExceptConfig {
   private val pipe2ExceptEntryData : RobExceptEntry = WireInit(0.U.asTypeOf(Output(new RobExceptEntry)))
   private val pipe0ExceptEntryData : RobExceptEntry = WireInit(0.U.asTypeOf(Output(new RobExceptEntry)))
 
-  pipe4ExceptEntryData.vstart       := io.in.fromLsu.pipe4.wb.vstart
+  pipe4ExceptEntryData.vstart       := io.in.fromLsu.pipe4.vstart
   pipe4ExceptEntryData.vsetvl       := false.B
   pipe4ExceptEntryData.efPcValid    := false.B
-  pipe4ExceptEntryData.specFail     := io.in.fromLsu.pipe4.wb.specFail
+  pipe4ExceptEntryData.specFail     := io.in.fromLsu.pipe4.specFail
   pipe4ExceptEntryData.breakpoint   := false.B
-  pipe4ExceptEntryData.flush        := io.in.fromLsu.pipe4.wb.flush
+  pipe4ExceptEntryData.flush        := io.in.fromLsu.pipe4.flush
   pipe4ExceptEntryData.jmpMispred   := false.B
   pipe4ExceptEntryData.bhtMispred   := false.B
-  pipe4ExceptEntryData.mtval        := io.in.fromLsu.pipe4.wb.mtval
+  pipe4ExceptEntryData.mtval        := io.in.fromLsu.pipe4.mtval
   pipe4ExceptEntryData.instMmu      := false.B
   pipe4ExceptEntryData.highHw       := false.B
-  pipe4ExceptEntryData.exceptVec    := io.in.fromLsu.pipe4.wb.exceptVec
-  pipe4ExceptEntryData.iid          := io.in.fromLsu.pipe4.wb.iid
+  pipe4ExceptEntryData.exceptVec    := io.in.fromLsu.pipe4.exceptVec
+  pipe4ExceptEntryData.iid          := io.in.fromLsu.pipe4.iid
 
-  pipe3ExceptEntryData.vstart       := io.in.fromLsu.pipe3.wb.vstart
-  pipe3ExceptEntryData.vsetvl       := io.in.fromLsu.pipe3.wb.vsetvl
+  pipe3ExceptEntryData.vstart       := io.in.fromLsu.pipe3.vstart
+  pipe3ExceptEntryData.vsetvl       := io.in.fromLsu.pipe3.vsetvl
   pipe3ExceptEntryData.efPcValid    := false.B
-  pipe3ExceptEntryData.specFail     := io.in.fromLsu.pipe3.wb.specFail
+  pipe3ExceptEntryData.specFail     := io.in.fromLsu.pipe3.specFail
   pipe3ExceptEntryData.breakpoint   := false.B
-  pipe3ExceptEntryData.flush        := io.in.fromLsu.pipe3.wb.flush
+  pipe3ExceptEntryData.flush        := io.in.fromLsu.pipe3.flush
   pipe3ExceptEntryData.jmpMispred   := false.B
   pipe3ExceptEntryData.bhtMispred   := false.B
-  pipe3ExceptEntryData.mtval        := io.in.fromLsu.pipe3.wb.mtval
+  pipe3ExceptEntryData.mtval        := io.in.fromLsu.pipe3.mtval
   pipe3ExceptEntryData.instMmu      := false.B
   pipe3ExceptEntryData.highHw       := false.B
-  pipe3ExceptEntryData.exceptVec    := io.in.fromLsu.pipe3.wb.exceptVec
-  pipe3ExceptEntryData.iid          := io.in.fromLsu.pipe3.wb.iid
+  pipe3ExceptEntryData.exceptVec    := io.in.fromLsu.pipe3.exceptVec
+  pipe3ExceptEntryData.iid          := io.in.fromLsu.pipe3.iid
 
   pipe2ExceptEntryData.jmpMispred   := io.in.fromIu.pipe2.jmpMispred
   pipe2ExceptEntryData.bhtMispred   := io.in.fromIu.pipe2.bhtMispred
@@ -363,7 +363,7 @@ class RobExcept extends Module with RobExceptConfig {
   private val ssfSplitSpecFailRetire  = Wire(Bool())
   private val ssfInstRetireNoSplit    = Wire(Bool())
 
-  ssfSmStart              := io.in.fromLsu.pipe3.da.splitSpecFailIid.valid || io.in.fromLsu.pipe4.da.splitSpecFailIid.valid
+  ssfSmStart              := io.in.fromLsu.pipe3.splitSpecFailIid.valid || io.in.fromLsu.pipe4.splitSpecFailIid.valid
   ssfSplitSpecFailRetire  := io.in.fromRetire.inst0Valid && (io.in.fromRob.inst0Iid === ssfIid)
   ssfInstRetireNoSplit    := io.in.fromRetire.inst0Valid && !io.in.fromRob.inst0Split
 
@@ -420,8 +420,8 @@ class RobExcept extends Module with RobExceptConfig {
   //----------------------------------------------------------
   //                  Split Spec fail Age
   //----------------------------------------------------------
-  private val ssfPipe4Iid = io.in.fromLsu.pipe4.da.splitSpecFailIid.bits
-  private val ssfPipe3Iid = io.in.fromLsu.pipe3.da.splitSpecFailIid.bits
+  private val ssfPipe4Iid = io.in.fromLsu.pipe4.splitSpecFailIid.bits
+  private val ssfPipe3Iid = io.in.fromLsu.pipe3.splitSpecFailIid.bits
 
   private val ssfPipe4lt3 = CompareIidLess(ssfPipe4Iid, ssfPipe3Iid)
   private val ssfPipe4ltSm = CompareIidLess(ssfPipe4Iid, ssfIid)
@@ -437,17 +437,17 @@ class RobExcept extends Module with RobExceptConfig {
   private val ssfSmIidValidUpdate = Wire(Bool())
 
   ssfPipe4IidValidUpdate :=
-    io.in.fromLsu.pipe4.da.splitSpecFailIid.valid &&
-      (!io.in.fromLsu.pipe3.da.splitSpecFailIid.valid || ssfPipe4lt3) &&
+    io.in.fromLsu.pipe4.splitSpecFailIid.valid &&
+      (!io.in.fromLsu.pipe3.splitSpecFailIid.valid || ssfPipe4lt3) &&
       ((ssfStateCur === SsfState.idle) || ssfPipe4ltSm)
   ssfPipe3IidValidUpdate :=
-    io.in.fromLsu.pipe3.da.splitSpecFailIid.valid &&
-      (!io.in.fromLsu.pipe4.da.splitSpecFailIid.valid || !ssfPipe4lt3) &&
+    io.in.fromLsu.pipe3.splitSpecFailIid.valid &&
+      (!io.in.fromLsu.pipe4.splitSpecFailIid.valid || !ssfPipe4lt3) &&
       ((ssfStateCur === SsfState.idle) || ssfPipe3ltSm)
   ssfSmIidValidUpdate :=
     (!ssfStateCur === SsfState.idle) &&
-      (!io.in.fromLsu.pipe3.da.splitSpecFailIid.valid || !ssfPipe3ltSm) &&
-      (!io.in.fromLsu.pipe4.da.splitSpecFailIid.valid || !ssfPipe4ltSm)
+      (!io.in.fromLsu.pipe3.splitSpecFailIid.valid || !ssfPipe3ltSm) &&
+      (!io.in.fromLsu.pipe4.splitSpecFailIid.valid || !ssfPipe4ltSm)
 
   //----------------------------------------------------------
   //               Split spec fail inst iid
