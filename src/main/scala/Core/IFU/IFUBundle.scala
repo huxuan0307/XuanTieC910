@@ -144,6 +144,25 @@ class RobFromIfu extends Bundle {
   val curPc : UInt = UInt(PcWidth.W)
   val curPcLoad : Bool = Bool()
 }
+
+class PCfifoIO extends Bundle {
+  val in = Input(new PCfifo_iu)
+  val out = Output(Vec(2, new BhtPredDataForward))
+}
+class PCfifo_iu extends Bundle with Config {
+  val target_pc = UInt(PcWidth.W)
+  val h0_vld    = Bool()
+  val cur_pc    = UInt(PcWidth.W)
+  val pc_oper   = UInt(8.W)
+  val jal       = UInt(8.W)
+  val jalr      = UInt(8.W)
+  val con_br    = UInt(8.W)
+  val dst_vld   = UInt(8.W)
+  val sel_res   = UInt(2.W)
+  val pre_res   = UInt(2.W)
+  val vghr      = UInt(ghr_size.W)
+  val ind_btb_miss = Bool()
+}
 class BhtPredDataForward extends Bundle{ // @ct_iu_bju_pcfifo @1677-1684
   var curPc = UInt(PcWidth.W)
   var tarPc = UInt(PcWidth.W)
