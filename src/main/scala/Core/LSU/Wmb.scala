@@ -1,4 +1,5 @@
 package Core.LSU
+import Utils.ParallelORR
 import chisel3._
 import chisel3.util._
 
@@ -108,11 +109,11 @@ class WmbInput extends Bundle{
     val write_req_hit_idx = Bool()
   }
   val fromLm = new Bundle{
-    val is_amo_lock = Bool()
-    val is_ex_wait_lock = Bool()
-    val is_idle = Bool()
+    val state_is_amo_lock = Bool()
+    val state_is_ex_wait_lock = Bool()
+    val state_is_idle = Bool()
   }
-  val FromPad = new Bundle{
+  val fromPad = new Bundle{
     val yy_icg_scan_en = Bool()
   }
   val pfu_biu_req_addr = UInt(40.W)
@@ -309,7 +310,177 @@ class WmbIO extends Bundle{
 class Wmb extends Module {
   val io = IO(new WmbIO)
 
+  val ptr_init = Seq(false.B,false.B,false.B,false.B,false.B,false.B,false.B,true.B)
+  //Reg
+  val wmb_create_ptr = RegInit(VecInit(ptr_init))
+  val wmb_read_ptr = RegInit(VecInit(ptr_init))
+  val wmb_write_ptr = RegInit(VecInit(ptr_init))
 
+  //Wire
+  val wmb_empty = Wire(Bool())
+  val wmb_pop_depd_ff = Wire(Bool())
+  val wmb_read_dp_req = Wire(Bool())
+  val wmb_write_biu_dp_req = Wire(Bool())
+  val wmb_write_imme = Wire(Bool())
+  val wmb_read_ptr_unconditional_shift_imme = Wire(Bool())
+  val wmb_read_ptr_chk_idx_shift_imme = Wire(Bool())
+  val wmb_read_req_unmask = Wire(Bool())
+  val wmb_write_ptr_unconditional_shift_imme = Wire(Bool())
+  val wmb_write_ptr_chk_idx_shift_imme = Wire(Bool())
+  val wmb_write_req = Wire(Bool())
+  val wmb_dcache_arb_req_unmask = Wire(Bool())
+  val wmb_data_ptr_after_write_shift_imme = Wire(Bool())
+  val wmb_data_ptr_with_write_shift_imme = Wire(Bool())
+  val wmb_data_req = Wire(Bool())
+  val wmb_fwd_data_pe_gateclk_en = Wire(Bool())
+  val wmb_write_pop_up_wmb_ce_gateclk_en = Wire(Bool())
+  val wmb_dcache_req_next = Wire(Bool())
+  val wmb_write_dcache_pop_req = Wire(Bool())
 
+  val wmb_entry_in = Wire(Vec(LSUConfig.WMB_ENTRY, new WmbEntryIn))
+  val wmb_entry_out = Wire(Vec(LSUConfig.WMB_ENTRY, new WmbEntryOutput))
+  val wmb_dcache_req_ptr = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val pw_merge_stall = WireInit(false.B)
+
+  val wmb_b_resp_exokay = Wire(Bool())
+  val wmb_biu_ar_id    = Wire(UInt(5.W))
+  val wmb_biu_aw_id    = Wire(UInt(5.W))
+  val wmb_biu_write_en = Wire(Bool())
+
+  val wmb_create_ptr_next1 = Wire(Bool())
+  val wmb_create_vb_success = Wire(Bool())
+  val wmb_data_ptr = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_dcache_inst_write_req_hit_idx = Wire(Bool())
+
+  val wmb_ce_create_vld = Wire(Bool())
+  val wmb_ce_update_same_dcache_line = Wire(Bool())
+  val wmb_ce_update_same_dcache_line_ptr = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_ce_last_addr_plus = Wire(Bool())
+  val wmb_ce_last_addr_sub = Wire(Bool())
+
+  val wmb_same_line_resp_ready = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_wakeup_queue_not_empty = Wire(Bool())
+
+  val wmb_read_ptr_read_req_grnt = Wire(Bool())
+  val wmb_read_ptr_shift_imme_grnt = Wire(Bool())
+  val wmb_write_biu_dcache_line = Wire(Bool())
+  val wmb_write_dcache_success = Wire(Bool())
+  val wmb_write_ptr_shift_imme_grnt = Wire(Bool())
+
+  //==========================================================
+  //                 Instance of Gated Cell
+  //==========================================================
+  //if sq has entry or create sq, then this gateclk is on
+  val wmb_clk_en = !wmb_empty || io.in.fromSQ.wmb_pop_to_ce_gateclk_en || io.in.fromWmbCe.vld || wmb_pop_depd_ff ||
+    wmb_read_dp_req || wmb_write_biu_dp_req || wmb_write_imme
+
+  //create ptr
+  val wmb_create_ptr_clk_en = io.in.fromWmbCe.create_wmb_gateclk_en
+
+  //read ptr
+  val wmb_read_ptr_clk_en  = wmb_read_ptr_unconditional_shift_imme || wmb_read_ptr_chk_idx_shift_imme || wmb_read_req_unmask
+
+  //write ptr
+  val wmb_write_ptr_clk_en = wmb_write_ptr_unconditional_shift_imme || wmb_write_ptr_chk_idx_shift_imme || wmb_write_req || wmb_dcache_arb_req_unmask
+
+  //data ptr
+  val wmb_data_ptr_clk_en  = wmb_data_ptr_after_write_shift_imme || wmb_data_ptr_with_write_shift_imme || wmb_data_req || wmb_dcache_arb_req_unmask
+
+  //wmb fwd ld da pop entry
+  val wmb_fwd_data_pe_clk_en = wmb_fwd_data_pe_gateclk_en
+
+  //pop entry signal
+  val wmb_write_pop_clk_en = wmb_write_ptr_clk_en || wmb_write_pop_up_wmb_ce_gateclk_en
+
+  val wmb_write_dcache_pop_clk_en = wmb_dcache_req_next || wmb_write_dcache_pop_req
+
+  val wmb_read_pop_clk_en = wmb_read_ptr_clk_en || io.in.fromWmbCe.create_wmb_gateclk_en
+
+  //depd clk is used for wakeup queue
+  val wmb_wakeup_queue_clk_en  = io.in.fromLoadDA.wmb_discard_vld || wmb_pop_depd_ff || io.in.fromRTU.yy_xx_flush
+
+  //==========================================================
+  //                      Empty cnt
+  //==========================================================
+  //------------------empty signal----------------------------
+  wmb_empty := !ParallelORR(wmb_entry_out.map(entry => entry.vld))
+
+  //==========================================================
+  //                 Non-cacheable FIFO
+  //==========================================================
+  //TODO: implement
+  val wmb_nc_no_pending = Wire(true.B)
+
+  val wmb_entry_next_nc_bypass = Wire(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+
+  //==========================================================
+  //                 Strong order FIFO
+  //==========================================================v
+  //TODO: implement
+  val wmb_so_no_pending = Wire(true.B)
+
+  val wmb_entry_next_so_bypass = Wire(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+
+  //==========================================================
+  //          Instance of write merge buffer entry
+  //==========================================================
+  val wmb_entry = Seq.fill(LSUConfig.WMB_ENTRY)(new WmbEntry)
+  for(i <- 0 until LSUConfig.WMB_ENTRY){
+    wmb_entry(i).io.in.fromBiu    := io.in.fromBiu
+    wmb_entry(i).io.in.fromBusArb := io.in.fromBusArb
+    wmb_entry(i).io.in.fromCp0    := io.in.fromCp0
+    wmb_entry(i).io.in.fromDCache := io.in.fromDcache
+    wmb_entry(i).io.in.fromLoadDC := io.in.fromLoadDC
+    wmb_entry(i).io.in.fromLm     := io.in.fromLm
+    wmb_entry(i).io.in.fromPad    := io.in.fromPad
+    wmb_entry(i).io.in.fromSnq    := io.in.fromSnq
+
+    wmb_entry(i).io.in.fromSQ.pop_addr            := io.in.fromSQ.pop_addr
+    wmb_entry(i).io.in.fromSQ.pop_priv_mode       := io.in.fromSQ.pop_priv_mode
+    wmb_entry(i).io.in.fromSQ.wmb_merge_req       := io.in.fromSQ.wmb_merge_req
+    wmb_entry(i).io.in.fromSQ.wmb_merge_stall_req := io.in.fromSQ.wmb_merge_stall_req
+    wmb_entry(i).io.in.fromSQ.update_dcache_dirty := io.in.fromSQ.wmb_ce_update_dcache_dirty
+    wmb_entry(i).io.in.fromSQ.update_dcache_share := io.in.fromSQ.wmb_ce_update_dcache_share
+    wmb_entry(i).io.in.fromSQ.update_dcache_valid := io.in.fromSQ.wmb_ce_update_dcache_valid
+    wmb_entry(i).io.in.fromSQ.update_dcache_way   := io.in.fromSQ.wmb_ce_update_dcache_way
+    wmb_entry(i).io.in.fromVb.empty    := io.in.fromVB.empty
+    wmb_entry(i).io.in.fromVb.rcl_done := io.in.fromVB.entry_rcl_done(i)
+
+    wmb_entry(i).io.in.fromWmbCe := io.in.fromWmbCe
+    wmb_entry(i).io.in.WmbEntry  := wmb_entry_in(i)
+
+    wmb_entry(i).io.in.wmb_dcache_req_ptr  := wmb_dcache_req_ptr(i)
+    wmb_entry(i).io.in.pfu_biu_req_addr    := io.in.pfu_biu_req_addr
+    wmb_entry(i).io.in.pw_merge_stall      := pw_merge_stall
+    wmb_entry(i).io.in.rb_biu_req_addr     := io.in.fromRB.biu_req_addr
+    wmb_entry(i).io.in.rb_biu_req_unmask   := io.in.fromRB.biu_req_unmask
+    wmb_entry(i).io.in.rtu_lsu_async_flush := io.in.fromRTU.lsu_async_flush
+    wmb_entry(i).io.in.wmb_b_resp_exokay   := wmb_b_resp_exokay
+    wmb_entry(i).io.in.wmb_biu_ar_id       := wmb_biu_ar_id
+    wmb_entry(i).io.in.wmb_biu_aw_id       := wmb_biu_aw_id
+    wmb_entry(i).io.in.wmb_biu_write_en    := wmb_biu_write_en
+    wmb_entry(i).io.in.wmb_create_ptr_next1               := wmb_create_ptr_next1
+    wmb_entry(i).io.in.wmb_create_vb_success              := wmb_create_vb_success
+    wmb_entry(i).io.in.wmb_data_ptr                       := wmb_data_ptr(i)
+    wmb_entry(i).io.in.wmb_dcache_arb_req_unmask          := wmb_dcache_arb_req_unmask
+    wmb_entry(i).io.in.wmb_dcache_inst_write_req_hit_idx  := wmb_dcache_inst_write_req_hit_idx
+    wmb_entry(i).io.in.wmb_ce_create_vld                  := wmb_ce_create_vld
+    wmb_entry(i).io.in.wmb_ce_update_same_dcache_line     := wmb_ce_update_same_dcache_line
+    wmb_entry(i).io.in.wmb_ce_update_same_dcache_line_ptr := wmb_ce_update_same_dcache_line_ptr
+    wmb_entry(i).io.in.wmb_ce_last_addr_plus              := wmb_ce_last_addr_plus
+    wmb_entry(i).io.in.wmb_ce_last_addr_sub               := wmb_ce_last_addr_sub
+    wmb_entry(i).io.in.wmb_same_line_resp_ready   := wmb_same_line_resp_ready
+    wmb_entry(i).io.in.wmb_wakeup_queue_not_empty := wmb_wakeup_queue_not_empty
+
+    wmb_entry(i).io.in.WmbRead.ptr_read_req_grnt    := wmb_read_ptr_read_req_grnt
+    wmb_entry(i).io.in.WmbRead.ptr_shift_imme_grnt  := wmb_read_ptr_shift_imme_grnt
+    wmb_entry(i).io.in.WmbRead.ptr                  := wmb_read_ptr(i)
+    wmb_entry(i).io.in.WmbWrite.biu_dcache_line     := wmb_write_biu_dcache_line
+    wmb_entry(i).io.in.WmbWrite.dcache_success      := wmb_write_dcache_success
+    wmb_entry(i).io.in.WmbWrite.ptr_shift_imme_grnt := wmb_write_ptr_shift_imme_grnt
+    wmb_entry(i).io.in.WmbWrite.ptr                 := wmb_write_ptr(i)
+
+    wmb_entry_out(i) := wmb_entry(i).io.out
+  }
 
 }

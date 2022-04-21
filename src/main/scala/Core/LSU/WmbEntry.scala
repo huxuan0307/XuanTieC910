@@ -2,6 +2,22 @@ package Core.LSU
 import chisel3._
 import chisel3.util._
 
+class WmbEntryIn extends Bundle{
+ val create_data_vld = Bool()
+ val create_dp_vld = Bool()
+ val create_gateclk_en = Bool()
+ val create_vld = Bool()
+ val mem_set_write_gateclk_en = Bool()
+ val mem_set_write_grnt = Bool()
+ val merge_data_vld = Bool()
+ val merge_data_wait_not_vld_req = Bool()
+ val next_nc_bypass = Bool()
+ val next_so_bypass = Bool()
+ val w_last_set = Bool()
+ val wb_cmplt_grnt = Bool()
+ val wb_data_grnt = Bool()
+}
+
 class InstInfo extends Bundle{
   val sync_fence     = Bool()
   val atomic         = Bool()
@@ -38,19 +54,24 @@ class DcacheInfo extends Bundle{
 class WmbEntryInput extends Bundle{
   val fromBiu = new Bundle{
     val b_id = UInt(5.W)
+    val b_resp = UInt(2.W)
     val b_vld = Bool()
     val r_id = UInt(5.W)
     val r_vld = Bool()
   }
   val fromBusArb = new Bundle{
+    val ar_grnt = Bool()
     val aw_grnt = Bool()
     val w_grnt = Bool()
   }
   val fromCp0 = new Bundle{
     val lsu_icg_en = Bool()
+    val lsu_no_op_req = Bool()
+    val lsu_wr_burst_dis = Bool()
     val yy_clk_en = Bool()
   }
   val fromDCache = new Bundle{
+    val arb_wmb_ld_grnt = Bool()
     val dirty_din = UInt(7.W)
     val dirty_gwen = Bool()
     val dirty_wen = UInt(7.W)
@@ -59,6 +80,7 @@ class WmbEntryInput extends Bundle{
     val tag_din = UInt(52.W)
     val tag_gwen = Bool()
     val tag_wen = UInt(2.W)
+    val vb_snq_gwen = Bool()
   }
   val wmb_dcache_req_ptr = Bool()
   val fromLoadDC = new Bundle{
@@ -69,6 +91,7 @@ class WmbEntryInput extends Bundle{
     val chk_ld_inst_vld = Bool()
   }
   val fromLm = new Bundle{
+    val state_is_amo_lock = Bool()
     val state_is_ex_wait_lock = Bool()
     val state_is_idle = Bool()
   }
@@ -83,6 +106,10 @@ class WmbEntryInput extends Bundle{
   val fromSnq = new Bundle{
     val can_create_snq_uncheck = Bool()
     val create_addr = UInt(40.W)
+    val create_wmb_read_req_hit_idx = Bool()
+    val create_wmb_write_req_hit_idx = Bool()
+    val wmb_read_req_hit_idx = Bool()
+    val wmb_write_req_hit_idx = Bool()
   }
   val fromSQ = new Bundle{
     val pop_addr = UInt(40.W)
@@ -117,21 +144,9 @@ class WmbEntryInput extends Bundle{
   val wmb_ce_update_same_dcache_line_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
   val wmb_ce_last_addr_plus = Bool()
   val wmb_ce_last_addr_sub = Bool()
-  val WmbEntry = new Bundle{
-    val create_data_vld = Bool()
-    val create_dp_vld = Bool()
-    val create_gateclk_en = Bool()
-    val create_vld = Bool()
-    val mem_set_write_gateclk_en = Bool()
-    val mem_set_write_grnt = Bool()
-    val merge_data_vld = Bool()
-    val merge_data_wait_not_vld_req = Bool()
-    val next_nc_bypass = Bool()
-    val next_so_bypass = Bool()
-    val w_last_set = Bool()
-    val wb_cmplt_grnt = Bool()
-    val wb_data_grnt = Bool()
-  }
+
+  val WmbEntry = new WmbEntryIn
+
   val WmbRead = new Bundle{
     val ptr_read_req_grnt = Bool()
     val ptr_shift_imme_grnt = Bool()
