@@ -5,6 +5,7 @@ import Core.Config
 import chisel3._
 import chisel3.util._
 import Core.IDU._
+import Core.IU._
 import Core.IFU._
 import Core.RTU._
 
@@ -14,7 +15,8 @@ class ct_coreBundle extends Bundle {
 
 class ct_core extends Module with Config{
   val ifu = Module(new IFU)
-  val idu = Module(new IDStage)
+  val idu = Module(new IDU)
+  val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
   //IFU
@@ -42,20 +44,31 @@ class ct_core extends Module with Config{
   ifu.io.instVld := Seq(true.B,true.B,true.B) //todo: ???
   dontTouch(ifu.io)
 
-  //IDU
-  idu.io.in.fromIFU.instData := ifu.io.instData
-  idu.io.in.fromIFU.instVld  := Seq(true.B,true.B,true.B) //todo: ???
-  idu.io.in.fromRTU.flushFe := rtu.io.out.toIdu.flushFe
-  idu.io.in.fromIFU.pipedownGateclk := DontCare  //todo: figure out Gateclk
+//  //IDU-idstage
+//  idstage.io.in.fromIFU.instData := ifu.io.instData
+//  idstage.io.in.fromIFU.instVld  := Seq(true.B,true.B,true.B) //todo: ???
+//  idstage.io.in.fromRTU.flushFe := rtu.io.out.toIdu.flushFe
+//  idstage.io.in.fromIFU.pipedownGateclk := DontCare  //todo: figure out Gateclk
+//
+//  //IDU-idstage ignore other signals
+//  idstage.io.in.fromCp0 := DontCare
+//  idstage.io.in.fromIU  := iu.io.bjuToIdu.cancel //////check
+//  idstage.io.in.fromHad := DontCare
+//  idstage.io.in.fromPad := DontCare
+//  idstage.io.in.fromFence := DontCare
+//  idstage.io.in.fromHpcp := DontCare
+//  idstage.io.in.fromIR.irStageStall := irstage.io.out.ir_stage_stall
+//  idstage.io.in.fromIR.irStall := irstage.io.out.ir_stall
+//
+//  //IDU-irstage
+//  irstage.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.cancel
+//  irstage.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
+//  irstage.io.in.id_pipedown := idstage.io.out.pipedown
+//  irstage.io.in.rt_resp.instInfo := rt.io.out.instInfo
+//  irstage.io.in.rt_resp.srcMatch := rt.io.out.srcMatch
+//
+//  irstage.io.in.frt_resp := DontCare
 
-  //IDU ignore other signals
-  idu.io.in.fromCp0 := DontCare
-  idu.io.in.fromIU := DontCare
-  idu.io.in.fromHad := DontCare
-  idu.io.in.fromPad := DontCare
-  idu.io.in.fromFence := DontCare
-  idu.io.in.fromHpcp := DontCare
-  idu.io.in.fromIR := DontCare
 
 
 
