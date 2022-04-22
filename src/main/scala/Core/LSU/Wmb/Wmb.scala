@@ -323,15 +323,24 @@ class Wmb extends Module with LsuConfig{
   val wmb_write_ptr_circular = RegInit(false.B)
   val wmb_data_ptr_circular = RegInit(false.B)
 
-  val wmb_write_req_addr = Reg(UInt(PA_WIDTH.W))
 
+  val wmb_write_imme_hold = RegInit(false.B)
+  val wmb_write_imme = RegInit(false.B)
+  val wmb_last_create_addr = Reg(UInt(PA_WIDTH.W))
+  val wmb_read_dp_req = RegInit(false.B)
+  val wmb_read_req_addr = Reg(UInt(PA_WIDTH.W))
+  val wmb_write_biu_dp_req = RegInit(false.B)
+  val wmb_write_req_atomic     = RegInit(false.B)
+  val wmb_write_req_icc        = RegInit(false.B)
+  val wmb_write_req_sync_fence = RegInit(false.B)
+  val wmb_write_req_page_ca    = RegInit(false.B)
+  val wmb_write_req_page_share = RegInit(false.B)
+  val wmb_write_req_addr = Reg(UInt(PA_WIDTH.W))
+  val wmb_ctc_secd = RegInit(false.B)
 
   //Wire
   val wmb_empty = Wire(Bool())
   val wmb_pop_depd_ff = Wire(Bool())
-  val wmb_read_dp_req = Wire(Bool())
-  val wmb_write_biu_dp_req = Wire(Bool())
-  val wmb_write_imme = Wire(Bool())
   val wmb_read_ptr_unconditional_shift_imme = Wire(Bool())
   val wmb_read_ptr_chk_idx_shift_imme = Wire(Bool())
   val wmb_read_req_unmask = Wire(Bool())
@@ -401,7 +410,8 @@ class Wmb extends Module with LsuConfig{
   val wmb_data_ptr_met_create = Wire(Bool())
 
   val wmb_sq_pop_grnt = Wire(Bool())
-
+  val wmb_write_biu_req_unmask = Wire(Bool())
+  val wmb_write_req_page_so = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -444,22 +454,22 @@ class Wmb extends Module with LsuConfig{
   //                 Non-cacheable FIFO
   //==========================================================
   //TODO: implement
-  val wmb_nc_no_pending = Wire(true.B)
+  val wmb_nc_no_pending = WireInit(true.B)
 
-  val wmb_entry_next_nc_bypass = Wire(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val wmb_entry_next_nc_bypass = WireInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
   //==========================================================
   //                 Strong order FIFO
   //==========================================================v
   //TODO: implement
-  val wmb_so_no_pending = Wire(true.B)
+  val wmb_so_no_pending = WireInit(true.B)
 
-  val wmb_entry_next_so_bypass = Wire(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val wmb_entry_next_so_bypass = WireInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
   //==========================================================
   //          Instance of write merge buffer entry
   //==========================================================
-  val wmb_entry = Seq.fill(WMB_ENTRY)(new WmbEntry)
+  val wmb_entry = Seq.fill(WMB_ENTRY)(Module(new WmbEntry))
   for(i <- 0 until WMB_ENTRY){
     wmb_entry(i).io.in.fromBiu    := io.in.fromBiu
     wmb_entry(i).io.in.fromBusArb := io.in.fromBusArb
@@ -629,6 +639,7 @@ class Wmb extends Module with LsuConfig{
   wmb_read_ptr_next1 := Cat(wmb_read_ptr.asUInt(WMB_ENTRY-2,0), wmb_read_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
   //mem set must use write_ptr_to_next_3
+  wmb_write_ptr_next(0) := wmb_write_ptr
   wmb_write_ptr_next(1) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-2,0), wmb_write_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
   wmb_write_ptr_next(2) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-3,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-2)).asTypeOf(Vec(WMB_ENTRY, Bool()))
   wmb_write_ptr_next(3) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-4,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-3)).asTypeOf(Vec(WMB_ENTRY, Bool()))
@@ -699,6 +710,150 @@ class Wmb extends Module with LsuConfig{
   wmb_create_vld := wmb_create_permit && io.in.fromWmbCe.create_wmb_req
 
   val wmb_merge_vld = io.in.fromWmbCe.merge_wmb_req
+
+  for(i <- 0 until WMB_ENTRY){
+    wmb_entry_in(i).merge_data_vld := wmb_merge_vld && io.in.fromWmbCe.merge_ptr(i)
+    wmb_entry_in(i).merge_data_wait_not_vld_req := io.in.fromWmbCe.merge_wmb_wait_not_vld_req && io.in.fromWmbCe.merge_ptr(i)
+  }
+
+  io.out.toSQ.pop_grnt := wmb_create_vld || wmb_merge_vld
+
+  io.out.toWmbCe.pop_vld := io.out.toSQ.pop_grnt
+
+  //------------------create signal---------------------------
+  for(i <- 0 until WMB_ENTRY){
+    wmb_entry_in(i).create_vld        := wmb_create_not_vld(i) && io.in.fromWmbCe.create_wmb_req
+    wmb_entry_in(i).create_dp_vld     := wmb_create_not_vld(i) && io.in.fromWmbCe.create_wmb_dp_req
+    wmb_entry_in(i).create_gateclk_en := wmb_create_not_vld(i) && io.in.fromWmbCe.create_wmb_gateclk_en
+    wmb_entry_in(i).create_data_vld   := wmb_create_not_vld(i) && io.in.fromWmbCe.create_wmb_data_req
+  }
+
+  //==========================================================
+  //        Select signal from read/write/data ptr
+  //==========================================================
+  //-----------------read req info----------------------------wmb_entry_inst_flush
+  wmb_read_req_unmask := ParallelORR(wmb_entry_out.map(_.read_req))
+
+  val wmb_entry_out_read_sel = Mux1H(Seq(
+    wmb_read_ptr(0) -> wmb_entry_out(0),
+    wmb_read_ptr(1) -> wmb_entry_out(1),
+    wmb_read_ptr(2) -> wmb_entry_out(2),
+    wmb_read_ptr(3) -> wmb_entry_out(3),
+    wmb_read_ptr(4) -> wmb_entry_out(4),
+    wmb_read_ptr(5) -> wmb_entry_out(5),
+    wmb_read_ptr(6) -> wmb_entry_out(6),
+    wmb_read_ptr(7) -> wmb_entry_out(7)
+  ))
+  val wmb_read_req_atomic = wmb_entry_out_read_sel.atomic
+  val wmb_read_req_icc = wmb_entry_out_read_sel.icc
+  val wmb_read_req_inst_is_dcache = wmb_entry_out_read_sel.inst_is_dcache
+  val wmb_read_req_inst_type = wmb_entry_out_read_sel.inst_type
+  val wmb_read_req_inst_size = wmb_entry_out_read_sel.inst_size
+  val wmb_read_req_inst_mode = wmb_entry_out_read_sel.inst_mode
+  val wmb_read_req_priv_mode = wmb_entry_out_read_sel.priv_mode
+  val wmb_read_req_page_share = wmb_entry_out_read_sel.page_share
+  val wmb_read_req_page_sec = wmb_entry_out_read_sel.page_sec
+
+  val wmb_entry_out_read_next1_sel = Mux1H(Seq(
+    wmb_read_ptr_next1(0) -> wmb_entry_out(0),
+    wmb_read_ptr_next1(1) -> wmb_entry_out(1),
+    wmb_read_ptr_next1(2) -> wmb_entry_out(2),
+    wmb_read_ptr_next1(3) -> wmb_entry_out(3),
+    wmb_read_ptr_next1(4) -> wmb_entry_out(4),
+    wmb_read_ptr_next1(5) -> wmb_entry_out(5),
+    wmb_read_ptr_next1(6) -> wmb_entry_out(6),
+    wmb_read_ptr_next1(7) -> wmb_entry_out(7)
+  ))
+  val wmb_read_dp_req_next1 = wmb_entry_out_read_next1_sel.read_dp_req
+  val wmb_read_req_addr_next1 = wmb_entry_out_read_next1_sel.addr
+
+  //-----------------write req info---------------------------
+  val wmb_write_imme_bypass = ParallelORR(wmb_entry_out.map(_.write_imme_bypass))
+  val wmb_write_imme_other_bypass = ParallelORR(wmb_entry_out.zip(wmb_write_ptr).map(x => x._1.write_imme_bypass && !x._2))
+  wmb_write_biu_req_unmask := ParallelORR(wmb_entry_out.map(_.write_biu_req))
+  val wmb_write_vb_req_unmask = ParallelORR(wmb_entry_out.map(_.write_vb_req))
+
+  val wmb_entry_out_write_sel = Mux1H(Seq(
+    wmb_write_ptr(0) -> wmb_entry_out(0),
+    wmb_write_ptr(1) -> wmb_entry_out(1),
+    wmb_write_ptr(2) -> wmb_entry_out(2),
+    wmb_write_ptr(3) -> wmb_entry_out(3),
+    wmb_write_ptr(4) -> wmb_entry_out(4),
+    wmb_write_ptr(5) -> wmb_entry_out(5),
+    wmb_write_ptr(6) -> wmb_entry_out(6),
+    wmb_write_ptr(7) -> wmb_entry_out(7)
+  ))
+  val wmb_write_req_inst_type = wmb_entry_out_write_sel.inst_type
+  val wmb_write_req_inst_size = wmb_entry_out_write_sel.inst_size
+  val wmb_write_req_inst_mode = wmb_entry_out_write_sel.inst_mode
+  val wmb_write_req_priv_mode = wmb_entry_out_write_sel.priv_mode
+  wmb_write_req_page_so := wmb_entry_out_write_sel.page_so
+  val wmb_write_req_page_wa = wmb_entry_out_write_sel.page_wa
+  val wmb_write_req_page_buf = wmb_entry_out_write_sel.page_buf
+  val wmb_write_req_page_sec = wmb_entry_out_write_sel.page_sec
+
+  val wmb_entry_out_write_next1_sel = Mux1H(Seq(
+    wmb_write_ptr_next(1)(0) -> wmb_entry_out(0),
+    wmb_write_ptr_next(1)(1) -> wmb_entry_out(1),
+    wmb_write_ptr_next(1)(2) -> wmb_entry_out(2),
+    wmb_write_ptr_next(1)(3) -> wmb_entry_out(3),
+    wmb_write_ptr_next(1)(4) -> wmb_entry_out(4),
+    wmb_write_ptr_next(1)(5) -> wmb_entry_out(5),
+    wmb_write_ptr_next(1)(6) -> wmb_entry_out(6),
+    wmb_write_ptr_next(1)(7) -> wmb_entry_out(7)
+  ))
+  val wmb_write_biu_dp_req_next1     = wmb_entry_out_write_next1_sel.write_biu_dp_req
+  val wmb_write_req_atomic_next1     = wmb_entry_out_write_next1_sel.atomic_and_vld
+  val wmb_write_req_icc_next1        = wmb_entry_out_write_next1_sel.icc_and_vld
+  val wmb_write_req_sync_fence_next1 = wmb_entry_out_write_next1_sel.sync_fence
+  val wmb_write_req_page_ca_next1    = wmb_entry_out_write_next1_sel.page_ca
+  val wmb_write_req_page_share_next1 = wmb_entry_out_write_next1_sel.page_share
+  val wmb_write_req_addr_next1       = wmb_entry_out_write_next1_sel.addr
+
+  //-----------------------inst type--------------------------
+  val wmb_write_req_st_inst = !wmb_write_req_atomic && !wmb_write_req_sync_fence && !wmb_write_req_icc
+  val wmb_write_req_stex_inst = wmb_write_req_atomic
+
+  //for write dcache_line check
+  //wmb_write_req_ready_to_dcache_line(0) := ParallelORR(wmb_write_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.ready_to_dcache_line))
+  for(i <- 0 until 4){
+    wmb_write_req_ready_to_dcache_line(i) := ParallelORR(wmb_write_ptr_next(i).zip(wmb_entry_out).map(x => x._1 && x._2.ready_to_dcache_line))
+    wmb_write_req_next_addr_plus(i) := ParallelORR(wmb_write_ptr_next(i).zip(wmb_entry_out).map(x => x._1 && x._2.last_addr_plus))
+    wmb_write_req_next_addr_sub(i) := ParallelORR(wmb_write_ptr_next(i).zip(wmb_entry_out).map(x => x._1 && x._2.last_addr_sub))
+  }
+  val wmb_write_req_page_nc_atomic = !wmb_write_req_page_ca  &&  wmb_write_req_atomic
+  //-----------------data req info----------------------------
+  val wmb_data_biu_req = ParallelORR(wmb_entry_out.map(_.data_biu_req))
+  val wmb_data_req_wns = ParallelORR(wmb_entry_out.map(_.data_req_wns))
+
+  val wmb_entry_out_data_sel = Mux1H(Seq(
+    wmb_data_ptr(0) -> wmb_entry_out(0),
+    wmb_data_ptr(1) -> wmb_entry_out(1),
+    wmb_data_ptr(2) -> wmb_entry_out(2),
+    wmb_data_ptr(3) -> wmb_entry_out(3),
+    wmb_data_ptr(4) -> wmb_entry_out(4),
+    wmb_data_ptr(5) -> wmb_entry_out(5),
+    wmb_data_ptr(6) -> wmb_entry_out(6),
+    wmb_data_ptr(7) -> wmb_entry_out(7)
+  ))
+  val wmb_data_req_biu_id = wmb_entry_out_data_sel.biu_id
+  val wmb_data_req_data = wmb_entry_out_data_sel.data
+  val wmb_data_req_bytes_vld = wmb_entry_out_data_sel.bytes_vld
+  val wmb_data_req_w_last = wmb_entry_out_data_sel.w_last
+
+  //==========================================================
+  //              write imme signal pop entry
+  //==========================================================
+  //wmb vld                                 mechanism
+  //<=5                                     write leisure(!ld_ag && !st_ag)
+  //>=6                                     write imme
+  //                                        if (st_ag && st_rf),
+  //                                        then write 2 cycle
+  //amr and >=4                             write amr
+  //-----------------------registers--------------------------
+  //if wmb too full and must write dcache, and st_ag/rf has inst, then write
+  //2 cycle to reduce st out of order
+
 
 
 
