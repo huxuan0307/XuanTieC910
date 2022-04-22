@@ -124,7 +124,7 @@ trait LsuConfig{
   def VMB_ENTRY     = 8
 
   def SNOOP_ID_WIDTH = 6
-  def SDID_WIDTH = log2Up(LSIQ_ENTRY)
+  def SDID_WIDTH = log2Up(SQ_ENTRY)
 
   //def DCACHE_DIRTY_ARRAY_WITDH = 7
   //def DCACHE_TAG_ARRAY_WITDH   = 52

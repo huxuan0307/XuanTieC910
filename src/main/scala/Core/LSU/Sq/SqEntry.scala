@@ -2,7 +2,6 @@ package Core.LSU.Sq
 import Core.DCacheConfig.INDEX_WIDTH
 import Core.IUConfig.MPPWidth
 import Core.IntConfig.XLEN
-import Core.LSU.StDcToSqDa
 import Core.LSU.StoreExStage.{StDaToSq, StDcToSq, StDcToSqDa}
 import Core.LsuConfig.BYTES_ACCESS_WIDTH
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
