@@ -4,7 +4,7 @@ import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IU.Cp0.Define.Exceptions._
 import Core.IU.{cp0ToIu, unitSel}
 import Core.IUConfig.XLEN
-import Core.{Cp0Config, FuncType, VectorUnitConfig}
+import Core.{Cp0Config, VectorUnitConfig}
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
 import chisel3.internal.firrtl.Width
@@ -151,7 +151,7 @@ class RfToCp0 extends Bundle with Cp0Config{
   // opcode[31:20] is addr, opcode[19:15] is uimm @ct_cp0_iui, 793,796,797
   val preg    = UInt(NumPhysicRegsBits.W)
   val src0    = UInt(XLEN.W)
-  val func    = FuncType.uwidth
+  val func    = FuncOpType.uwidth
   val rfSel = new unitSel
 }
 
