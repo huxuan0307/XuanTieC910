@@ -1,10 +1,13 @@
-package Core.LSU
+package Core.LSU.LoadExStage
+
+import Core.LSU.{RotData}
+import Core.LsuConfig
+import Utils.sext
 import chisel3._
 import chisel3.util._
-import Utils.sext
 
-class LoadDABorrowData extends Bundle{
-  val db      = UInt(LSUConfig.VB_DATA_ENTRY.W)
+class LoadDABorrowData extends Bundle with LsuConfig{
+  val db      = UInt(VB_DATA_ENTRY.W)
   val vb      = Bool()
   val sndb    = Bool()
   val mmu     = Bool()
@@ -13,13 +16,13 @@ class LoadDABorrowData extends Bundle{
   val settle_way = Bool()
 }
 
-class LoadDAInstData extends Bundle{
+class LoadDAInstData extends Bundle with LsuConfig{
   val mmu_req                    = Bool()
   val expt_vld_except_access_err = Bool()
   val expt_access_fault_mask     = Bool()
   val expt_access_fault_extra    = Bool()
   val expt_access_fault_mmu      = Bool()
-  val pfu_va                     = UInt(LSUConfig.PA_WIDTH.W)
+  val pfu_va                     = UInt(PA_WIDTH.W)
   val split                      = Bool()
   val inst_type                  = UInt(2.W)
   val inst_size                  = UInt(3.W)
@@ -27,11 +30,11 @@ class LoadDAInstData extends Bundle{
   val sign_extend                = Bool()
   val atomic                     = Bool()
   val iid                        = UInt(7.W)
-  val lsid                       = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lsid                       = Vec(LSIQ_ENTRY, Bool())
   val boundary                   = Bool()
   val preg                       = UInt(7.W)
   val already_da                 = Bool()
-  val ldfifo_pc                  = UInt(LSUConfig.PC_LEN.W)
+  val ldfifo_pc                  = UInt(LSU_PC_WIDTH.W)
   val ahead_predict              = Bool()
   val wait_fence                 = Bool()
   val other_discard_sq           = Bool()
@@ -42,7 +45,7 @@ class LoadDAInstData extends Bundle{
   val fwd_sq_multi               = Bool()
   val fwd_sq_multi_mask          = Bool()
   val fwd_bypass_sq_multi        = Bool()
-  val sq_fwd_id                  = Vec(LSUConfig.SQ_ENTRY, Bool())
+  val sq_fwd_id                  = Vec(SQ_ENTRY, Bool())
   val discard_wmb                = Bool()
   val fwd_wmb_vld                = Bool()
   val spec_fail                  = Bool()
@@ -63,8 +66,8 @@ class LoadDAInstData extends Bundle{
   val vector_nop                 = Bool()
 }
 
-class LoadDAShareData extends Bundle{
-  val addr0        = UInt(LSUConfig.PA_WIDTH.W)
+class LoadDAShareData extends Bundle with LsuConfig{
+  val addr0        = UInt(PA_WIDTH.W)
   val addr0_idx    = UInt(9.W)
   val old          = Bool()
   val page_so      = Bool()
@@ -86,9 +89,9 @@ class LoadDA_DCHit extends Bundle{
 }
 
 
-class LoadDA2SQ extends Bundle {
+class LoadDA2SQ extends Bundle with LsuConfig{
   val data_discard_vld = Bool()
-  val fwd_id = Vec(LSUConfig.SQ_ENTRY, Bool())
+  val fwd_id = Vec(SQ_ENTRY, Bool())
   val fwd_multi_vld = Bool()
   val global_discard_vld = Bool()
 }
@@ -108,19 +111,19 @@ class LoadDA2Mcic extends Bundle{
   val wakeup = Bool()
 }
 
-class LoadDA2Ctrl extends Bundle{
+class LoadDA2Ctrl extends Bundle with LsuConfig{
   val borrow_vld              = Bool()
   val ecc_wakeup              = UInt(12.W)
-  val idu_already_da          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_bkpta_data          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_bkptb_data          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_boundary_gateclk_en = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_pop_entry           = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_already_da          = Vec(LSIQ_ENTRY, Bool())
+  val idu_bkpta_data          = Vec(LSIQ_ENTRY, Bool())
+  val idu_bkptb_data          = Vec(LSIQ_ENTRY, Bool())
+  val idu_boundary_gateclk_en = Vec(LSIQ_ENTRY, Bool())
+  val idu_pop_entry           = Vec(LSIQ_ENTRY, Bool())
   val idu_pop_vld             = Bool()
-  val idu_rb_full             = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_secd                = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_spec_fail           = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val idu_wait_fence          = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val idu_rb_full             = Vec(LSIQ_ENTRY, Bool())
+  val idu_secd                = Vec(LSIQ_ENTRY, Bool())
+  val idu_spec_fail           = Vec(LSIQ_ENTRY, Bool())
+  val idu_wait_fence          = Vec(LSIQ_ENTRY, Bool())
   val rb_full_gateclk_en      = Bool()
   val special_gateclk_en      = Bool()
   val wait_fence_gateclk_en   = Bool()
@@ -198,7 +201,7 @@ class LoadDA2WB extends Bundle{
 
 
 
-class LoadDAInput extends Bundle{
+class LoadDAInput extends Bundle with LsuConfig{
   val cb_ld_da_data = Valid(UInt(128.W))
   val fromCp0 = new Bundle{
     val lsu_dcache_en = Bool()
@@ -244,7 +247,7 @@ class LoadDAInput extends Bundle{
     val data_discard_req = Bool()
     val fwd_bypass_multi = Bool()
     val fwd_bypass_req = Bool()
-    val fwd_id = Vec(LSUConfig.SQ_ENTRY, Bool())
+    val fwd_id = Vec(SQ_ENTRY, Bool())
     val fwd_multi = Bool()
     val fwd_multi_mask = Bool()
     val newest_fwd_data_vld_req = Bool()
@@ -257,7 +260,7 @@ class LoadDAInput extends Bundle{
   }
 }
 
-class LoadDAOutput extends Bundle{
+class LoadDAOutput extends Bundle with LsuConfig{
   val toCtrl = new LoadDA2Ctrl
   val toPFU  = new LoadDA2PFU
   val toRB   = new LoadDA2RB
@@ -292,7 +295,7 @@ class LoadDAOutput extends Bundle{
   val ld_da_iid = UInt(7.W)
   val ld_da_inst_vfls = Bool()
   val ld_da_inst_vld = Bool()
-  val ld_da_lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val ld_da_lsid = Vec(LSIQ_ENTRY, Bool())
   val ld_da_preg = UInt(7.W)
   val ld_da_snq_borrow_icc = Bool()
   val ld_da_snq_borrow_sndb = Bool()
@@ -331,7 +334,7 @@ class LoadDAIO extends Bundle{
   val out = Output(new LoadDAOutput)
 }
 
-class LoadDA extends Module {
+class LoadDA extends Module with LsuConfig{
   val io = IO(new LoadDAIO)
 
   //Reg
@@ -344,16 +347,16 @@ class LoadDA extends Module {
   val ld_da_tag_read = Reg(UInt(27.W))
 
   val ld_da_expt_vec = RegInit(0.U(5.W))
-  val ld_da_mt_value = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_da_mt_value = RegInit(0.U(PA_WIDTH.W))
 
   val borrow_data = RegInit(0.U.asTypeOf(new LoadDABorrowData))
   val inst_data = RegInit(0.U.asTypeOf(new LoadDAInstData))
   val share_data = RegInit(0.U.asTypeOf(new LoadDAShareData))
   val dcache_hit_info = RegInit(0.U.asTypeOf(new LoadDA_DCHit))
-  val ld_da_ppfu_va = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_da_ppfu_va = RegInit(0.U(PA_WIDTH.W))
   val ld_da_split_miss_ff = RegInit(false.B)
 
-  val ld_da_ppn_ff        = RegInit(0.U((LSUConfig.PA_WIDTH-12).W))
+  val ld_da_ppn_ff        = RegInit(0.U((PA_WIDTH-12).W))
   val ld_da_page_sec_ff   = RegInit(false.B)
   val ld_da_page_share_ff = RegInit(false.B)
   //Wire
@@ -368,7 +371,7 @@ class LoadDA extends Module {
   val ld_da_rb_merge_vld_unmask = Wire(Bool())
   val ld_da_tag_ecc_stall_ori = Wire(Bool())
   val ld_da_hit_idx_discard_vld = Wire(Bool())
-  val ld_da_mask_lsid = Wire(Vec(LSUConfig.LSIQ_ENTRY, Bool()))
+  val ld_da_mask_lsid = Wire(Vec(LSIQ_ENTRY, Bool()))
   val ld_da_mcic_borrow_mmu = Wire(Bool())
   val ld_da_mcic_data_err = Wire(Bool())
   val ld_da_boundary_first = Wire(Bool())
@@ -616,10 +619,10 @@ class LoadDA extends Module {
 
   when(ld_da_expt_access_fault &&  !inst_data.atomic){
     ld_da_wb_expt_vec     := 5.U(5.W)
-    ld_da_wb_mt_value_ori := 0.U(LSUConfig.PA_WIDTH.W)
+    ld_da_wb_mt_value_ori := 0.U(PA_WIDTH.W)
   }.elsewhen(ld_da_expt_access_fault &&  inst_data.atomic){
     ld_da_wb_expt_vec     := 7.U(5.W)
-    ld_da_wb_mt_value_ori := 0.U(LSUConfig.PA_WIDTH.W)
+    ld_da_wb_mt_value_ori := 0.U(PA_WIDTH.W)
   }
   io.out.toWB.expt_vec := ld_da_wb_expt_vec
   io.out.toWB.mt_value := ld_da_wb_mt_value_ori
@@ -733,9 +736,9 @@ class LoadDA extends Module {
   }
 
   val data_rot = Module(new RotData)
-  data_rot.io.data_in := ld_da_data_unrot.asUInt
-  data_rot.io.rot_sel := share_data.data_rot_sel
-  val ld_da_data_settle = data_rot.io.data_settle_out
+  data_rot.io.dataIn := ld_da_data_unrot.asUInt
+  data_rot.io.rotSel := share_data.data_rot_sel
+  val ld_da_data_settle = data_rot.io.dataSettle
 
   val ld_da_data128 = Mux(inst_data.fwd_sq_bypass, ld_da_fwd_data_bypass, ld_da_data_settle)
 
@@ -754,9 +757,9 @@ class LoadDA extends Module {
   }
 
   val preg_data_rot = Module(new RotData)
-  preg_data_rot.io.data_in := ld_da_ahead_preg_data_unsettle.asUInt
-  preg_data_rot.io.rot_sel := share_data.data_rot_sel
-  val ld_da_ahead_preg_data_settle = preg_data_rot.io.data_settle_out
+  preg_data_rot.io.dataIn := ld_da_ahead_preg_data_unsettle.asUInt
+  preg_data_rot.io.rotSel := share_data.data_rot_sel
+  val ld_da_ahead_preg_data_settle = preg_data_rot.io.dataSettle
 
   //------------------for read buffer merge--------
   io.out.toRB.data_ori := ld_da_data_unrot.asUInt(127,64) | ld_da_data_unrot.asUInt(63,0)
@@ -1027,7 +1030,7 @@ class LoadDA extends Module {
   //==========================================================
   val ld_da_borrow_db_vld = ld_da_borrow_vld && (borrow_data.sndb || borrow_data.vb)
 
-  io.out.ld_da_vb_borrow_vb := Mux(ld_da_borrow_db_vld, borrow_data.db, 0.U(LSUConfig.VB_DATA_ENTRY.W))
+  io.out.ld_da_vb_borrow_vb := Mux(ld_da_borrow_db_vld, borrow_data.db, 0.U(VB_DATA_ENTRY.W))
 
   io.out.ld_da_snq_borrow_sndb := ld_da_borrow_vld && borrow_data.sndb
 
@@ -1064,7 +1067,7 @@ class LoadDA extends Module {
   //==========================================================
   //        Generate lsiq signal
   //==========================================================
-  ld_da_mask_lsid := Mux(ld_da_inst_vld, inst_data.lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  ld_da_mask_lsid := Mux(ld_da_inst_vld, inst_data.lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   val ld_da_merge_mask = ld_da_merge_from_cb && dcache_hit_info.dcache_hit && !ld_da_fwd_vld
 
@@ -1077,31 +1080,31 @@ class LoadDA extends Module {
 
   //-----------lsiq signal----------------
   io.out.toCtrl.idu_already_da := ld_da_mask_lsid
-  io.out.toCtrl.idu_rb_full := Mux(ld_da_rb_full_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
-  io.out.toCtrl.idu_wait_fence := Mux(ld_da_wait_fence_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_rb_full := Mux(ld_da_rb_full_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_wait_fence := Mux(ld_da_wait_fence_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   io.out.toCtrl.idu_pop_vld := ld_da_inst_vld && !ld_da_boundary_first && !ld_da_ecc_stall && !ld_da_sq_fwd_ecc_discard && !ld_da_restart_vld
 
-  io.out.toCtrl.idu_pop_entry := Mux(io.out.toCtrl.idu_pop_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_pop_entry := Mux(io.out.toCtrl.idu_pop_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   io.out.toCtrl.idu_spec_fail := Mux(inst_data.spec_fail && ld_da_boundary_first || ld_da_ecc_spec_fail,
-    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   io.out.toCtrl.idu_bkpta_data := Mux(inst_data.bkpta_data && ld_da_boundary_first,
-    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   io.out.toCtrl.idu_bkptb_data := Mux(inst_data.bkptb_data && ld_da_boundary_first,
-    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+    ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   //---------boundary gateclk-------------
   val ld_da_idu_boundary_gateclk_vld       = ld_da_inst_vld && ld_da_boundary_first
 
-  io.out.toCtrl.idu_boundary_gateclk_en := Mux(ld_da_idu_boundary_gateclk_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_boundary_gateclk_en := Mux(ld_da_idu_boundary_gateclk_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   //-----------imme wakeup----------------
   val ld_da_idu_secd_vld = ld_da_boundary_first && !ld_da_ecc_stall && !ld_da_sq_fwd_ecc_discard && !ld_da_restart_vld
 
-  io.out.toCtrl.idu_secd := Mux(ld_da_idu_secd_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B))))
+  io.out.toCtrl.idu_secd := Mux(ld_da_idu_secd_vld, ld_da_mask_lsid, WireInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B))))
 
   //==========================================================
   //        Generate interface to rtu
@@ -1158,7 +1161,7 @@ class LoadDA extends Module {
     !inst_data.expt_vld_except_access_err && !ld_da_restart_vld
 
   io.out.toSF.spec_chk_req := ld_da_spec_chk_req
-  io.out.toSF.addr_tto4 := share_data.addr0(LSUConfig.PA_WIDTH-1,4)
+  io.out.toSF.addr_tto4 := share_data.addr0(PA_WIDTH-1,4)
   io.out.toSF.bytes_vld := share_data.bytes_vld
 
   //wb_cmplt

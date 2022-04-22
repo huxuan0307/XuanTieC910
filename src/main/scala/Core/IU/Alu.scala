@@ -2,6 +2,7 @@ package Core.IU
 
 
 import Core.IUConfig
+import Core.IntConfig.NumPhysicRegsBits
 import Utils.{LookupTree, SignExt}
 import chisel3._
 import chisel3.util._
@@ -27,18 +28,19 @@ object ALUOpType {
   def isWordOp(func: UInt) = func(5)  //if 32bit
 }
 
-class AluOut extends Bundle {
-  val data = UInt(64.W)
+class AluRegData extends Bundle with IUConfig {
+  val data    = UInt(XLEN.W)
   val dataVld = Bool()
-  val fwdData = UInt(64.W)
-  val fwdVld = Bool()
-  val preg = UInt(7.W)
+  val fwdData = UInt(XLEN.W)
+  val fwdVld  = Bool()
+  val preg    = UInt(NumPhysicRegsBits.W)
 }
 
 class AluIO extends Bundle{
-  val in  = Input(new IduRfPipe0)
-  val flush = Input(Bool())
-  val out = Output(new AluOut)
+  val in         = Input(new CtrlSignalHasDestIO)
+  val flush      = Input(Bool())
+  val toRbus     = Output(new AluRegData)
+  val sel        = Input(new unitSel)
 }
 
 class Alu extends Module with IUConfig{
@@ -48,22 +50,22 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   val alu_ex1_inst_vld = RegInit(false.B)
   val alu_ex1_fwd_vld  = RegInit(false.B)
-  val flush = io.flush
-  val fwd_vld = io.in.aluShort && io.in.sel && io.in.dstVld
+  val flush   = io.flush
+  val fwd_vld = io.in.aluShort && io.sel.sel && io.in.dstVld
   when(flush){
     alu_ex1_inst_vld := false.B
     alu_ex1_fwd_vld  := false.B
   }.otherwise{
-    alu_ex1_inst_vld := io.in.sel
+    alu_ex1_inst_vld := io.sel.sel
     alu_ex1_fwd_vld  := fwd_vld
   }
   //----------------------------------------------------------
   //               Pipe2 EX1 Instruction Data
   //----------------------------------------------------------
-  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val pipe1_en = io.sel.gateSel // TODO add gate_sel
   val ex1_pipe = RegEnable(io.in, pipe1_en)
 
-  val (src1, src2, op) = (io.in.src0,io.in.src1, io.in.opcode)
+  val (src1, src2, op) = (io.in.src0,io.in.src1, io.in.func)
   //----------------------------------------------------------
   //                    add && shift TODO misc
   //----------------------------------------------------------
@@ -97,10 +99,10 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   //                      Result Bus
   //----------------------------------------------------------
-  io.out.dataVld := ex1_pipe.dstVld && alu_ex1_inst_vld
-  io.out.fwdVld  := alu_ex1_fwd_vld
-  io.out.fwdData := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
-  io.out.preg     := ex1_pipe.dstPreg
-  io.out.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
+  io.toRbus.dataVld  := ex1_pipe.dstVld && alu_ex1_inst_vld
+  io.toRbus.fwdVld   := alu_ex1_fwd_vld
+  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
+  io.toRbus.preg     := ex1_pipe.dstPreg
+  io.toRbus.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
 }
 

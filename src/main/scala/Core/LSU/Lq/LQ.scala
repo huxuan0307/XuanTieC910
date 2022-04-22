@@ -1,5 +1,6 @@
-package Core.LSU
+package Core.LSU.Lq
 
+import Core.LsuConfig
 import chisel3._
 import chisel3.util._
 
@@ -53,26 +54,26 @@ class LQIO extends Bundle{
   val out = Output(new LQOutput)
 }
 
-class LQ extends Module {
+class LQ extends Module with LsuConfig{
   val io = IO(new LQIO)
 
   //Wire
   val lq_empty = Wire(Bool())
 
-  val entry_create = Wire(Vec(LSUConfig.LQ_ENTRY, new Bundle {
+  val entry_create = Wire(Vec(LQ_ENTRY, new Bundle {
     val dp_vld = Vec(2, Bool())
     val gateclk_en = Vec(2, Bool())
     val vld = Vec(2, Bool())
   }))
 
-  val lq_entry_inst_hit      = Wire(Vec(LSUConfig.LQ_ENTRY, Bool()))
-  val lq_entry_rar_spec_fail = Wire(Vec(LSUConfig.LQ_ENTRY, Bool()))
-  val lq_entry_raw_spec_fail = Wire(Vec(LSUConfig.LQ_ENTRY, Bool()))
-  val lq_entry_vld           = Wire(Vec(LSUConfig.LQ_ENTRY, Bool()))
+  val lq_entry_inst_hit      = Wire(Vec(LQ_ENTRY, Bool()))
+  val lq_entry_rar_spec_fail = Wire(Vec(LQ_ENTRY, Bool()))
+  val lq_entry_raw_spec_fail = Wire(Vec(LQ_ENTRY, Bool()))
+  val lq_entry_vld           = Wire(Vec(LQ_ENTRY, Bool()))
 
-  val lq_create_ptr = Wire(Vec(2, Vec(LSUConfig.LQ_ENTRY, Bool())))
-  lq_create_ptr(0) := VecInit(Seq.fill(LSUConfig.LQ_ENTRY)(false.B))
-  lq_create_ptr(1) := VecInit(Seq.fill(LSUConfig.LQ_ENTRY)(false.B))
+  val lq_create_ptr = Wire(Vec(2,  Vec(LQ_ENTRY, Bool())))
+  lq_create_ptr(0) := VecInit(Seq.fill(LQ_ENTRY)(false.B))
+  lq_create_ptr(1) := VecInit(Seq.fill(LQ_ENTRY)(false.B))
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -81,8 +82,8 @@ class LQ extends Module {
   //==========================================================
   //                 Instance load queue entry
   //==========================================================
-  val lq_entry = Seq.fill(LSUConfig.LQ_ENTRY)(Module(new LQEntry))
-  for(i <- 0 until LSUConfig.LQ_ENTRY){
+  val lq_entry = Seq.fill(LQ_ENTRY)(Module(new LQEntry))
+  for(i <- 0 until LQ_ENTRY){
     lq_entry(i).io.in.fromCP0  := io.in.fromCP0
     lq_entry(i).io.in.fromLdDC := io.in.fromLdDC
     lq_entry(i).io.in.fromPad  := io.in.fromPad
@@ -106,9 +107,9 @@ class LQ extends Module {
     lq_create_ptr(1)(15)  := true.B
   }
 
-  for(i <- 1 until LSUConfig.LQ_ENTRY){
+  for(i <- 1 until LQ_ENTRY){
     when(lq_entry_vld.asUInt(i,0) === Cat(0.U(1.W), WireInit(VecInit(Seq.fill(i)(true.B))).asUInt)){lq_create_ptr(0)(i)  := true.B}
-    when(lq_entry_vld.asUInt(LSUConfig.LQ_ENTRY-1, LSUConfig.LQ_ENTRY-1-i) === Cat(WireInit(VecInit(Seq.fill(i)(true.B))).asUInt, 0.U(1.W))){lq_create_ptr(1)(LSUConfig.LQ_ENTRY-1-i)  := true.B}
+    when(lq_entry_vld.asUInt(LQ_ENTRY-1, LQ_ENTRY-1-i) === Cat(WireInit(VecInit(Seq.fill(i)(true.B))).asUInt, 0.U(1.W))){lq_create_ptr(1)(LQ_ENTRY-1-i)  := true.B}
   }
 
   lq_empty := !lq_entry_vld.asUInt.orR
@@ -123,7 +124,7 @@ class LQ extends Module {
 
   lq_create_success(1) := lq_create_success(0) && io.in.EntryCreate.vld(1)
 
-  for(i <- 0 until LSUConfig.LQ_ENTRY){
+  for(i <- 0 until LQ_ENTRY){
     for(j <- 0 until 2){
       entry_create(i).vld(j)        := lq_create_success(j) && lq_create_ptr(j)(i)
       entry_create(i).dp_vld(j)     := io.in.EntryCreate.dp_vld(j) && lq_create_ptr(j)(i)

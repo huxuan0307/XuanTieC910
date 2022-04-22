@@ -1,8 +1,9 @@
-package Core.LSU
-import chisel3._
-import chisel3.util._
+package Core.LSU.Wmb
 
-class SQPopInfo extends Bundle{
+import Core.LsuConfig
+import chisel3._
+
+class SQPopInfo extends Bundle with LsuConfig {
   val addr = UInt(40.W)
   val atomic = Bool()
   val bytes_vld = UInt(16.W)
@@ -18,7 +19,7 @@ class SQPopInfo extends Bundle{
   val page_so = Bool()
   val page_wa = Bool()
   val priv_mode = UInt(2.W)
-  val sq_ptr = Vec(LSUConfig.SQ_ENTRY, Bool())
+  val sq_ptr = Vec(SQ_ENTRY, Bool())
   val sync_fence = Bool()
   val wo_st = Bool()
 }
@@ -38,20 +39,20 @@ class WmbCeInput extends Bundle{
     val wmb_ce_dcache_share = Bool()
     val wmb_ce_dcache_valid = Bool()
   }
-  val fromWmb = new Bundle{
+  val fromWmb = new Bundle with LsuConfig{
     val create_dp_vld = Bool()
     val create_gateclk_en = Bool()
     val create_merge = Bool()
-    val create_merge_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val create_same_dcache_line = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val create_merge_ptr = Vec(WMB_ENTRY, Bool())
+    val create_same_dcache_line = Vec(WMB_ENTRY, Bool())
     val create_stall = Bool()
     val create_vld = Bool()
     val pop_vld = Bool()
-    val entry_vld = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val entry_vld = Vec(WMB_ENTRY, Bool())
   }
 }
 
-class WmbCeOutput extends Bundle{
+class WmbCeOutput extends Bundle with LsuConfig{
   val toWmb = new Bundle{
     val addr = UInt(40.W)
     val atomic = Bool()
@@ -74,7 +75,7 @@ class WmbCeOutput extends Bundle{
     val merge_data_addr_hit = Bool()
     val merge_data_stall = Bool()
     val merge_en = Bool()
-    val merge_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val merge_ptr = Vec(WMB_ENTRY, Bool())
     val merge_wmb_req = Bool()
     val merge_wmb_wait_not_vld_req = Bool()
     val page_buf = Bool()
@@ -85,7 +86,7 @@ class WmbCeOutput extends Bundle{
     val page_wa = Bool()
     val priv_mode = UInt(2.W)
     val read_dp_req = Bool()
-    val same_dcache_line = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val same_dcache_line = Vec(WMB_ENTRY, Bool())
     val sc_wb_vld = Bool()
     val sync_fence = Bool()
     val vld = Bool()
@@ -94,7 +95,7 @@ class WmbCeOutput extends Bundle{
     val write_biu_dp_req = Bool()
     val write_imme = Bool()
   }
-  val wmb_ce_sq_ptr = Vec(LSUConfig.SQ_ENTRY, Bool())
+  val wmb_ce_sq_ptr = Vec(SQ_ENTRY, Bool())
 }
 
 class WmbCeIO extends Bundle{
@@ -102,7 +103,7 @@ class WmbCeIO extends Bundle{
   val out = Output(new WmbCeOutput)
 }
 
-class WmbCe extends Module {
+class WmbCe extends Module with LsuConfig{
   val io = IO(new WmbCeIO)
 
   //Reg
@@ -112,8 +113,8 @@ class WmbCe extends Module {
   val pop_info = RegInit(0.U.asTypeOf(new SQPopInfo))
   val wmb_ce_merge = RegInit(false.B)
   val wmb_ce_stall = RegInit(false.B)
-  val wmb_ce_merge_ptr = RegInit(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
-  val wmb_ce_same_dcache_line = RegInit(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+  val wmb_ce_merge_ptr = RegInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val wmb_ce_same_dcache_line = RegInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
   //Wire
   val wmb_ce_hit_rb_idx_set = Wire(Bool())
@@ -209,8 +210,8 @@ class WmbCe extends Module {
   //                    Request Wires
   //==========================================================
   //-----------------------pop req wires----------------------
-  val wmb_ce_merge_ptr_and_not_vld = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  for(i <- 0 until LSUConfig.WMB_ENTRY){
+  val wmb_ce_merge_ptr_and_not_vld = Wire(Vec(WMB_ENTRY, Bool()))
+  for(i <- 0 until WMB_ENTRY){
     wmb_ce_merge_ptr_and_not_vld(i) := wmb_ce_merge_ptr(i) && !io.in.fromWmb.entry_vld(i)
   }
 
@@ -307,7 +308,7 @@ class WmbCe extends Module {
   //                  Compare with sq pop
   //==========================================================
   //wmb_ce_hit_sq_pop_cache_line is used for same_dcache_line
-  val wmb_ce_hit_sq_pop_addr_tto6 = pop_info.addr(LSUConfig.PA_WIDTH-1,6) === io.in.SQPop.addr(LSUConfig.PA_WIDTH-1,6)
+  val wmb_ce_hit_sq_pop_addr_tto6 = pop_info.addr(PA_WIDTH-1,6) === io.in.SQPop.addr(PA_WIDTH-1,6)
   val wmb_ce_hit_sq_pop_addr_5to4 = pop_info.addr(5,4) === io.in.SQPop.addr(5,4)
   val wmb_ce_hit_sq_pop_addr_tto4 = wmb_ce_hit_sq_pop_addr_tto6 && wmb_ce_hit_sq_pop_addr_5to4
 

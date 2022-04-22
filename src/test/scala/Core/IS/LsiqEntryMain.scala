@@ -1,14 +1,12 @@
-package Core.LSU
+package Core.IS
 
-import Core.LSU.Wmb.WmbCe
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object WmbCeMain extends App {
+object LsiqEntryMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new WmbCe)
+      ChiselGeneratorAnnotation(() => new LsiqEntry)
     )
   )
 }
-

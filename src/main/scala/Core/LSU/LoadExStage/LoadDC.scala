@@ -1,8 +1,9 @@
-package Core.LSU
+package Core.LSU.LoadExStage
+import Core.LsuConfig
 import chisel3._
 import chisel3.util._
 
-class LoadDC2DA extends Bundle {
+class LoadDC2DA extends Bundle with LsuConfig{
   val addr0 = UInt(40.W)
   val ahead_predict = Bool()
   val ahead_preg_wb_vld = Bool()
@@ -52,7 +53,7 @@ class LoadDC2DA extends Bundle {
   val inst_vfls = Bool()
   val inst_vld = Bool()
   val ldfifo_pc = UInt(15.W)
-  val lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lsid = Vec(LSIQ_ENTRY, Bool())
   val mmu_req = Bool()
   val mt_value = UInt(40.W)
   val no_spec = Bool()
@@ -72,11 +73,11 @@ class LoadDC2DA extends Bundle {
   val wait_fence = Bool()
 }
 
-class LoadDCDataReg extends Bundle{
+class LoadDCDataReg extends Bundle with LsuConfig{
   val expt_vld_except_access_err = Bool()
   val pf_inst         = Bool()
   val vpn             = UInt(28.W)
-  val addr1_tto4      = UInt((LSUConfig.PA_WIDTH-4).W)
+  val addr1_tto4      = UInt((PA_WIDTH-4).W)
   val split           = Bool()
   val inst_type       = UInt(2.W)
   val inst_size       = UInt(2.W)
@@ -88,7 +89,7 @@ class LoadDCDataReg extends Bundle{
   val sign_extend     = Bool()
   val atomic          = Bool()
   val iid             = UInt(7.W)
-  val lsid            = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lsid            = Vec(LSIQ_ENTRY, Bool())
   val old             = Bool()
   val bytes_vld       = UInt(16.W)
   val bytes_vld1      = UInt(16.W)
@@ -96,7 +97,7 @@ class LoadDCDataReg extends Bundle{
   val boundary        = Bool()
   val preg            = UInt(7.W)
   val preg_dup        = Vec(5, UInt(7.W))
-  val ldfifo_pc       = UInt(LSUConfig.PC_LEN.W)
+  val ldfifo_pc       = UInt(LSU_PC_WIDTH.W)
   val ahead_predict   = Bool()
   val page_so         = Bool()
   val page_ca         = Bool()
@@ -193,7 +194,7 @@ class LoadDCInput extends Bundle{
   }
 }
 
-class LoadDCOutput extends Bundle{
+class LoadDCOutput extends Bundle with LsuConfig{
   val toDA = new LoadDC2DA
   val ld_dc_addr1 = UInt(40.W)
   val ld_dc_addr1_11to4 = UInt(8.W)
@@ -210,9 +211,9 @@ class LoadDCOutput extends Bundle{
     val ld_bypass_vld   = Bool()
     val ld_inst_vld     = Bool()
   }
-  val ld_dc_idu_lq_full  = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val ld_dc_idu_tlb_busy = Vec(LSUConfig.LSIQ_ENTRY, Bool())
-  val ld_dc_imme_wakeup  = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val ld_dc_idu_lq_full  = Vec(LSIQ_ENTRY, Bool())
+  val ld_dc_idu_tlb_busy = Vec(LSIQ_ENTRY, Bool())
+  val ld_dc_imme_wakeup  = Vec(LSIQ_ENTRY, Bool())
   val ld_dc_inst_chk_vld = Bool()
   val toLQ = new Bundle{
     val create1_dp_vld = Bool()
@@ -240,7 +241,7 @@ class LoadDCIO extends Bundle{
   val out = Output(new LoadDCOutput)
 }
 
-class LoadDC extends Module {
+class LoadDC extends Module with LsuConfig{
   val io = IO(new LoadDCIO)
 
   //Reg
@@ -258,7 +259,7 @@ class LoadDC extends Module {
   val ld_dc_expt_access_fault_with_page = RegInit(false.B)
   val ld_dc_expt_ldamo_not_ca           = RegInit(false.B)
 
-  val ld_dc_borrow_db      = RegInit(0.U(LSUConfig.VB_DATA_ENTRY.W))
+  val ld_dc_borrow_db      = RegInit(0.U(VB_DATA_ENTRY.W))
   val ld_dc_borrow_vb      = RegInit(false.B)
   val ld_dc_borrow_sndb    = RegInit(false.B)
   val ld_dc_borrow_mmu     = RegInit(false.B)
@@ -268,7 +269,7 @@ class LoadDC extends Module {
 
   val ld_dc_data = RegInit(0.U.asTypeOf(new LoadDCDataReg))
 
-  val ld_dc_addr0 = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_dc_addr0 = RegInit(0.U(PA_WIDTH.W))
   //Wire
   val ld_dc_depd_imme_restart_req = Wire(Bool())
   val ld_dc_borrow_mmu_vld = Wire(Bool())
@@ -471,7 +472,7 @@ class LoadDC extends Module {
   io.out.toDA.da_expt_vld_gate_en := ld_dc_data.expt_vld_except_access_err || ld_dc_expt_access_fault_short
 
   val ld_dc_expt_vec = WireInit(0.U(5.W))
-  val ld_dc_mt_value = WireInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_dc_mt_value = WireInit(0.U(PA_WIDTH.W))
 
   when(ld_dc_expt_misalign_no_page && !ld_dc_data.atomic){
     ld_dc_expt_vec := 4.U(5.W)
@@ -490,7 +491,7 @@ class LoadDC extends Module {
     ld_dc_mt_value := ld_dc_va
   }.elsewhen(ld_dc_expt_access_fault_with_page){
     ld_dc_expt_vec := 5.U(5.W)
-    ld_dc_mt_value := 0.U(LSUConfig.PA_WIDTH.W)
+    ld_dc_mt_value := 0.U(PA_WIDTH.W)
   }
   io.out.toDA.expt_vec := ld_dc_expt_vec
   io.out.toDA.mt_value := ld_dc_mt_value
@@ -634,10 +635,10 @@ class LoadDC extends Module {
   //==========================================================
   //                Generage had signal
   //==========================================================
-  val ld_dc_had_bkpta_addr = Cat(io.in.fromHad.yy_xx_bkpta_base(LSUConfig.PA_WIDTH-1,8), io.in.fromHad.yy_xx_bkpta_base(7,0) & io.in.fromHad.yy_xx_bkpta_mask)
-  val ld_dc_had_bkptb_addr = Cat(io.in.fromHad.yy_xx_bkptb_base(LSUConfig.PA_WIDTH-1,8), io.in.fromHad.yy_xx_bkptb_base(7,0) & io.in.fromHad.yy_xx_bkptb_mask)
+  val ld_dc_had_bkpta_addr = Cat(io.in.fromHad.yy_xx_bkpta_base(PA_WIDTH-1,8), io.in.fromHad.yy_xx_bkpta_base(7,0) & io.in.fromHad.yy_xx_bkpta_mask)
+  val ld_dc_had_bkptb_addr = Cat(io.in.fromHad.yy_xx_bkptb_base(PA_WIDTH-1,8), io.in.fromHad.yy_xx_bkptb_base(7,0) & io.in.fromHad.yy_xx_bkptb_mask)
 
-  val ld_dc_bkpta_addr_tto12  = ld_dc_va(LSUConfig.PA_WIDTH-1,12)
+  val ld_dc_bkpta_addr_tto12  = ld_dc_va(PA_WIDTH-1,12)
   val ld_dc_bkpta_addr0_3to0  = ld_dc_va(3,0) & io.in.fromHad.yy_xx_bkpta_mask(3,0)
   val ld_dc_bkpta_addr1_3to0  = ld_dc_addr0(3,0) & io.in.fromHad.yy_xx_bkpta_mask(3,0)
   val ld_dc_bkpta_addr0_11to4 = Cat(ld_dc_va(11,8), ld_dc_va(7,4) & io.in.fromHad.yy_xx_bkpta_mask(7,4))
@@ -646,7 +647,7 @@ class LoadDC extends Module {
   val ld_dc_bkpta_addr0 = Cat(ld_dc_bkpta_addr_tto12, ld_dc_bkpta_addr0_11to4, ld_dc_bkpta_addr0_3to0)
   val ld_dc_bkpta_addr1 = Cat(ld_dc_bkpta_addr_tto12, ld_dc_bkpta_addr1_11to4, ld_dc_bkpta_addr1_3to0)
 
-  val ld_dc_bkptb_addr_tto12  = ld_dc_va(LSUConfig.PA_WIDTH-1,12)
+  val ld_dc_bkptb_addr_tto12  = ld_dc_va(PA_WIDTH-1,12)
   val ld_dc_bkptb_addr0_3to0  = ld_dc_va(3,0) & io.in.fromHad.yy_xx_bkptb_mask(3,0)
   val ld_dc_bkptb_addr1_3to0  = ld_dc_addr0(3,0) & io.in.fromHad.yy_xx_bkptb_mask(3,0)
   val ld_dc_bkptb_addr0_11to4 = Cat(ld_dc_va(11,8), ld_dc_va(7,4) & io.in.fromHad.yy_xx_bkptb_mask(7,4))
@@ -739,7 +740,7 @@ class LoadDC extends Module {
   val ld_dc_hit_way = Wire(Vec(2, Bool()))
 
   for(i <- 0 until 2){
-    ld_dc_way_tag_hit(i) := ld_dc_addr0(LSUConfig.PA_WIDTH-1, 14) === ld_dc_dcache_tag_array(i)(25,0)
+    ld_dc_way_tag_hit(i) := ld_dc_addr0(PA_WIDTH-1, 14) === ld_dc_dcache_tag_array(i)(25,0)
     ld_dc_dcache_valid(i) := ld_dc_dcache_tag_array(i)(26) && io.in.fromCp0.lsu_dcache_en && io.out.toDA.da_page_ca
     ld_dc_hit_way(i) := ld_dc_dcache_valid(i) && ld_dc_way_tag_hit(i)
   }
@@ -803,7 +804,7 @@ class LoadDC extends Module {
   //            Generage to cache buffer signal
   //==========================================================
   //------------------addr prepare----------------
-  io.out.toCB.addr_tto4 := ld_dc_addr0(LSUConfig.PA_WIDTH-1,4)
+  io.out.toCB.addr_tto4 := ld_dc_addr0(PA_WIDTH-1,4)
 
   val cb_create_hit_idx = ld_dc_addr0(13,6) === io.in.fromDcacheArb.idx
 
@@ -837,11 +838,11 @@ class LoadDC extends Module {
   //==========================================================
   //      Generage lsiq signal (renamed in lsu_restart.vp)
   //==========================================================
-  val ld_dc_mask_lsid = Mux(ld_dc_inst_vld, ld_dc_data.lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  val ld_dc_mask_lsid = Mux(ld_dc_inst_vld, ld_dc_data.lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
 
-  io.out.ld_dc_idu_lq_full  := Mux(ld_dc_lq_full_vld,          ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
-  io.out.ld_dc_imme_wakeup  := Mux(ld_dc_imme_restart_vld,     ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
-  io.out.ld_dc_idu_tlb_busy := Mux(ld_dc_tlb_busy_restart_vld, ld_dc_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  io.out.ld_dc_idu_lq_full  := Mux(ld_dc_lq_full_vld,          ld_dc_mask_lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
+  io.out.ld_dc_imme_wakeup  := Mux(ld_dc_imme_restart_vld,     ld_dc_mask_lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
+  io.out.ld_dc_idu_tlb_busy := Mux(ld_dc_tlb_busy_restart_vld, ld_dc_mask_lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
 
   //==========================================================
   //                Generage signal to idu

@@ -1,9 +1,11 @@
-package Core.LSU
+package Core.LSU.LoadExStage
+
+import Core.LsuConfig
 import Utils.sext
 import chisel3._
 import chisel3.util._
 
-class Pipe3In extends Bundle{
+class Pipe3In extends Bundle with LsuConfig{
   val already_da = Bool()
   val atomic = Bool()
   val bkpta_data = Bool()
@@ -14,7 +16,7 @@ class Pipe3In extends Bundle{
   val inst_ldr = Bool()
   val inst_size = UInt(2.W)
   val inst_type = UInt(2.W)
-  val lch_entry = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lch_entry = Vec(LSIQ_ENTRY, Bool())
   val lsfifo = Bool()
   val no_spec = Bool()
   val no_spec_exist = Bool()
@@ -35,7 +37,7 @@ class Pipe3In extends Bundle{
   val vreg = UInt(7.W)
 }
 
-class LoadAG2DC extends Bundle {
+class LoadAG2DC extends Bundle with LsuConfig{
   val addr1_to4 = UInt(36.W)
   val ahead_predict = Bool()
   val already_da = Bool()
@@ -67,7 +69,7 @@ class LoadAG2DC extends Bundle {
   val ldfifo_pc = UInt(15.W)
   val lm_init_vld = Bool()
   val lr_inst = Bool()
-  val lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lsid = Vec(LSIQ_ENTRY, Bool())
   val lsiq_bkpta_data = Bool()
   val lsiq_bkptb_data = Bool()
   val lsiq_spec_fail = Bool()
@@ -87,13 +89,13 @@ class LoadAG2DC extends Bundle {
   val sign_extend = Bool()
   val split = Bool()
   val stall_ori = Bool()
-  val stall_restart_entry = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val stall_restart_entry = Vec(LSIQ_ENTRY, Bool())
   val utlb_miss = Bool()
   val vpn = UInt(28.W)
   val vreg = UInt(6.W)
 }
 
-class LoadAGDataReg extends Bundle{
+class LoadAGDataReg extends Bundle with LsuConfig{
   val split           = Bool()
   val inst_type       = UInt(2.W)
   val inst_size       = UInt(2.W)
@@ -105,11 +107,11 @@ class LoadAGDataReg extends Bundle{
   val sign_extend     = Bool()
   val atomic          = Bool()
   val iid             = UInt(7.W)
-  val lsid            = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val lsid            = Vec(LSIQ_ENTRY, Bool())
   val old             = Bool()
   val preg            = UInt(7.W)
   val preg_dup        = Vec(5, UInt(7.W))
-  val ldfifo_pc       = UInt(LSUConfig.PC_LEN.W)
+  val ldfifo_pc       = UInt(LSU_PC_WIDTH.W)
   val vreg            = UInt(7.W)
   val vreg_dup        = Vec(4, UInt(6.W))
   val inst_ldr        = Bool()
@@ -119,7 +121,7 @@ class LoadAGDataReg extends Bundle{
   val no_spec_exist   = Bool()
 }
 
-class LoadAGInput extends Bundle{
+class LoadAGInput extends Bundle with LsuConfig{
   val fromCp0 = new Bundle{
     val lsu_cb_aclr_dis = Bool()
     val lsu_da_fwd_dis = Bool()
@@ -157,7 +159,7 @@ class LoadAGInput extends Bundle{
   val st_ag_iid = UInt(7.W)
 }
 
-class LoadAGOutput extends Bundle{
+class LoadAGOutput extends Bundle with LsuConfig{
   val toDcacheArb = new Bundle{
     val data_gateclk_en = UInt(8.W)
     val data_high_idx = UInt(11.W)
@@ -177,7 +179,7 @@ class LoadAGOutput extends Bundle{
     val pipe3_preg_dup = Vec(5, UInt(7.W))
     val pipe3_vload_inst_vld = Bool()
     val pipe3_vreg_dup = Vec(4, UInt(7.W))
-    val ag_wait_old = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+    val ag_wait_old = Vec(LSIQ_ENTRY, Bool())
     val ag_wait_old_gateclk_en = Bool()
   }
   val toMMU = new Bundle{
@@ -194,7 +196,7 @@ class LoadAGIO extends Bundle{
   val out = Output(new LoadAGOutput)
 }
 
-class LoadAG extends Module {
+class LoadAG extends Module with LsuConfig{
   val io = IO(new LoadAGIO)
 
   //Reg
@@ -402,7 +404,7 @@ class LoadAG extends Module {
 
   ld_ag_va := Mux(ld_ag_va_plus_sel, ld_ag_va_plus, ld_ag_va_ori)
 
-  io.out.toDC.vpn := ld_ag_va(LSUConfig.PA_WIDTH-1, 12)
+  io.out.toDC.vpn := ld_ag_va(PA_WIDTH-1, 12)
 
   //==========================================================
   //                Generate inst type
@@ -447,10 +449,10 @@ class LoadAG extends Module {
   //----------------generate unalign--------------------------
   //-----------unalign--------------------
   val ld_ag_align =
-    ld_ag_data.inst_size === LSUConfig.BYTE.U  ||
-    ld_ag_data.inst_size === LSUConfig.HALF.U  && ld_ag_va_ori(0) === 0.U   ||
-    ld_ag_data.inst_size === LSUConfig.WORD.U  && ld_ag_va_ori(1,0) === 0.U ||
-    ld_ag_data.inst_size === LSUConfig.DWORD.U && ld_ag_va_ori(2,0) === 0.U
+    ld_ag_data.inst_size === BYTE.U  ||
+    ld_ag_data.inst_size === HALF.U  && ld_ag_va_ori(0) === 0.U   ||
+    ld_ag_data.inst_size === WORD.U  && ld_ag_va_ori(1,0) === 0.U ||
+    ld_ag_data.inst_size === DWORD.U && ld_ag_va_ori(2,0) === 0.U
 
   val ld_ag_unalign = !ld_ag_align
 
@@ -562,7 +564,7 @@ class LoadAG extends Module {
   val ld_ag_addr0 = ld_ag_pa
 
   // used for boundary inst acceleration
-  io.out.toDC.addr1_to4 := ld_ag_va_ori(LSUConfig.PA_WIDTH-1,4)
+  io.out.toDC.addr1_to4 := ld_ag_va_ori(PA_WIDTH-1,4)
 
   val ld_ag_acclr_en = ld_ag_boundary &&
                        !ld_ag_4k_sum_ori(12) &&
@@ -786,10 +788,10 @@ class LoadAG extends Module {
   //        Generate restart/lsiq signal
   //==========================================================
   //-----------lsiq signal----------------
-  val ld_ag_mask_lsid = Mux(ld_ag_inst_vld, ld_ag_data.lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  val ld_ag_mask_lsid = Mux(ld_ag_inst_vld, ld_ag_data.lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
 
   io.out.toIDU.ag_wait_old_gateclk_en := ld_ag_atomic_no_cmit_restart_arb
-  io.out.toIDU.ag_wait_old := Mux(ld_ag_atomic_no_cmit_restart_arb, ld_ag_mask_lsid, VecInit(Seq.fill(LSUConfig.LSIQ_ENTRY)(false.B)))
+  io.out.toIDU.ag_wait_old := Mux(ld_ag_atomic_no_cmit_restart_arb, ld_ag_mask_lsid, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
 
   //==========================================================
   //        for idu timing

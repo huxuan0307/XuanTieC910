@@ -1,4 +1,4 @@
-package Core.IU.Csr.Define
+package Core.IU.Cp0.Define
 
 import chisel3.{Bool, UInt, Vec, fromStringToLiteral}
 
