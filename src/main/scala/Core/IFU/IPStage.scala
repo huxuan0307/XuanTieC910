@@ -2,7 +2,7 @@ package Core.IFU
 import Utils.UIntToMask
 import Core.{Config, CoreBundle}
 import chisel3._
-import chisel3.util._
+import chisel3.util.{Cat, _}
 
 class IPStage extends Module with Config {
   val io = IO(new IPStageIO)
@@ -22,19 +22,22 @@ class IPStage extends Module with Config {
 ))
 
   val inst_32 = Wire(Vec(8,Bool()))
+  val pc      = Wire(Vec(8,UInt(VAddrBits.W)))
   for(i <- 0 until 8){
     inst_32(i) := io.icache_resp.bits.inst_data(i)(1,0) === "b11".U
-
+    pc(i)      := Cat(io.pc(VAddrBits-1,4),i.U)
   }
 
   //last half inst
   val h0_valid     = RegInit(false.B)
   val h0_data      = RegInit(0.U(16.W))
   val h0_predecode = RegInit(0.U(4.W))
+  val h0_pc        = RegInit(0.U(VAddrBits.W))
   val h0_br    = h0_valid && h0_predecode(2)
   val h0_ab_br = h0_valid && h0_predecode(3)
   h0_data      := RegNext(io.icache_resp.bits.inst_data(7))
   h0_predecode := RegNext(io.icache_resp.bits.predecode(7))
+  h0_pc        := RegNext(pc(7))
 
 
   //predecode
@@ -125,7 +128,8 @@ class IPStage extends Module with Config {
   val pcall   = ipdecode.io.decode_info.call.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val preturn = ipdecode.io.decode_info.ret.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val jalr    = ipdecode.io.decode_info.jalr.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
-
+  val jal     = ipdecode.io.decode_info.jal.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
+  val dst     = ipdecode.io.decode_info.dst_vld.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val chgflw_after_head = Mux(bht_pre_result(1), chgflw | con_br, chgflw) & pc_mask9 //take bht predict con_br result
   val chgflw_mask_pre = PriorityMux(Seq(
     chgflw_after_head(0) -> "b0000_0001_1".U,
@@ -144,6 +148,8 @@ class IPStage extends Module with Config {
   val pcall_vld   = chgflw_vld_mask & pcall
   val preturn_vld = chgflw_vld_mask & preturn
   val ind_vld     = chgflw_vld_mask & jalr & !preturn
+  val jal_vld     = chgflw_vld_mask & jal
+  val jalr_vld    = chgflw_vld_mask & jalr
   val push_pc_vec = Wire(Vec(8+1,UInt(VAddrBits.W)))
   push_pc_vec(0) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 2.U  //inst 32
   push_pc_vec(8) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 16.U // inst 16
@@ -243,4 +249,11 @@ class IPStage extends Module with Config {
   io.out.bits.h0_predecode := h0_predecode
   io.out.bits.inst_32_9    := Cat(inst_32.asUInt(),1.U(1.W)) & bry9
   io.out.bits.chgflw_vld_mask := chgflw_vld_mask
+  io.out.bits.h0_pc         := h0_pc
+  io.out.bits.cur_pc        := pc
+
+  io.out.bits.jal  := jal_vld(7,0)
+  io.out.bits.jalr := jal_vld(7,0)
+  io.out.bits.con_br := con_br_vld(7,0)
+  io.out.bits.dst  := dst(7,0)
 }

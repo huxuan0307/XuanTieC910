@@ -93,6 +93,12 @@ class IP2IB extends CoreBundle {
   val h0_predecode = UInt(4.W)
   val inst_32_9 = UInt(9.W)
   val chgflw_vld_mask = UInt(9.W)
+  val h0_pc     = UInt(VAddrBits.W)
+  val cur_pc    = Vec(8,UInt(VAddrBits.W))
+  val jal       = UInt(8.W)
+  val jalr       = UInt(8.W)
+  val con_br       = UInt(8.W)
+  val dst       = UInt(8.W)
 }
 
 class IPStageIO extends  CoreBundle {
@@ -152,7 +158,7 @@ class PCfifoIO extends Bundle {
 class PCfifo_iu extends Bundle with Config {
   val target_pc = UInt(PcWidth.W)
   val h0_vld    = Bool()
-  val cur_pc    = UInt(PcWidth.W)
+  val cur_pc    = Vec(9, UInt(PcWidth.W))
   val pc_oper   = UInt(8.W)
   val jal       = UInt(8.W)
   val jalr      = UInt(8.W)
@@ -191,5 +197,5 @@ class IFUIO extends CoreBundle {
   val bpu_update = new BPUUpdate
   val pc = Output(UInt(VAddrBits.W))
   val toROB = Output(new RobFromIfu)
-  val ifuForward = DecoupledIO(Vec(2,new BhtPredDataForward))
+  val ifuForward = Output(Vec(2,new BhtPredDataForward))
 }
