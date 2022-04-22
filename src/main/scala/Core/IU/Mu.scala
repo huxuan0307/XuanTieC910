@@ -29,14 +29,15 @@ object MDUOpType {
 }
 
 
-class MuOut extends Bundle with IUConfig {
-  val dataVld = Bool() // TODO fatal diferent, XT910 has 2 valid, in ex2 & ex3, but there only has 1 valid ,which means mu done
+class MuRegData extends Bundle with IUConfig {
+  val dataVld  = Bool() // TODO fatal diferent, XT910 has 2 valid, in ex2 & ex3, but there only has 1 valid ,which means mu done
   val preg     = UInt(7.W)
   val data     = UInt(XLEN.W)
 }
 class MUIO extends Bundle {
-  val in  = Flipped(ValidIO(new IduRfPipe1))
-  val out = ValidIO(new MuOut)
+  val in    = Input(new IduRfPipe1)
+  val sel   = Input(new unitSel)
+  val out   = Output(new MuRegData)
   val flush = Input(Bool())
 }
 
@@ -96,16 +97,16 @@ class Mu extends Module with IUConfig {
   //----------------------------------------------------------
   //               Pipe0 EX1 Instruction Data
   //----------------------------------------------------------
-  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val pipe1_en = io.sel.gateSel
   val ex1_pipe = RegEnable(io.in, pipe1_en)
-  val (src1,src2,funcOpType) = (ex1_pipe.bits.src0, ex1_pipe.bits.src1, ex1_pipe.bits.func)
+  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.func)
   val src = new MDUbit(UInt(XLEN.W))
-  val lastOp = RegEnable(funcOpType,io.in.valid)
+  val lastOp = RegEnable(funcOpType, io.sel.sel)
   //val isDiv = MDUOpType.isDiv(funcOpType)
   //val isDivSign = MDUOpType.isDivSign(funcOpType)
-  val isW = RegEnable(MDUOpType.isW(funcOpType),io.in.valid)
+  val isW = RegEnable(MDUOpType.isW(funcOpType),io.sel.sel)
   def isMinus(x:UInt):Bool = x(XLEN-1)  //通过补码判断是否为负数
-  mul.io.in.valid   := io.in.valid    //如果是乘法则进入
+  mul.io.in.valid   := io.sel.sel   //如果是乘法则进入
   mul.io.flush := io.flush
   val (resMinus:Bool) = RegEnable(LookupTree(funcOpType, List(
     MDUOpType.mul     ->   (isMinus(src1) ^ isMinus(src2)),
@@ -113,7 +114,7 @@ class Mu extends Module with IUConfig {
     MDUOpType.mulhsu  ->   isMinus(src1),
     MDUOpType.mulhu   ->   false.B,
     MDUOpType.mulw    ->   (isMinus(src1) ^ isMinus(src2))
-  )),io.in.valid)
+  )),io.sel.sel)
   //  val (mul.io.in.bits) = LookupTree(funcOpType, List(
   //    MDUOpType.mul     ->   (src1, src2),
   //    MDUOpType.mulh    ->   (src.single(src1), src.single(src2)),
@@ -146,10 +147,10 @@ class Mu extends Module with IUConfig {
   //==========================================================
   //                        Result
   //==========================================================
-  io.out.bits.data     := Mux(isW, SignExt(res(31,0), 64), res)//all val about out need RegEnable
-  io.out.bits.dataVld := mul.io.out.valid
-  io.out.bits.preg     := ex1_pipe.bits.dstPreg
-  io.out.valid         := mul.io.out.valid//RegNext(io.in.valid && !io.flush) && mul.io.out.valid //做了冗余
+  io.out.data     := Mux(isW, SignExt(res(31,0), 64), res)//all val about out need RegEnable
+  io.out.dataVld  := mul.io.out.valid   //RegNext(io.in.valid && !io.flush) && mul.io.out.valid //做了冗余
+  io.out.preg     := ex1_pipe.dstPreg
+
   //  printf("MU0v in.valid %d pc %x instr %x, io.out %d %x %x\n",io.in.valid,io.in.bits.uop.cf.pc,io.in.bits.uop.cf.instr,io.out.valid,io.out.bits.uop.cf.pc,io.out.bits.uop.cf.instr)
   //  printf("MU1in src1 %d src2 %d, funcOpType %d,lastOp %d\n",src1,src2,funcOpType,lastOp)
   //  printf("MU2S out.valid %d resU %d resS %d outres %d\n",mul.io.out.valid,mul.io.out.bits,res1,io.out.bits.res)

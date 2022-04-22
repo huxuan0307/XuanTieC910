@@ -1,21 +1,21 @@
 package Core.IU.Du
 
-import Core.IU.IduRfPipe0
+import Core.IU.{IduRfPipe0, unitSel}
 import Core.{IUConfig, MDUOpType}
 import Utils.{HasCircularQueuePtrHelper, LookupTree, SignExt, ZeroExt}
 import chisel3._
 import chisel3.util._
-class DuOut extends Bundle {
+class DuRegData extends Bundle {
   val pipe0DataVld = Bool()
   val preg = UInt(7.W)
   val data = UInt(64.W)
 }
 
 class DuIO extends Bundle {
-  val in  = Flipped(DecoupledIO(new IduRfPipe0))
-  val out = ValidIO(new DuOut)
+  val in    = Input(new IduRfPipe0)
+  val sel   = Input(new unitSel)
+  val out   = Output(new DuRegData)
   val flush = Input(Bool())//l/d会改变数据，所以必须确认存在分支的位置，需要补充一个predict.ROBIdx，而其它EXU只需关注是否在mispred.ROBIdx之后
-  val mispred_robPtr = Input(UInt(5.W))
   //val DivIdle = Output(Bool())
 }
 
@@ -113,20 +113,20 @@ class Radix8Divider(len: Int = 64) extends Module {
 class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   val io   = IO(new DuIO)
   val div  = Module(new Radix8Divider(XLEN))
-  val pipe1_en = WireInit(true.B) // TODO add gate_sel
+  val pipe1_en = io.sel.gateSel
   //----------------------------------------------------------
   //               Pipe0 EX1 Instruction Data
   //----------------------------------------------------------
   val ex1_pipe = RegEnable(io.in, pipe1_en)
-  val (src1,src2,funcOpType) = (ex1_pipe.bits.src0, ex1_pipe.bits.src1, ex1_pipe.bits.func)
+  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.func)
   val isDiv = RegInit(false.B)
-  val isW = RegInit(false.B)
+  val isW   = RegInit(false.B)
   val isDivSign = RegInit(false.B)
   val isRem = RegInit(false.B)
   val src = new MDUbit(UInt(XLEN.W))
   //val ROBIdx = Reg(new ROBPtr)
-  val iid  = RegEnable(io.in.bits.iid,io.in.fire)
-  when(io.in.fire){
+  val iid  = RegEnable(io.in.iid, io.sel.sel)
+  when(io.sel.sel){
     isDiv     := MDUOpType.isDiv(funcOpType)
     isW       := MDUOpType.isW(funcOpType)
     isDivSign := MDUOpType.isDivSign(funcOpType)
@@ -137,12 +137,12 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   def isMinus64(x:UInt):Bool = x(XLEN-1)  //通过补码判断是否为负数
   def isMinus32(x:UInt):Bool = x(32-1)
 
-  div.io.in.valid := io.in.valid
+  div.io.in.valid := io.sel.sel
   div.io.flush := io.flush// TODO rob ptr judge && isAfter(iid,io.mispred_robPtr)
 
   val quotMinus = RegInit(false.B)
   val remMinus = RegInit(false.B)
-  when(io.in.fire()){
+  when(io.sel.sel){
     quotMinus := LookupTree(funcOpType, List(
       MDUOpType.div     ->   (isMinus64(src1) ^ isMinus64(src2)),
       MDUOpType.divu    ->   false.B,
@@ -182,7 +182,7 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
 
   div.io.in.bits(0) := dividend_abs//divInputFunc(src1)//
   div.io.in.bits(1) := divisor_abs//divInputFunc(src2)//
-  val divby0 = RegEnable(divisor_abs===0.U,io.in.fire())
+  val divby0 = RegEnable(divisor_abs===0.U,io.sel.sel)
   //val div0w0 = RegEnable((dividend_abs===0.U)&&(divisor_abs===0.U),io.in.fire())
   val divby0res = SignExt("b1111".U, 64)
   //val res0w0 = Mux(isW,divby0res,Cat(ZeroExt("b00".U,32),SignExt("b1111".U,32)))
@@ -196,14 +196,13 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   //io.out.bits.res := Mux(div0w0,res0w0,Mux(divby0 && !div0w0,divby0res,Mux(isDiv,quotres,remres)))
 
   //是flush当拍直接kill，不会给出div.io.out.valid
-  io.in.ready   := div.io.in.ready//为了以防万一，停一拍
+  // io.in.ready   := div.io.in.ready//为了以防万一，停一拍
   //==========================================================
   //                 Write Back to Rbus
   //==========================================================
-  io.out.bits.pipe0DataVld := div.io.out.valid
-  io.out.valid               := div.io.out.valid
-  io.out.bits.preg           := ex1_pipe.bits.dstPreg
-  io.out.bits.data           := Mux(divby0,divby0res,Mux(isRem,remres,quotres))
+  io.out.pipe0DataVld := div.io.out.valid
+  io.out.preg         := ex1_pipe.dstPreg
+  io.out.data         := Mux(divby0,divby0res,Mux(isRem,remres,quotres))
 
   //  printf("DU0v in.valid %d uop %x instr %x,  \nDU0v io.out %d %x %x\n",io.in.valid,io.in.bits.uop.cf.pc,io.in.bits.uop.cf.instr,io.out.valid,io.out.bits.uop.cf.pc,io.out.bits.uop.cf.instr)
   //  printf("DU1in src1 %d src2 %d, funcOpType %d, divby0 %d, divby0res %x,iores %x,isW %d,isDiv %d\n",src1,src2,funcOpType,divby0,divby0res,io.out.bits.res,isW,isDiv)
