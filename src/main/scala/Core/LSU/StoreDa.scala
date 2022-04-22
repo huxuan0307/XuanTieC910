@@ -1,8 +1,8 @@
 package Core.LSU
 import Core.DCacheConfig.{TAG_WIDTH, WAYS}
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.LSU.Sq.DcacheDirtyDataEn
-import Core.ROBConfig.{NumCommitEntry, IidWidth}
+import Core.LSU.Sq.{DcacheDirtyDataEn, DcacheToSqEntry, LsuDcacheInfoUpdate}
+import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
@@ -16,15 +16,7 @@ class Cp0ToStDa extends Bundle with LsuConfig{
   val lsuNsfe       = Bool()
   val yyClkEn       = Bool()
 }
-class DcacheToStDa extends Bundle with DCacheConfig{
-  val dirtyDin = UInt((OFFSET_WIDTH+1).W)
-  val dirtyGwen= Bool()
-  val dirtyWen = UInt((OFFSET_WIDTH+1).W)
-  val idx      = UInt(INDEX_WIDTH.W)
-  val tagDin   = UInt(((TAG_WIDTH+1)*WAYS).W)
-  val tagGwen  = Bool()
-  val tagWen   = UInt(2.W)
-}
+
 class LdDaToStDa extends Bundle with LsuConfig{
   val hitIdx = Bool()
 }
@@ -42,7 +34,7 @@ class RtuToStDa extends Bundle with LsuConfig{
 //----------------------------------------------------------
 class StoreDaIn extends Bundle with LsuConfig{
   val cp0In    = new Cp0ToStDa
-  val dcacheIn = new DcacheToStDa
+  val dcacheIn = new DcacheToSqEntry
   val dcIn     = new StDcToDa
   val ldDaIn   = new LdDaToStDa
   val rbIn     = new RbToStDa
@@ -58,9 +50,6 @@ class StoreDaIn extends Bundle with LsuConfig{
 //                        Output
 //==========================================================
 class StDaToCtrl extends Bundle with LsuConfig {
-  val  hpcpCacheAccess   = Bool()
-  val  hpcpCacheMiss     = Bool()
-  val  hpcpUnalignInst   = Bool()
   val  eccWakeup         = UInt(LSIQ_ENTRY.W)
   val  alreadyDa         = UInt(LSIQ_ENTRY.W)
   val  bkptaData         = UInt(LSIQ_ENTRY.W)
@@ -235,11 +224,12 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //+-----+-------+
   val st_da_dcache_tag_array   = RegInit(0.U(((TAG_WIDTH+1)*WAYS).W))
   val st_da_dcache_dirty_array = RegInit(0.U((OFFSET_WIDTH+1).W))
-  val st_da_tag_hit            = Vec(2,Bool())
+  val st_da_tag_hit            = Seq.fill(2)(RegInit(false.B))
   when(io.in.dcIn.getDcacheTagDirty){
-    st_da_dcache_tag_array  := io.in.dcIn.dcacheTagArray
-    st_da_dcache_dirty_array:= io.in.dcIn.dcacheDirtyArray
-    st_da_tag_hit           := io.in.dcIn.tagHit
+    st_da_dcache_tag_array     := io.in.dcIn.dcacheTagArray
+    st_da_dcache_dirty_array   := io.in.dcIn.dcacheDirtyArray
+    st_da_tag_hit(0)           := io.in.dcIn.tagHit(0)
+    st_da_tag_hit(1)           := io.in.dcIn.tagHit(1)
   }
   //------------------expt part-------------------------------
   //+----------+-----+-----------+
@@ -254,11 +244,11 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //------------------borrow part-----------------------------
   //+-----+-----+
   //| rcl | snq |
-  val st_da_borrow_dcache_replace = Bool()
-  val st_da_borrow_dcache_sw      = Bool()
-  val st_da_borrow_snq            = Bool()
-  val st_da_borrow_icc            = Bool()
-  val st_da_borrow_snq_id         = UInt(LSIQ_ENTRY.W)
+  val st_da_borrow_dcache_replace = RegInit(false.B)
+  val st_da_borrow_dcache_sw      = RegInit(false.B)
+  val st_da_borrow_snq            = RegInit(false.B)
+  val st_da_borrow_icc            = RegInit(false.B)
+  val st_da_borrow_snq_id         = RegInit(0.U(SNOOP_ID_WIDTH.W))
   when(!st_da_ecc_stall && io.in.dcIn.toSqDa.borrowVld){
     st_da_borrow_dcache_replace := io.in.dcIn.borrowDcacheReplace
     st_da_borrow_dcache_sw      := io.in.dcIn.borrowDcacheSw
@@ -365,14 +355,17 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //| dcwp_hit_idx | dcwp_dirty_din | dcwp_dirty_wen |
   //+--------------+----------------+----------------+
   val st_da_addr0             = RegInit(0.U(PA_WIDTH.W))
-  val st_da_dcwp_dc_hit_idx   = RegInit(Bool())
-  val st_da_dcwp_dc_dirty_din = RegInit(0.U((OFFSET_WIDTH+1).W))
-  val st_da_dcwp_dc_dirty_wen = RegInit(0.U((OFFSET_WIDTH+1).W))
+  val st_da_dcwp_dc_hit_idx   = RegInit(false.B)
+  val st_da_dcwp_dc_dirty_din = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
+  val st_da_dcwp_dc_dirty_wen = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
   when(io.in.dcIn.instVld && io.in.dcIn.toSqDa.borrowVld){
     st_da_addr0             := io.in.dcIn.toPwdDa.addr0
     st_da_dcwp_dc_hit_idx   := io.in.dcIn.dcwpHitIdx
-    st_da_dcwp_dc_dirty_din := io.in.dcacheIn.dirtyDin
-    st_da_dcwp_dc_dirty_wen := io.in.dcacheIn.dirtyWen
+    for(i<- 0 until WAYS){
+      st_da_dcwp_dc_dirty_din(i) := io.in.dcacheIn.dirtyDin.bits(i)
+      st_da_dcwp_dc_dirty_wen(i) := io.in.dcacheIn.dirtyWen.bits(i)
+    }
+
   }
   //==========================================================
   //        Generate expt info
@@ -414,8 +407,8 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //if dcache sw inst, then hit_way is static as addr[31]
   val st_da_dcache_sw_way1  = st_da_addr0(31)
   val st_da_dcache_info_vld = st_da_inst_vld && st_da_page_ca || st_da_borrow_vld
-  val st_da_dcache_valid = Vec(2,Wire(Bool()))
-  val st_da_hit_way = Vec(2,Wire(Bool()))
+  val st_da_dcache_valid = Seq.fill(2)(Wire(Bool()))
+  val st_da_hit_way = Seq.fill(2)(Wire(Bool()))
   for(i <- 0 until 2){
     st_da_dcache_valid(i) := st_da_dcache_dirty_array(i*3) && io.in.cp0In.lsuDcacheEn && st_da_dcache_info_vld
     st_da_hit_way(i)      := st_da_dcache_valid(i) && (!(st_da_dcache_sw_sel) && st_da_tag_hit(i) || st_da_dcache_sw_sel && !(st_da_dcache_sw_way1))
@@ -426,7 +419,8 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   val st_da_dcache_dirty_hit_info =  Mux(st_da_hit_way.reduce(_ || _),Mux(st_da_hit_way(0),st_da_dcache_dirty_array(2,0),st_da_dcache_dirty_array(5,3)),0.U(3.W))
   //------output dcache info for inst/snq/vb rcl(inst/icc)-------
   io.out.toVb.dirty := st_da_dcache_dirty_hit_info(2)
-  io.out.toVb.way   := Mux(st_da_dcache_sw_sel, st_da_dcache_sw_way1, st_da_hit_way(1))
+  val st_da_dcache_way  = Mux(st_da_dcache_sw_sel, st_da_dcache_sw_way1, st_da_hit_way(1))
+  io.out.toVb.way   := st_da_dcache_way
   //---------output dcache info for vb rcl line replace-------
   io.out.toVb.replaceWay   := Mux(io.out.toRb.dcacheHit, st_da_hit_way(1),st_da_dcache_dirty_array(6))
   io.out.toVb.replaceDirty := Mux(io.out.toVb.replaceWay, st_da_dcache_dirty_array(5), st_da_dcache_dirty_array(2))
@@ -439,36 +433,59 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   when(feedback_selecet === "b10".U){
     io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(25,0)
   }.elsewhen(feedback_selecet === "b11".U){
-    io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(((TAG_WIDTH+1)*WAYS),26)
+    io.out.toSq.vbFeedbackDddrTto14 := st_da_dcache_tag_array(((TAG_WIDTH+1)*WAYS-1),26)
   }.otherwise{
     io.out.toSq.vbFeedbackDddrTto14 := st_da_addr0(PA_WIDTH-1,14)
   }
   //---------------feedback dirty info to snq-----------------
   val st_da_snq_dcache_dirty_hit_info = Mux(st_da_tag_hit.reduce(_ || _),Mux(st_da_tag_hit(0),st_da_dcache_dirty_array(2,0),st_da_dcache_dirty_array(5,3)),0.U(3.W))
   io.out.toSq.snqDcacheValid := st_da_snq_dcache_dirty_hit_info(0) && io.in.cp0In.lsuDcacheEn
-  io.out.toSq.sqDcacheMesi.share  := st_da_snq_dcache_dirty_hit_info(1)
+  io.out.toSq.snqDcacheShare  := st_da_snq_dcache_dirty_hit_info(1)
   io.out.toSq.snqDcacheDirty := st_da_snq_dcache_dirty_hit_info(2)
-  io.out.toSq.snqDcacheWay   := st_da_snq_dcache_dirty_hit_info(3) && st_da_tag_hit(1)
+  io.out.toSq.snqDcacheWay   := st_da_dcache_dirty_array(3) && st_da_tag_hit(1)
   //==========================================================
   //          Dirty array update da stage for sq
   //==========================================================
   //when inst is in dc stage, then only dcache dirty array may be changed
   //when inst is in da stage, then tag & dirty array may be changed
   //-------update dirty info if index hit in dc stage---------
-  val st_da_dirty_dc_update      = Mux(st_da_dcwp_dc_hit_idx, io.in.dcacheIn.dirtyWen,0.U((OFFSET_WIDTH+1).W))
-  val st_da_dirty_dc_update_dout = (st_da_dirty_dc_update & st_da_dcwp_dc_dirty_din) | (st_da_dcache_dirty_array & (~st_da_dirty_dc_update))
-  //select cache hit info
-  val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(2,0),st_da_dirty_dc_update_dout(5,3))
-  val st_da_dcache_dc_up_dirty         = st_da_dcache_dirty_dc_up_hit_info(2)
-  val st_da_dcache_dc_up_share         = st_da_dcache_dirty_dc_up_hit_info(1)
-  val st_da_dcache_dc_up_valid         = st_da_dcache_dirty_dc_up_hit_info(0)
-  val st_da_dcache_dc_up_way           = io.out.toVb.way
+
+  val dcache_dirty_array = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
+  dcache_dirty_array(0).valid := st_da_dcache_dirty_array(0).asBool
+  dcache_dirty_array(0).dirty := st_da_dcache_dirty_array(2).asBool
+  dcache_dirty_array(0).share := st_da_dcache_dirty_array(1).asBool
+  dcache_dirty_array(1).valid := st_da_dcache_dirty_array(3).asBool
+  dcache_dirty_array(1).dirty := st_da_dcache_dirty_array(5).asBool
+  dcache_dirty_array(1).share := st_da_dcache_dirty_array(4).asBool
+  val st_da_dirty_dc_update      = io.in.dcacheIn.dirtyWen.bits
+  val st_da_dirty_dc_update_dout = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
+  for(i<- 0 until WAYS){
+    st_da_dirty_dc_update_dout(i).valid := (st_da_dirty_dc_update(i).valid && st_da_dcwp_dc_dirty_din(i).valid ) || (dcache_dirty_array(i).valid  && (!st_da_dirty_dc_update(i).valid ))
+    st_da_dirty_dc_update_dout(i).dirty := (st_da_dirty_dc_update(i).dirty && st_da_dcwp_dc_dirty_din(i).dirty ) || (dcache_dirty_array(i).dirty  && (!st_da_dirty_dc_update(i).dirty ))
+    st_da_dirty_dc_update_dout(i).share := (st_da_dirty_dc_update(i).share && st_da_dcwp_dc_dirty_din(i).share ) || (dcache_dirty_array(i).share  && (!st_da_dirty_dc_update(i).share ))
+  }
+   //select cache hit info
+  val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(0),st_da_dirty_dc_update_dout(1))
+  val st_da_dcache_dc_up = WireInit(0.U.asTypeOf((new DcacheDirtyDataEn)))
+
+  st_da_dcache_dc_up.dirty         := st_da_dcache_dirty_dc_up_hit_info.dirty && st_da_dcwp_dc_hit_idx
+  st_da_dcache_dc_up.share         := st_da_dcache_dirty_dc_up_hit_info.share && st_da_dcwp_dc_hit_idx
+  st_da_dcache_dc_up.valid         := st_da_dcache_dirty_dc_up_hit_info.valid && st_da_dcwp_dc_hit_idx
+  val st_da_dcache_dc_up_way           = st_da_dcache_way
   //-------------update dcache info in da stage---------------
-  //TODO
+  val da_dcache_info_update = Module(new LsuDcacheInfoUpdate)
+  da_dcache_info_update.io.in.compareDcwpAddr := st_da_addr0
+  da_dcache_info_update.io.in.compareDcwpSwInst := st_da_dcache_sw_inst
+  da_dcache_info_update.io.in.dcacheIn := io.in.dcacheIn
+  da_dcache_info_update.io.in.originDcacheMesi := st_da_dcache_dc_up
+  da_dcache_info_update.io.in.originDcacheWay:=st_da_dcache_dc_up_way
+  io.out.toSq.sqDcacheMesi := da_dcache_info_update.io.out.updateDcacheMesi
+  io.out.toSq.sqDcacheWay  := da_dcache_info_update.io.out.updateDcacheWay
+
   //==========================================================
   //        Generage commit signal
   //==========================================================
-  val st_da_cmit_hit = Vec(NumCommitEntry, Wire(Bool()))
+  val st_da_cmit_hit =Seq.fill(NumCommitEntry)(Wire(Bool()))
   for(i<- 0 until( NumCommitEntry)){
     st_da_cmit_hit(i) := Cat(io.in.rtuIn.commit(i),io.in.rtuIn.commitIid(i))  === Cat(true.B, st_da_iid(i))
   }
@@ -533,8 +550,16 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   io.out.toPfu.pfuEvictCntVld := io.out.toPfu.pfuPfInstVld
   //st prefetch does not support gpfb
   io.out.toPfu.ppfuVa := st_da_pfu_va
+  val st_da_ppn_ff = RegInit(0.U(PPN_WIDTH.W))
+  val st_da_page_sec_ff = RegInit(false.B)
+  val st_da_page_share_ff = RegInit(false.B)
+  when(st_da_inst_vld && st_da_st_inst){
+    st_da_ppn_ff        := st_da_addr0
+    st_da_page_sec_ff   := st_da_page_sec
+    st_da_page_share_ff := st_da_page_share
 
-  // todo @1431-1447
+  }
+
   val st_da_split_miss = st_da_inst_vld  && st_da_st_inst && st_da_page_ca &&
     io.in.cp0In.lsuDcacheEn    && st_da_split &&
     !st_da_secd && !st_da_expt_vld  && io.out.toRb.createVld
@@ -561,8 +586,8 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   val st_da_borrow_snq_vld = st_da_borrow_vld  &&  st_da_borrow_snq && !st_da_ecc_stall
   io.out.toSq.snqBorrowSnq := Mux(st_da_borrow_snq_vld,st_da_borrow_snq_id,0.U(LSIQ_ENTRY.W))
   io.out.toIcc.borrowIccVld := st_da_borrow_vld && st_da_borrow_icc
-  io.out.toIcc.tagInfo := Mux(st_da_dcache_sw_sel,st_da_dcache_dirty_array(5,3),st_da_dcache_dirty_array(2,0))
-  io.out.toIcc.tagInfo := Mux(st_da_dcache_sw_sel,st_da_dcache_tag_array(52,26),st_da_dcache_tag_array(25,0))
+  io.out.toIcc.dirtyInfo := Mux(st_da_dcache_sw_sel,st_da_dcache_dirty_array(5,3),st_da_dcache_dirty_array(2,0))
+  io.out.toIcc.tagInfo := Mux(st_da_dcache_sw_sel,st_da_dcache_tag_array(51,26),st_da_dcache_tag_array(25,0))
   //==========================================================
   //        Generate lsiq signal
   //==========================================================
@@ -611,6 +636,49 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //        Generate interface to rtu
   io.out.toRtu.splitSpecFailIid := st_da_inst_vld && !st_da_expt_vld && st_da_split && st_da_spec_fail
   io.out.toRtu.splitSpecFailVld := st_da_iid
+  //==========================================================
+  //        pipe regs out
+  //==========================================================
+
+  io.out.toPfu.pc                  := st_da_pc
+  io.out.iid                       := st_da_iid
+
+  io.out.toSq.vbTagReissue         := st_da_vb_tag_reissue
+  io.out.toSq.vbEccStall           := st_da_vb_ecc_stall
+  io.out.toSq.vbEccErr             := st_da_vb_ecc_err
+
+  io.out.toSq.wbVstartVld          := st_da_wb_vstart_vld
+  io.out.toSq.wb.exptVld           := st_da_wb_expt_vld
+  io.out.toSq.wb.mtValue           := st_da_mt_value
+  io.out.toSq.snqEccErr            := st_da_snq_ecc_err
+  io.out.toSq.secd                 := st_da_secd
+  io.out.toSq.syncInst             := st_da_sync_inst
+
+
+
+
+  io.out.bkptaData                 := st_da_bkpta_data
+  io.out.bkptbData                 := st_da_bkptb_data
+
+  io.out.toPfu.ppnFf               := st_da_ppn_ff
+  io.out.toPfu.pageSecFf           := st_da_page_sec_ff
+  io.out.toPfu.pageShareFf         := st_da_page_share_ff
+
+
+  io.out.toCtrl.eccWakeup          := 0.U(LSIQ_ENTRY)
+
+  io.out.toRb.instSize             := st_da_inst_size
+  io.out.toRb.fenceMode            := st_da_fence_mode
+  io.out.toRb.fenceInst            := st_da_fence_inst
+
+
+  io.out.toRb.pageCa               := st_da_page_ca
+  io.out.toRb.pageSo               := st_da_page_so
+  io.out.toRb.pageSec              := st_da_page_sec
+  io.out.toRb.pageShare            := st_da_page_share
+  io.out.toRb.pageBuf              := st_da_page_buf
+
+  io.out.toRb.old                  := st_da_old
 
 
 

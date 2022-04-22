@@ -94,13 +94,16 @@ trait IUConfig {
 
 trait LsuConfig{
   def PA_WIDTH = 40
+  def VPN_WIDTH = 28
+  def PPN_WIDTH = 28
   def FENCE_MODE_WIDTH = 4
   def INST_CODE_WIDTH = 32
   def INST_MODE_WIDTH = 2
   def INST_SIZE_WIDTH = 2
   def INST_TYPE_WIDTH = 2
+
   def LSU_PC_WIDTH = 15 //@ ct_lst_st_ag.v  534  parameter PC_LEN = 15;
-  def SDIQ_ENYTY_ADDR = 12
+
   def SHITF_WIDTH = 4
 
   def ADDR_PA_WIDTH = 28
@@ -110,11 +113,12 @@ trait LsuConfig{
   def BYTES_ACCESS_WIDTH = 16
   def ROT_SEL_WIDTH = 4
   def ROT_SEL_WIDTH_8 = 8
-  def LSIQ_ENTRY = 12
-  def VPN_WIDTH = 28
+
+  def LSIQ_ENTRY  = 12
+  def LQ_ENTRY    = 16
+  def SQ_ENTRY    = 12
 
   def SNOOP_ID_WIDTH = 6
-
   def SDID_WIDTH = log2Up(LSIQ_ENTRY)
 
   //def DCACHE_DIRTY_ARRAY_WITDH = 7

@@ -3,7 +3,8 @@ import Core.DCacheConfig.{LINE_SIZE, TAG_WIDTH}
 import Core.IUConfig.{MPPWidth, XLEN}
 import Core.LsuAccessSize.{word, _}
 import Core.{DCacheConfig, LsuConfig, ROBConfig}
-import Core.ROBConfig.{NumCommitEntry, IidWidth}
+import Core.ROBConfig.{IidWidth, NumCommitEntry}
+import Core.RTU.CompareIid
 import Utils.{LookupTree, sext}
 import chisel3._
 import chisel3.util._
@@ -260,27 +261,30 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //+--------+
   //if the 1st time boundary 2nd instruction stall, the offset set 16 for bias, else
   //if stall, it set to 0, cache stall will not change offset
-  val st_ag_offset = Reg(UInt(XLEN.W))
+  val st_ag_offset = Wire(UInt(XLEN.W))
+  val st_ag_offset_h = Reg(UInt((XLEN/2).W))
+  val st_ag_offset_l = Reg(UInt((XLEN/2).W))
   val st_ag_cross_page_str_imme_stall_arb = Wire(Bool())
   val st_ag_str_imme_stall  = Wire(Bool())
   when(st_ag_cross_page_str_imme_stall_arb){
-    st_ag_offset(XLEN-1,XLEN/2) := 0.U(32.W)
+    st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str){
-    st_ag_offset(XLEN-1,XLEN/2) := Cat(Fill(XLEN/2, io.in.rfIn.shift(SHITF_WIDTH-1)))
+    st_ag_offset_h := Cat(Fill(XLEN/2, io.in.rfIn.shift(SHITF_WIDTH-1)))
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str && st_rf_off_0_extend){
-    st_ag_offset(XLEN-1,XLEN/2) := 0.U(32.W)
+    st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
-    st_ag_offset(XLEN-1,XLEN/2) := io.in.rfIn.src1(XLEN-1,XLEN/2)
+    st_ag_offset_h := io.in.rfIn.src1(XLEN-1,XLEN/2)
   }
   when(st_ag_cross_page_str_imme_stall_arb && st_ag_str_imme_stall){
-    st_ag_offset(XLEN/2-1,0) := 16.U(32.W)
+    st_ag_offset_l := 16.U(32.W)
   }.elsewhen(st_ag_cross_page_str_imme_stall_arb){
-    st_ag_offset(XLEN/2-1,0) := 0.U(32.W)
+    st_ag_offset_l := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld  &&  !st_rf_inst_str){
-    st_ag_offset(XLEN/2-1,0) := sext(XLEN/2,io.in.rfIn.shift)
+    st_ag_offset_l := sext(XLEN/2,io.in.rfIn.shift)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
-    st_ag_offset(XLEN/2-1,0) := io.in.rfIn.src1(XLEN/2-1,0)
+    st_ag_offset_l := io.in.rfIn.src1(XLEN/2-1,0)
   }
+  st_ag_offset := Cat(st_ag_offset_h,st_ag_offset_l)
   //+-------------+
   //| offset_plus |
   //+-------------+
@@ -309,7 +313,8 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   // for first boundary inst, use addr+offset+128 as va instead of addr+offset
   // for secd boundary,use addr+offset as va
-  val st_ag_secd = Wire(Bool())
+  val st_ag_secd = RegInit(false.B)
+  st_ag_secd := ag_pipe.unalign2nd
   val st_ag_offset_aftershift = st_ag_offset << OHToUInt(st_ag_offset)
   val st_ag_va_ori            = st_ag_base  + st_ag_offset_aftershift
   val st_ag_va_plus           = st_ag_base  + sext(XLEN,st_ag_offset_plus)
@@ -501,7 +506,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   //        Generage stall/restart signal
   //==========================================================
-  val st_ag_cmit_hit = Vec(NumCommitEntry,Wire(Bool()))
+  val st_ag_cmit_hit = Seq.fill(NumCommitEntry)(Wire(Bool()))
   for(i <- 0 until  NumCommitEntry){
     st_ag_cmit_hit(i) := Cat(io.in.rtuIn.commit(i),io.in.rtuIn.iid(i)) === Cat(1.U(1.W),ag_pipe.iid)
   }
@@ -509,6 +514,8 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
     case hit => hit === true.B
   }.reduce(_ || _)
   val st_ag_atomic_no_cmit_restart_req = st_ag_inst_vld && st_ag_stamo_inst && !st_ag_cmit
+  val st_ag_dcache_stall_unmask = !io.in.dcacheIn.sel
+  st_ag_dcache_stall_req := st_ag_dcache_stall_unmask && st_ag_inst_vld
   //==========================================================
   //        Generage stall/restart signal
   //==========================================================
@@ -527,7 +534,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //only str will trigger secd stall, and will stall at the first split
   val st_ag_boundary_stall = ag_pipe.instStr && st_ag_secd
   st_ag_str_imme_stall := st_ag_boundary_stall && !(st_ag_already_cross_page_str_imme)
-  val st_ag_dcache_stall_unmask = !io.in.dcacheIn.sel
+
   st_ag_cross_page_str_imme_stall_req := (st_ag_cross_4k || st_ag_str_imme_stall) && !st_ag_expt_misalign_no_page && st_ag_inst_vld && ag_pipe.mmuReq
   //-----------arbiter----------------------------------------
   //prioritize:
@@ -544,6 +551,11 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   st_ag_stall_vld := st_ag_stall_ori && !st_ag_stall_mask
   val st_ag_stall_restart = st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || ag_pipe.mmuReq || st_ag_atomic_no_cmit_restart_req
   val iid_is_old = Wire(Bool())// TODO add iid compare
+  val st_ag_iid_compare = Module(new CompareIid)
+  st_ag_iid_compare.io.iid0 := io.in.rfIn.iid
+  st_ag_iid_compare.io.iid1 := ag_pipe.iid
+  iid_is_old := st_ag_iid_compare.io.older
+
   st_ag_stall_mask := io.in.rfIn.sel && iid_is_old
   io.out.toDc.stallRestartEntry := Mux(st_ag_stall_mask,ag_pipe.lchEntry,io.in.rfIn.lchEntry)
   //==========================================================
@@ -556,8 +568,42 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   //        Generage to DC stage signal
   //==========================================================
-  io.out.toDc.instVld     := st_ag_inst_vld && !st_ag_stall_restart
+  io.out.toDc.dcInstVld   := st_ag_inst_vld && !st_ag_stall_restart
   io.out.toDc.dcMmuReq    := ag_pipe.mmuReq && !io.out.toMmu.abort1
   io.out.toDc.dcPageShare := ag_pipe.instShare || st_ag_page_share && (ag_pipe.mmuReq || st_ag_stamo_inst)
   io.out.toDc.dcAddr0     := Mux(io.in.dcacheIn.borrowAddrVld,io.in.dcacheIn.addr,st_ag_addr)
+  io.out.toDc.dcBytesVld    := st_ag_dc_bytes_vld
+  //==========================================================
+  //         Pipe regs to out
+  //==========================================================
+  io.out.toDc.lsiqBkptaData := ag_pipe.bkptaData
+  io.out.toDc.lsiqBkptbData := ag_pipe.bkptbData
+  io.out.toDc.secd          := st_ag_secd
+  io.out.toDc.st            := ag_pipe.st
+  io.out.toDc.boundary      := st_ag_boundary
+  io.out.toDc.noSpec        := ag_pipe.noSpec
+  io.out.toDc.instFlush     := ag_pipe.instFlush
+  io.out.toDc.instMode      := ag_pipe.instMode
+  io.out.toDc.fenceMode     := ag_pipe.fenceMode
+  io.out.toDc.instType      := ag_pipe.instType
+  io.out.toDc.syncFence     := ag_pipe.syncFence
+  io.out.toDc.instVld       := st_ag_inst_vld
+  io.out.toDc.pc            := ag_pipe.pc
+  io.out.toDc.lsid          := ag_pipe.lchEntry
+  io.out.toDc.sdidOh        := ag_pipe.sdiqEntry
+  io.out.toDc.iid           := ag_pipe.iid
+  io.out.toDc.staddr        := ag_pipe.staddr
+  io.out.toDc.icc           := ag_pipe.icc
+  io.out.toDc.atomic        := ag_pipe.atomic
+  io.out.toDc.lsiqSpecFail  := ag_pipe.specFail
+  io.out.toDc.split         := ag_pipe.split
+  io.out.toDc.old           := ag_pipe.oldest
+  io.out.toDc.lsfifo        := ag_pipe.lsfifo
+  io.out.toDc.alreadyDa     := ag_pipe.alreadyDa
+
+  io.out.rfVld              := st_rf_inst_vld
+  io.out.toDc.utlbMiss      := st_ag_utlb_miss
+  io.out.toDc.dcRotSel      := st_ag_dc_rot_sel
+  io.out.toDc.stallOri      := st_ag_stall_ori
+
 }

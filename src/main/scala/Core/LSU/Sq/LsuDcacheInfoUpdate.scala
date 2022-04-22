@@ -91,4 +91,6 @@ class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   io.out.updateDcacheMesi.share := Mux(compare_dcwp_update_vld,update_dcache_share_new ,io.in.originDcacheMesi.share)
   io.out.updateDcacheMesi.valid := Mux(compare_dcwp_update_vld,update_dcache_valid_new ,io.in.originDcacheMesi.valid)
   io.out.updateDcacheWay   := Mux(compare_dcwp_update_vld,update_dcache_way_new   ,io.in.originDcacheWay)
+
+  io.out.compareDcwpUpdateVld := compare_dcwp_hit_up_vld || compare_dcwp_miss_up_vld ||  compare_dcwp_sw_up_vld
 }

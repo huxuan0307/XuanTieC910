@@ -1,11 +1,11 @@
 package Core.LSU
 import Core.DCacheConfig.INDEX_WIDTH
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.ROBConfig.{NumCommitEntry, IidWidth}
+import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
-import firrtl.Utils.False
+import firrtl.Utils.{False, splitRef}
 //==========================================================
 //                        Input
 //==========================================================
@@ -260,15 +260,15 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   //| so | ca | wa | buf | sec | share |
   //+----+----+----+-----+-----+-------+
   val st_dc_expt_vld_except_access_err = RegInit(false.B)
-  val st_dc_vpn                        = RegInit(UInt(PA_WIDTH.W))
+  val st_dc_vpn                        = RegInit(0.U(PA_WIDTH.W))
   val st_dc_split                      = RegInit(false.B)
   val st_dc_sync_fence                 = RegInit(false.B)
-  val st_dc_fence_mode                 = RegInit(UInt(FENCE_MODE_WIDTH.W))
+  val st_dc_fence_mode                 = RegInit(0.U(FENCE_MODE_WIDTH.W))
   val st_dc_icc                        = RegInit(false.B)
   val st_dc_inst_flush                 = RegInit(false.B)
-  val st_dc_inst_type                  = RegInit(UInt(INST_TYPE_WIDTH.W))
-  val st_dc_inst_size                  = RegInit(UInt(INST_SIZE_WIDTH.W))
-  val st_dc_inst_mode                  = RegInit(UInt(INST_MODE_WIDTH.W))
+  val st_dc_inst_type                  = RegInit(0.U(INST_TYPE_WIDTH.W))
+  val st_dc_inst_size                  = RegInit(0.U(INST_SIZE_WIDTH.W))
+  val st_dc_inst_mode                  = RegInit(0.U(INST_MODE_WIDTH.W))
   val st_dc_st                         = RegInit(false.B)
   val st_dc_secd                       = RegInit(false.B)
   val st_dc_already_da                 = RegInit(false.B)
@@ -276,12 +276,12 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   val st_dc_lsiq_bkpta_data            = RegInit(false.B)
   val st_dc_lsiq_bkptb_data            = RegInit(false.B)
   val st_dc_atomic                     = RegInit(false.B)
-  val st_dc_iid                        = RegInit(UInt(IidWidth.W))
-  val st_dc_lsid                       = RegInit(UInt(LSIQ_ENTRY.W))
-  val st_dc_sdid_oh                    = RegInit(UInt(LSIQ_ENTRY.W))
+  val st_dc_iid                        = RegInit(0.U(IidWidth.W))
+  val st_dc_lsid                       = RegInit(0.U(LSIQ_ENTRY.W))
+  val st_dc_sdid_oh                    = RegInit(0.U(LSIQ_ENTRY.W))
   val st_dc_old                        = RegInit(false.B)
-  val st_dc_bytes_vld                  = RegInit(UInt(BYTES_ACCESS_WIDTH.W))
-  val st_dc_rot_sel                    = RegInit(UInt(ROT_SEL_WIDTH.W))
+  val st_dc_bytes_vld                  = RegInit(0.U(BYTES_ACCESS_WIDTH.W))
+  val st_dc_rot_sel                    = RegInit(0.U(ROT_SEL_WIDTH.W))
   val st_dc_boundary                   = RegInit(false.B)
   val st_dc_page_so                    = RegInit(false.B)
   val st_dc_page_ca                    = RegInit(false.B)
@@ -293,7 +293,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   val st_dc_tlb_busy                   = RegInit(false.B)
   val st_dc_no_spec                    = RegInit(false.B)
   val st_dc_staddr                     = RegInit(false.B)
-  val st_dc_pc                         = RegInit(UInt(LSU_PC_WIDTH.W))
+  val st_dc_pc                         = RegInit(0.U(LSU_PC_WIDTH.W))
   val st_dc_lsfifo                     = RegInit(false.B)
   when(io.in.agIn.instVld){
     st_dc_expt_vld_except_access_err := io.in.agIn.exptVld
@@ -333,8 +333,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
     st_dc_pc                         := io.in.agIn.pc
     st_dc_lsfifo                     := io.in.agIn.lsfifo
   }
-  io.out.toSq.iid := st_dc_iid
-  io.out.toSq.bytesVld := st_dc_bytes_vld
+
   //------------------inst/borrow share part------------------
   //+-------+
   //| addr0 |
@@ -353,7 +352,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   val st_dc_pfu_va  = Cat(st_dc_vpn(PA_WIDTH-13,0),st_dc_addr0(OFFSET_WIDTH-1,0))
   //Generage pfu signal
   val st_dc_st_inst = Wire(Bool())
-  val st_dc_vector_nop = Wire(false.B)
+  val st_dc_vector_nop = false.B
   val st_dc_pf_inst = st_dc_inst_vld && st_dc_st_inst && !st_dc_vector_nop && st_dc_lsfifo && st_dc_page_ca && io.in.cp0In.l2StPrefEn && !st_dc_split && !st_dc_secd
   //==========================================================
   //        Exception generate
@@ -391,11 +390,11 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   //==========================================================
   //                  get commit hit signal
   //==========================================================
-  val st_dc_cmit_hit = Vec(NumCommitEntry,Wire(Bool()))
+  val st_dc_cmit_hit = Seq.fill(NumCommitEntry)(Wire(Bool()))
   for(i <- 0 until  NumCommitEntry){
     st_dc_cmit_hit(i) := io.in.rtuIn.commitIidUpdata(i) === st_dc_iid
   }
-  io.out.toSq.sdidHit := st_dc_cmit_hit
+  io.out.toSq.cmitIidCrtHit := st_dc_cmit_hit
   //==========================================================
   //                      encode sdid
   //==========================================================
@@ -430,6 +429,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   val st_dc_sq_data_vld          = st_dc_inst_vld && !st_dc_staddr
   //----------------success signal----------------------------
   val st_dc_boundary_first  = st_dc_boundary && !st_dc_secd
+  io.out.toSq.boundaryFirst := st_dc_boundary_first
   //==========================================================
   //        Generate check signal to lq/ld_dc stage
   //==========================================================
@@ -496,7 +496,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   io.out.toDa.dcacheTagArray := io.in.dcacheIn.lsuStTagDout
   io.out.toDa.dcacheDirtyArray := io.in.dcacheIn.lsuStDirtyDout
   for(i <- 0 until 2){
-    io.out.toDa.tagHit := st_dc_addr0(PA_WIDTH-1,OFFSET_WIDTH+INDEX_WIDTH) === io.in.dcacheIn.lsuStTagDout(25+26*i,26*i)
+    io.out.toDa.tagHit(i) := st_dc_addr0(PA_WIDTH-1,OFFSET_WIDTH+INDEX_WIDTH) === io.in.dcacheIn.lsuStTagDout(25+26*i,26*i)
   }
   //==========================================================
   //        Generage lsiq signal
@@ -508,5 +508,67 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   //==========================================================
   //        for mmu power
   //==========================================================
-  io.out.toMmu := st_dc_vpn
+  io.out.toMmu.vabuf1 := st_dc_vpn
+  //==========================================================
+  //        pipe regs out
+  //==========================================================
+
+  io.out.toSq.iid := st_dc_iid
+  io.out.toSq.bytesVld := st_dc_bytes_vld
+  io.out.toDa.st := st_dc_st
+  io.out.toDa.toSqDa.instType := st_dc_inst_type
+  io.out.toDa.specFail :=st_dc_spec_fail
+  io.out.toSq.sqDataVld := st_dc_sq_data_vld
+  io.out.toDa.noSpec := st_dc_no_spec
+  io.out.toDa.pfuVa := st_dc_pfu_va
+  io.out.toDa.toSqDa.icc := st_dc_icc
+  io.out.toDa.toSqDa.borrowVld := st_dc_borrow_vld
+  io.out.toDa.toSqDa.syncFence := st_dc_sync_fence
+
+  io.out.toDa.exptAccessFaultExtra := st_dc_expt_access_fault_extra
+  io.out.toDa.exptAccessFaultMask := st_dc_expt_access_fault_mask
+  io.out.toDa.exptVldExceptAccessErr := st_dc_expt_vld_except_access_err
+  io.out.toDa.exptVldGateEn := st_dc_da_expt_vld_gate_en
+
+  io.out.toDa.borrowDcacheReplace := st_dc_borrow_dcache_replace
+  io.out.toDa.borrowDcacheSw := st_dc_borrow_dcache_sw
+
+  io.out.toDa.borrowSnq := st_dc_borrow_snq
+  io.out.toDa.borrowSnqId := st_dc_borrow_snq_id
+
+  io.out.toSq.woStInst := st_dc_wo_st_inst
+
+  io.out.toSq.sqCreateDpVld := st_dc_sq_create_dp_vld
+  io.out.toSq.sqCreateVld   := st_dc_sq_create_vld
+  io.out.toSq.sqCreateGateclkEn := st_dc_sq_create_gateclk_en
+  io.out.toSq.sqFullGateclkEn := st_dc_sq_full_gateclk_en
+
+  io.out.toDa.toSqDa.fenceMode:= st_dc_fence_mode
+  io.out.toDa.toSqDa.instSize := st_dc_inst_size
+  io.out.toDa.toSqDa.instType := st_dc_inst_type
+  io.out.toDa.toSqDa.instMode := st_dc_inst_mode
+  io.out.toDa.toSqDa.boundary := st_dc_boundary
+  io.out.toSq.instFlush := st_dc_inst_flush
+
+  io.out.toDa.toPwdDa.iid := st_dc_iid
+  io.out.toDa.toPwdDa.instVld := st_dc_inst_vld
+  io.out.toDa.toPwdDa.bytesVld := st_dc_bytes_vld
+
+
+  io.out.toDa.borrowIcc := st_dc_borrow_icc
+  io.out.toDa.toSqDa.pageSec := st_dc_page_sec
+  io.out.toDa.bkptbData := st_dc_bkptb_data
+  io.out.toDa.bkptaData := st_dc_bkpta_data
+  io.out.toDa.alreadyDa := st_dc_already_da
+  io.out.toDa.lsid := st_dc_lsid
+
+  io.out.toDa.vectorNop := st_dc_vector_nop
+  io.out.toDa.pc  := st_dc_pc
+  io.out.toDa.toSqDa.old := st_dc_old
+  io.out.toDa.toSqDa.atomic := st_dc_atomic
+
+  io.out.toDa.pfInst := st_dc_pf_inst
+  io.out.toDa.mmuReq := st_dc_mmu_req
+  io.out.toDa.split  := st_dc_split
+  io.out.toDa.iduTlbBusy := st_dc_tlb_busy
 }
