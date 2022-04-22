@@ -1,5 +1,5 @@
-package Core.LSU
-import Core.DCacheConfig.{TAG_WIDTH, WAYS}
+package Core.LSU.StoreExStage
+
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.LSU.Sq.{DcacheDirtyDataEn, DcacheToSqEntry, LsuDcacheInfoUpdate}
 import Core.ROBConfig.{IidWidth, NumCommitEntry}

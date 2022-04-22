@@ -1,9 +1,11 @@
-package Core.LSU
+package Core.LSU.Wmb
+
+import Core.LsuConfig
 import Utils.ParallelORR
 import chisel3._
 import chisel3.util._
 
-class FromWmbCe extends Bundle{
+class FromWmbCe extends Bundle with LsuConfig{
   val addr = UInt(40.W)
   val atomic = Bool()
   val bkpta_data = Bool()
@@ -28,7 +30,7 @@ class FromWmbCe extends Bundle{
   val merge_data_addr_hit = Bool()
   val merge_data_stall = Bool()
   val merge_en = Bool()
-  val merge_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val merge_ptr = Vec(WMB_ENTRY, Bool())
   val merge_wmb_req = Bool()
   val merge_wmb_wait_not_vld_req = Bool()
   val page_buf = Bool()
@@ -39,7 +41,7 @@ class FromWmbCe extends Bundle{
   val page_wa = Bool()
   val priv_mode = UInt(2.W)
   val read_dp_req = Bool()
-  val same_dcache_line = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val same_dcache_line = Vec(WMB_ENTRY, Bool())
   val sc_wb_vld = Bool()
   val spec_fail = Bool()
   val sync_fence = Bool()
@@ -57,7 +59,7 @@ class FromWmbCe extends Bundle{
 //val update_dcache_valid = Bool()
 //val update_dcache_way = Bool()
 
-class WmbInput extends Bundle{
+class WmbInput extends Bundle with LsuConfig{
   val amr_l2_mem_set = Bool()
   val fromBiu = new Bundle{
     val b_id = UInt(5.W)
@@ -93,7 +95,7 @@ class WmbInput extends Bundle{
   val ld_ag_inst_vld = Bool()
   val fromLoadDA = new Bundle{
     val fwd_ecc_stall = Bool()
-    val lsid = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+    val lsid = Vec(LSIQ_ENTRY, Bool())
     val wmb_discard_vld = Bool()
   }
   val fromLoadDC = new Bundle{
@@ -153,23 +155,23 @@ class WmbInput extends Bundle{
   val fromVB = new Bundle{
     val create_grnt = Bool()
     val empty = Bool()
-    val entry_rcl_done = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val entry_rcl_done = Vec(WMB_ENTRY, Bool())
     val write_req_hit_idx = Bool()
   }
   val fromWmbCe = new FromWmbCe
 }
 
-class WmbOutput extends Bundle{
+class WmbOutput extends Bundle with LsuConfig{
   val toHad = new Bundle{
     val ar_pending = Bool()
     val aw_pending = Bool()
-    val create_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val data_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val entry_vld = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val read_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val create_ptr = Vec(WMB_ENTRY, Bool())
+    val data_ptr   = Vec(WMB_ENTRY, Bool())
+    val entry_vld  = Vec(WMB_ENTRY, Bool())
+    val read_ptr   = Vec(WMB_ENTRY, Bool())
     val w_pending = Bool()
     val write_imme = Bool()
-    val write_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val write_ptr  = Vec(WMB_ENTRY, Bool())
   }
   val toBiu = new Bundle{
     val ar_addr = UInt(40.W)
@@ -214,8 +216,8 @@ class WmbOutput extends Bundle{
     val create_dp_vld = Bool()
     val create_gateclk_en = Bool()
     val create_merge = Bool()
-    val create_merge_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val create_same_dcache_line = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val create_merge_ptr = Vec(WMB_ENTRY, Bool())
+    val create_same_dcache_line = Vec(WMB_ENTRY, Bool())
     val create_stall = Bool()
     val create_vld = Bool()
     val pop_vld = Bool()
@@ -242,9 +244,9 @@ class WmbOutput extends Bundle{
     val st_dirty_wen = UInt(7.W)
     val st_req = Bool()
   }
-  val wmb_depd_wakeup = Vec(LSUConfig.LSIQ_ENTRY, Bool())
+  val wmb_depd_wakeup = Vec(LSIQ_ENTRY, Bool())
   val wmb_empty = Bool()
-  val wmb_entry_vld = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val wmb_entry_vld = Vec(WMB_ENTRY, Bool())
   val wmb_fwd_bytes_vld = UInt(16.W)
   val wmb_has_sync_fence = Bool()
   val wmb_ld_da_fwd_data = UInt(128.W)
@@ -271,8 +273,8 @@ class WmbOutput extends Bundle{
   val wmb_rb_so_pending = Bool()
   val wmb_read_req_addr = UInt(40.W)
   val toSnq = new Bundle{
-    val depd = Vec(LSUConfig.WMB_ENTRY, Bool())
-    val depd_remove = Vec(LSUConfig.WMB_ENTRY, Bool())
+    val depd = Vec(WMB_ENTRY, Bool())
+    val depd_remove = Vec(WMB_ENTRY, Bool())
   }
   val toSQ = new Bundle{
     val pop_grnt = Bool()
@@ -287,7 +289,7 @@ class WmbOutput extends Bundle{
     val spec_fail = Bool()
   }
   val wmb_sync_fence_biu_req_success = Bool()
-  val toVB = new Bundle{
+  val toVB = new Bundle {
     val addr_tto6 = UInt(34.W)
     val create_dp_vld = Bool()
     val create_gateclk_en = Bool()
@@ -296,7 +298,7 @@ class WmbOutput extends Bundle{
     val inv = Bool()
     val set_way_mode = Bool()
   }
-  val wmb_write_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val wmb_write_ptr = Vec(WMB_ENTRY, Bool())
   val wmb_write_ptr_encode = UInt(3.W)
   val wmb_write_req_addr = UInt(40.W)
   val wmb_write_req_icc = Bool()
@@ -307,7 +309,7 @@ class WmbIO extends Bundle{
   val out = Output(new WmbOutput)
 }
 
-class Wmb extends Module {
+class Wmb extends Module with LsuConfig{
   val io = IO(new WmbIO)
 
   val ptr_init = Seq(false.B,false.B,false.B,false.B,false.B,false.B,false.B,true.B)
@@ -321,7 +323,7 @@ class Wmb extends Module {
   val wmb_write_ptr_circular = RegInit(false.B)
   val wmb_data_ptr_circular = RegInit(false.B)
 
-  val wmb_write_req_addr = Reg(UInt(LSUConfig.PA_WIDTH.W))
+  val wmb_write_req_addr = Reg(UInt(PA_WIDTH.W))
 
 
   //Wire
@@ -345,9 +347,9 @@ class Wmb extends Module {
   val wmb_dcache_req_next = Wire(Bool())
   val wmb_write_dcache_pop_req = Wire(Bool())
 
-  val wmb_entry_in = Wire(Vec(LSUConfig.WMB_ENTRY, new WmbEntryIn))
-  val wmb_entry_out = Wire(Vec(LSUConfig.WMB_ENTRY, new WmbEntryOutput))
-  val wmb_dcache_req_ptr = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_entry_in       = Wire(Vec(WMB_ENTRY, new WmbEntryIn))
+  val wmb_entry_out      = Wire(Vec(WMB_ENTRY, new WmbEntryOutput))
+  val wmb_dcache_req_ptr = Wire(Vec(WMB_ENTRY, Bool()))
   val pw_merge_stall = WireInit(false.B)
 
   val wmb_b_resp_exokay = Wire(Bool())
@@ -360,11 +362,11 @@ class Wmb extends Module {
 
   val wmb_ce_create_vld = Wire(Bool())
   val wmb_ce_update_same_dcache_line = Wire(Bool())
-  val wmb_ce_update_same_dcache_line_ptr = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_ce_update_same_dcache_line_ptr = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_ce_last_addr_plus = Wire(Bool())
   val wmb_ce_last_addr_sub = Wire(Bool())
 
-  val wmb_same_line_resp_ready = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_same_line_resp_ready = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_wakeup_queue_not_empty = Wire(Bool())
 
   val wmb_read_ptr_read_req_grnt = Wire(Bool())
@@ -374,15 +376,15 @@ class Wmb extends Module {
   val wmb_write_ptr_shift_imme_grnt = Wire(Bool())
 
   val wmb_create_vld = Wire(Bool())
-  val wmb_create_ptr_next1 = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_create_ptr_next1 = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_read_ptr_shift_vld = Wire(Bool())
-  val wmb_read_ptr_next1 = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_read_ptr_next1 = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_write_ptr_shift_vld = Wire(Bool())
-  val wmb_write_ptr_next = Wire(Vec(8, Vec(LSUConfig.WMB_ENTRY, Bool())))
-  val wmb_write_ptr_set = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_write_ptr_next = Wire(Vec(8, Vec(WMB_ENTRY, Bool())))
+  val wmb_write_ptr_set = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_write_ptr_circular_set = Wire(Bool())
   val wmb_data_ptr_shift_vld = Wire(Bool())
-  val wmb_data_ptr_next1 = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_data_ptr_next1 = Wire(Vec(WMB_ENTRY, Bool()))
 
   val wmb_write_req_next_addr_sub = Wire(Vec(4, Bool()))
   val wmb_write_req_next_addr_plus = Wire(Vec(4, Bool()))
@@ -443,7 +445,7 @@ class Wmb extends Module {
   //TODO: implement
   val wmb_nc_no_pending = Wire(true.B)
 
-  val wmb_entry_next_nc_bypass = Wire(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+  val wmb_entry_next_nc_bypass = Wire(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
   //==========================================================
   //                 Strong order FIFO
@@ -451,13 +453,13 @@ class Wmb extends Module {
   //TODO: implement
   val wmb_so_no_pending = Wire(true.B)
 
-  val wmb_entry_next_so_bypass = Wire(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+  val wmb_entry_next_so_bypass = Wire(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
   //==========================================================
   //          Instance of write merge buffer entry
   //==========================================================
-  val wmb_entry = Seq.fill(LSUConfig.WMB_ENTRY)(new WmbEntry)
-  for(i <- 0 until LSUConfig.WMB_ENTRY){
+  val wmb_entry = Seq.fill(WMB_ENTRY)(new WmbEntry)
+  for(i <- 0 until WMB_ENTRY){
     wmb_entry(i).io.in.fromBiu    := io.in.fromBiu
     wmb_entry(i).io.in.fromBusArb := io.in.fromBusArb
     wmb_entry(i).io.in.fromCp0    := io.in.fromCp0
@@ -528,7 +530,7 @@ class Wmb extends Module {
     wmb_create_ptr := wmb_create_ptr_next1
   }
 
-  when(wmb_create_vld && wmb_create_ptr(LSUConfig.WMB_ENTRY-1)){
+  when(wmb_create_vld && wmb_create_ptr(WMB_ENTRY-1)){
     wmb_create_ptr_circular := !wmb_create_ptr_circular
   }
 
@@ -539,7 +541,7 @@ class Wmb extends Module {
     wmb_read_ptr := wmb_read_ptr_next1
   }
 
-  when(wmb_read_ptr_shift_vld && wmb_read_ptr(LSUConfig.WMB_ENTRY-1)){
+  when(wmb_read_ptr_shift_vld && wmb_read_ptr(WMB_ENTRY-1)){
     wmb_read_ptr_circular := !wmb_read_ptr_circular
   }
 
@@ -550,7 +552,7 @@ class Wmb extends Module {
     wmb_write_ptr := wmb_write_ptr_next(1)
   }
 
-  when(wmb_write_ptr_shift_vld && wmb_write_ptr(LSUConfig.WMB_ENTRY-1)){
+  when(wmb_write_ptr_shift_vld && wmb_write_ptr(WMB_ENTRY-1)){
     wmb_write_ptr_circular := !wmb_write_ptr_circular
   }
 
@@ -561,7 +563,7 @@ class Wmb extends Module {
     wmb_data_ptr := wmb_data_ptr_next1
   }
 
-  when(wmb_data_ptr_shift_vld && wmb_data_ptr(LSUConfig.WMB_ENTRY-1)){
+  when(wmb_data_ptr_shift_vld && wmb_data_ptr(WMB_ENTRY-1)){
     wmb_data_ptr_circular := !wmb_data_ptr_circular
   }
 
@@ -621,22 +623,22 @@ class Wmb extends Module {
     !wmb_data_ptr_met_create && (wmb_data_ptr_after_write_shift_imme || wmb_data_ptr_with_write_shift_imme && wmb_write_ptr_shift_imme_grnt)
 
   //------------------other pointer---------------------------
-  wmb_create_ptr_next1 := Cat(wmb_create_ptr.asUInt(LSUConfig.WMB_ENTRY-2,0), wmb_create_ptr.asUInt(LSUConfig.WMB_ENTRY-1)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  wmb_create_ptr_next1 := Cat(wmb_create_ptr.asUInt(WMB_ENTRY-2,0), wmb_create_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
-  wmb_read_ptr_next1 := Cat(wmb_read_ptr.asUInt(LSUConfig.WMB_ENTRY-2,0), wmb_read_ptr.asUInt(LSUConfig.WMB_ENTRY-1)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  wmb_read_ptr_next1 := Cat(wmb_read_ptr.asUInt(WMB_ENTRY-2,0), wmb_read_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
   //mem set must use write_ptr_to_next_3
-  wmb_write_ptr_next(1) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-2,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(2) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-3,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-2)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(3) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-4,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-3)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(4) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-5,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-4)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(5) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-6,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-5)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(6) := Cat(wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-7,0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-6)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
-  wmb_write_ptr_next(7) := Cat(wmb_write_ptr.asUInt(0), wmb_write_ptr.asUInt(LSUConfig.WMB_ENTRY-1,LSUConfig.WMB_ENTRY-7)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(1) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-2,0), wmb_write_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(2) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-3,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-2)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(3) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-4,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-3)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(4) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-5,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-4)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(5) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-6,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-5)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(6) := Cat(wmb_write_ptr.asUInt(WMB_ENTRY-7,0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-6)).asTypeOf(Vec(WMB_ENTRY, Bool()))
+  wmb_write_ptr_next(7) := Cat(wmb_write_ptr.asUInt(0), wmb_write_ptr.asUInt(WMB_ENTRY-1,WMB_ENTRY-7)).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
-  val wmb_write_ptr_to_next3 = (wmb_write_ptr.asUInt | wmb_write_ptr_next(1).asUInt | wmb_write_ptr_next(2).asUInt | wmb_write_ptr_next(3).asUInt).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_write_ptr_to_next3 = (wmb_write_ptr.asUInt | wmb_write_ptr_next(1).asUInt | wmb_write_ptr_next(2).asUInt | wmb_write_ptr_next(3).asUInt).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
-  wmb_data_ptr_next1 := Cat(wmb_data_ptr.asUInt(LSUConfig.WMB_ENTRY-2,0), wmb_data_ptr.asUInt(LSUConfig.WMB_ENTRY-1)).asTypeOf(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  wmb_data_ptr_next1 := Cat(wmb_data_ptr.asUInt(WMB_ENTRY-2,0), wmb_data_ptr.asUInt(WMB_ENTRY-1)).asTypeOf(Vec(WMB_ENTRY, Bool()))
 
   //-------------judge if meet create signal------------------
   wmb_read_ptr_met_create := (wmb_read_ptr.asUInt === wmb_create_ptr.asUInt) && (wmb_read_ptr_circular === wmb_create_ptr_circular)

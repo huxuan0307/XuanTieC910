@@ -1,7 +1,9 @@
-package Core.LSU
+package Core.LSU.LoadExStage
+
+import Core.LsuConfig
+import Utils.sext
 import chisel3._
 import chisel3.util._
-import Utils.sext
 
 class LoadWBInput extends Bundle{
   val fromCp0 = new Bundle{
@@ -120,7 +122,7 @@ class LoadWBIO extends Bundle{
   val out = Output(new LoadWBOutput)
 }
 
-class LoadWB extends Module {
+class LoadWB extends Module with LsuConfig{
   val io = IO(new LoadWBIO)
 
   //Reg
@@ -137,7 +139,7 @@ class LoadWB extends Module {
   val ld_wb_no_spec_mispred = RegInit(false.B)
 
   val ld_wb_expt_vec = RegInit(0.U(5.W))
-  val ld_wb_mt_value = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_wb_mt_value = RegInit(0.U(PA_WIDTH.W))
 
   val ld_wb_data_vld        = RegInit(false.B)
   val ld_wb_preg_wb_vld     = RegInit(false.B)
@@ -146,7 +148,7 @@ class LoadWB extends Module {
   val ld_wb_vreg_wb_vld_dup = RegInit(VecInit(Seq.fill(4)(false.B)))
 
   val ld_wb_bus_err = RegInit(false.B)
-  val ld_wb_data_addr = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val ld_wb_data_addr = RegInit(0.U(PA_WIDTH.W))
   val ld_wb_data_iid = RegInit(0.U(7.W))
 
   val ld_wb_data = RegInit(0.U(64.W))
@@ -163,7 +165,7 @@ class LoadWB extends Module {
 
   val wb_dbg_ld_req_ff = RegInit(false.B)
 
-  val wb_dbg_ld_addr_ff = RegInit(0.U(LSUConfig.PA_WIDTH.W))
+  val wb_dbg_ld_addr_ff = RegInit(0.U(PA_WIDTH.W))
   val wb_dbg_ld_data_ff = RegInit(0.U(64.W))
   val wb_dbg_ld_iid_ff  = RegInit(0.U(7.W))
   //Wire
@@ -217,9 +219,9 @@ class LoadWB extends Module {
 
   val ld_wb_pre_bus_err = ld_wb_rb_data_grnt &&  io.in.fromRB.bus_err
 
-  val ld_wb_pre_data_addr = Mux(ld_wb_da_data_grnt, io.in.ld_da_addr, 0.U(LSUConfig.PA_WIDTH.W)) |
-    Mux(ld_wb_wmb_data_grnt, io.in.fromWmb.data_addr, 0.U(LSUConfig.PA_WIDTH.W)) |
-    Mux(ld_wb_rb_data_grnt, io.in.fromRB.bus_err_addr, 0.U(LSUConfig.PA_WIDTH.W))
+  val ld_wb_pre_data_addr = Mux(ld_wb_da_data_grnt, io.in.ld_da_addr, 0.U(PA_WIDTH.W)) |
+    Mux(ld_wb_wmb_data_grnt, io.in.fromWmb.data_addr,  0.U(PA_WIDTH.W)) |
+    Mux(ld_wb_rb_data_grnt, io.in.fromRB.bus_err_addr, 0.U(PA_WIDTH.W))
 
   //for had debug
   val ld_wb_pre_data_iid = Mux(ld_wb_da_data_grnt, io.in.ld_da_iid, 0.U(7.W)) |
@@ -429,7 +431,7 @@ class LoadWB extends Module {
   io.out.toRTU.pipe3_wb_preg_expand := ld_wb_data_preg_expand
 
   io.out.toRTU.async_expt_vld       := ld_wb_data_vld && ld_wb_bus_err
-  io.out.toRTU.async_expt_addr      := Mux(ld_wb_data_vld  &&  ld_wb_bus_err, ld_wb_data_addr, 0.U(LSUConfig.PA_WIDTH.W))
+  io.out.toRTU.async_expt_addr      := Mux(ld_wb_data_vld  &&  ld_wb_bus_err, ld_wb_data_addr, 0.U(PA_WIDTH.W))
 
   io.out.toIDU.pipe3_wb_preg_vld     := ld_wb_preg_wb_vld
   io.out.toIDU.pipe3_wb_preg_vld_dup := ld_wb_preg_wb_vld_dup
@@ -480,7 +482,7 @@ class LoadWB extends Module {
   }
 
   val wb_dbg_ar_req_ff =  false.B
-  val wb_dbg_ar_addr   =  0.U(LSUConfig.PA_WIDTH.W)
+  val wb_dbg_ar_addr   =  0.U(PA_WIDTH.W)
   val wb_dbg_ar_id     =  0.U(8.W)
   val wb_dbg_ar_len    =  0.U(8.W)
   val wb_dbg_ar_size   =  0.U(3.W)

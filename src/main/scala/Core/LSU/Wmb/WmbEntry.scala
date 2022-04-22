@@ -1,4 +1,6 @@
-package Core.LSU
+package Core.LSU.Wmb
+
+import Core.LsuConfig
 import chisel3._
 import chisel3.util._
 
@@ -18,7 +20,7 @@ class WmbEntryIn extends Bundle{
  val wb_data_grnt = Bool()
 }
 
-class InstInfo extends Bundle{
+class InstInfo extends Bundle with LsuConfig{
   val sync_fence     = Bool()
   val atomic         = Bool()
   val icc            = Bool()
@@ -37,7 +39,7 @@ class InstInfo extends Bundle{
   val page_buf       = Bool()
   val page_sec       = Bool()
   val merge_en       = Bool()
-  val addr           = UInt(LSUConfig.PA_WIDTH.W)
+  val addr           = UInt(PA_WIDTH.W)
   val spec_fail      = Bool()
   val bkpta_data     = Bool()
   val bkptb_data     = Bool()
@@ -51,7 +53,7 @@ class DcacheInfo extends Bundle{
   val way   = Bool()
 }
 
-class WmbEntryInput extends Bundle{
+class WmbEntryInput extends Bundle with LsuConfig{
   val fromBiu = new Bundle{
     val b_id = UInt(5.W)
     val b_resp = UInt(2.W)
@@ -141,7 +143,7 @@ class WmbEntryInput extends Bundle{
 
   val wmb_ce_create_vld = Bool()
   val wmb_ce_update_same_dcache_line = Bool()
-  val wmb_ce_update_same_dcache_line_ptr = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val wmb_ce_update_same_dcache_line_ptr = Vec(WMB_ENTRY, Bool())
   val wmb_ce_last_addr_plus = Bool()
   val wmb_ce_last_addr_sub = Bool()
 
@@ -152,7 +154,7 @@ class WmbEntryInput extends Bundle{
     val ptr_shift_imme_grnt = Bool()
     val ptr = Bool()
   }
-  val wmb_same_line_resp_ready = Vec(LSUConfig.WMB_ENTRY, Bool())
+  val wmb_same_line_resp_ready = Vec(WMB_ENTRY, Bool())
   val wmb_wakeup_queue_not_empty = Bool()
   val WmbWrite = new Bundle{
     val biu_dcache_line = Bool()
@@ -248,7 +250,7 @@ class WmbEntryIO extends Bundle{
   val out = Output(new WmbEntryOutput)
 }
 
-class WmbEntry extends Module {
+class WmbEntry extends Module with LsuConfig{
   val io = IO(new WmbEntryIO)
 
   //Reg
@@ -275,7 +277,7 @@ class WmbEntry extends Module {
   val wmb_entry_wb_data_success = RegInit(false.B)
 
   val wmb_entry_same_dcache_line = RegInit(false.B)
-  val wmb_entry_same_dcache_line_ptr = RegInit(VecInit(Seq.fill(LSUConfig.WMB_ENTRY)(false.B)))
+  val wmb_entry_same_dcache_line_ptr = RegInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
   val wmb_entry_write_imme = RegInit(false.B)
   val wmb_entry_depd = RegInit(false.B)
   val wmb_entry_sc_wb_vld = RegInit(false.B)
@@ -603,7 +605,7 @@ class WmbEntry extends Module {
   //                  Create/merge signal
   //==========================================================
   //wmb_entry_hit_sq_pop_cache_line is used for same_dcache_line
-  val wmb_entry_hit_sq_pop_addr_tto6 = inst_info.addr(LSUConfig.PA_WIDTH-1,6) === io.in.fromSQ.pop_addr(LSUConfig.PA_WIDTH-1,6)
+  val wmb_entry_hit_sq_pop_addr_tto6 = inst_info.addr(PA_WIDTH-1,6) === io.in.fromSQ.pop_addr(PA_WIDTH-1,6)
   val wmb_entry_hit_sq_pop_addr_5to4 = inst_info.addr(5,4) === io.in.fromSQ.pop_addr(5,4)
   val wmb_entry_hit_sq_pop_addr_tto4   = wmb_entry_hit_sq_pop_addr_tto6 && wmb_entry_hit_sq_pop_addr_5to4
 
@@ -721,7 +723,7 @@ class WmbEntry extends Module {
   //------------------compare signal--------------------------
   //-----------addr compare---------------
   //addr compare
-  val wmb_entry_depd_addr_tto12_hit = inst_info.addr(LSUConfig.PA_WIDTH-1,12) === io.in.fromLoadDC.addr0(LSUConfig.PA_WIDTH-1,12)
+  val wmb_entry_depd_addr_tto12_hit = inst_info.addr(PA_WIDTH-1,12) === io.in.fromLoadDC.addr0(PA_WIDTH-1,12)
   val wmb_entry_depd_addr_11to4_hit = inst_info.addr(11,4) === io.in.fromLoadDC.addr0(11,4)
   val wmb_entry_depd_addr1_11to4_hit = inst_info.addr(11,4) === io.in.fromLoadDC.addr1_11to4
 

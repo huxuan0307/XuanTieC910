@@ -1,10 +1,10 @@
-package Core.LSU
-import Core.DCacheConfig.{LINE_SIZE, TAG_WIDTH}
+package Core.LSU.StoreExStage
+
 import Core.IUConfig.{MPPWidth, XLEN}
-import Core.LsuAccessSize.{word, _}
-import Core.{DCacheConfig, LsuConfig, ROBConfig}
+import Core.LsuAccessSize._
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.RTU.CompareIid
+import Core.{DCacheConfig, LsuConfig, ROBConfig}
 import Utils.{LookupTree, sext}
 import chisel3._
 import chisel3.util._

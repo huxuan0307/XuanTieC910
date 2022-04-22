@@ -1,7 +1,8 @@
-package Core.LSU
+package Core.LSU.Lq
+
+
+import Core.LsuConfig
 import chisel3._
-import chisel3.util._
-import com.sun.webkit.dom.UIEventImpl
 
 //class LQInput extends Bundle{
 //  val fromCP0 = new Bundle{
@@ -49,7 +50,7 @@ class LQEntryIO extends Bundle{
   })
 }
 
-class LQEntry extends Module {
+class LQEntry extends Module with LsuConfig{
   val io = IO(new LQEntryIO)
 
   //Reg
@@ -84,12 +85,12 @@ class LQEntry extends Module {
   //| addr_tto2 | bytes_vld0 | iid | deform | secd |
   //+-----------+------------+-----+--------+------+
   when(io.in.EntryCreate.dp_vld(0)){
-    lq_entry_addr0_tto4 :=  io.in.fromLdDC.addr(0)(LSUConfig.PA_WIDTH-1,4)
+    lq_entry_addr0_tto4 :=  io.in.fromLdDC.addr(0)(PA_WIDTH-1,4)
     lq_entry_bytes_vld  :=  io.in.fromLdDC.bytes_vld(0)
     lq_entry_iid        :=  io.in.fromLdDC.iid
     lq_entry_secd       :=  io.in.fromLdDC.secd
   }.elsewhen(io.in.EntryCreate.dp_vld(1)){
-    lq_entry_addr0_tto4 :=  io.in.fromLdDC.addr(1)(LSUConfig.PA_WIDTH-1,4)
+    lq_entry_addr0_tto4 :=  io.in.fromLdDC.addr(1)(PA_WIDTH-1,4)
     lq_entry_bytes_vld  :=  io.in.fromLdDC.bytes_vld(1)
     lq_entry_iid        :=  io.in.fromLdDC.iid
     lq_entry_secd       :=  true.B
@@ -129,7 +130,7 @@ class LQEntry extends Module {
   val lq_entry_rar_addr_tto4_hit = Wire(Vec(2, Bool()))
   val lq_entry_rar_do_hit = Wire(Vec(2, Bool()))
   for(i <- 0 until 2){
-    lq_entry_rar_addr_tto4_hit(i) := lq_entry_addr0_tto4 === io.in.fromLdDC.addr(i)(LSUConfig.PA_WIDTH-1,4)
+    lq_entry_rar_addr_tto4_hit(i) := lq_entry_addr0_tto4 === io.in.fromLdDC.addr(i)(PA_WIDTH-1,4)
     lq_entry_rar_do_hit(i) := (lq_entry_bytes_vld & io.in.fromLdDC.bytes_vld(i)).orR
   }
 
@@ -156,7 +157,7 @@ class LQEntry extends Module {
 
   val lq_entry_newer_than_st_dc  = lq_entry_vld && lq_entry_iid_newer_than_st_dc
 
-  val lq_entry_raw_addr_tto4_hit = lq_entry_addr0_tto4 === io.in.fromStDC.addr0(LSUConfig.PA_WIDTH-1,4)
+  val lq_entry_raw_addr_tto4_hit = lq_entry_addr0_tto4 === io.in.fromStDC.addr0(PA_WIDTH-1,4)
 
   val lq_entry_raw_do_hit = (lq_entry_bytes_vld & io.in.fromStDC.bytes_vld).orR
 

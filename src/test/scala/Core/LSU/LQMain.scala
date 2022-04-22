@@ -1,5 +1,6 @@
 package Core.LSU
 
+import Core.LSU.Lq.LQ
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
 object LQMain extends App {

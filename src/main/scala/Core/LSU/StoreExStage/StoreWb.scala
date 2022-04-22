@@ -1,11 +1,9 @@
-package Core.LSU
+package Core.LSU.StoreExStage
+
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.IU.Cp0.Define.Exceptions.ExceptionVec
-import Core.IntConfig.{NumLogicRegsBits, NumPhysicRegs, XLEN}
 import Core.LsuConfig
 import Core.ROBConfig.IidWidth
 import chisel3._
-import chisel3.util._
 //==========================================================
 //                        Input
 //==========================================================

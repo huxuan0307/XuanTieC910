@@ -1,10 +1,11 @@
 package Core.LSU
+
 import Core.IntConfig.XLEN
 import Core.LsuConfig
 import chisel3._
 import chisel3.util._
 
-class RotData extends Module with LsuConfig{
+class RotData extends Module with LsuConfig {
   val io = IO(new Bundle() {
     val dataIn     = Input(UInt((XLEN).W))
     val rotSel     = Input(UInt(ROT_SEL_WIDTH.W))

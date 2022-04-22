@@ -1,5 +1,4 @@
 package Core
-
 import chisel3._
 import chisel3.util._
 
@@ -66,17 +65,26 @@ trait VectorUnitConfig {
 }
 
 trait FuTypeConfig {
-  def ALU      = "b0000000001"
-  def BJU      = "b0000000010"
-  def MULT     = "b0000000100"
-  def DIV      = "b0000001000"
-  def LSU_P5   = "b0000110000"
-  def LSU      = "b0000010000"
-  def PIPE67   = "b0001000000"
-  def PIPE6    = "b0010000000"
-  def PIPE7    = "b0100000000"
-  def SPECIAL  = "b1000000000"
+  def ALU = "b0000000001"
 
+  def BJU = "b0000000010"
+
+  def MULT = "b0000000100"
+
+  def DIV = "b0000001000"
+
+  def LSU_P5 = "b0000110000"
+
+  def LSU = "b0000010000"
+
+  def PIPE67 = "b0001000000"
+
+  def PIPE6 = "b0010000000"
+
+  def PIPE7 = "b0100000000"
+
+  def SPECIAL = "b1000000000"
+}
 trait IUConfig {
   def XLEN = 64
   def MPPWidth = 2
@@ -111,6 +119,9 @@ trait LsuConfig{
   def LSIQ_ENTRY  = 12
   def LQ_ENTRY    = 16
   def SQ_ENTRY    = 12
+  def VB_DATA_ENTRY = 3
+  def WMB_ENTRY     = 8
+  def VMB_ENTRY     = 8
 
   def SNOOP_ID_WIDTH = 6
   def SDID_WIDTH = log2Up(LSIQ_ENTRY)
@@ -121,7 +132,11 @@ trait LsuConfig{
   def PREG_SIGN_SEL = 4
   def VREG_SIGN_SEL = 2
   def DATA_UPDATE_PATH_WIDTH = 5
-  def VMB_ENTRY = 8
+
+  def BYTE        = "b00"
+  def HALF        = "b01"
+  def WORD        = "b10"
+  def DWORD       = "b11"
 }
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)

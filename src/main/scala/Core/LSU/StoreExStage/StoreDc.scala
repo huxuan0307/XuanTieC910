@@ -1,11 +1,11 @@
-package Core.LSU
+package Core.LSU.StoreExStage
+
 import Core.DCacheConfig.INDEX_WIDTH
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
-import firrtl.Utils.{False, splitRef}
 //==========================================================
 //                        Input
 //==========================================================
