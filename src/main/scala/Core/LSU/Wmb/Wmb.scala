@@ -664,7 +664,7 @@ class Wmb extends Module with LsuConfig{
   io.out.toWmbCe.create_stall := wmb_merge_data_stall || io.in.fromWmbCe.merge_data_stall ||
     (wmb_merge_data_addr_hit || io.in.fromWmbCe.merge_data_addr_hit) && (io.in.fromSQ.wmb_merge_stall_req || wmb_has_dcache_inst)
 
-  for(i <- 0 until LSUConfig.WMB_ENTRY){
+  for(i <- 0 until WMB_ENTRY){
     io.out.toWmbCe.create_same_dcache_line(i) :=
       io.in.fromWmbCe.hit_sq_pop_dcache_line && wmb_create_vld && wmb_create_ptr(i) || wmb_entry_out(i).hit_sq_pop_dcache_line
     io.out.toWmbCe.create_merge_ptr(i) :=
@@ -691,7 +691,7 @@ class Wmb extends Module with LsuConfig{
   //          Generate grnt signal for wmb ce
   //==========================================================
   //------------------grnt signal-----------------------------
-  val wmb_create_not_vld = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  val wmb_create_not_vld = Wire(Vec(WMB_ENTRY, Bool()))
   wmb_create_not_vld := wmb_create_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.vld)
 
   val wmb_create_permit = wmb_create_not_vld.asUInt.orR
