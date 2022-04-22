@@ -14,6 +14,7 @@ class IFU extends Module with Config {
   val ras = Module(new RAS)
   val ind_btb = Module(new indBTB)
   val icache = Module(new ICache(cacheNum=0, is_sim=true))
+  val pcfifo = Module(new PCfifo)
 
 
 
@@ -180,15 +181,23 @@ class IFU extends Module with Config {
   io.toROB.curPc := pc_gen.io.ifu_rtu_cur_pc//0.U    //from had???
   ibuf.io.flush := backend_redirect
 
+  pcfifo.io.in.target_pc := ibstage.io.ib_redirect.bits
+  pcfifo.io.in.h0_vld    := ipstage.io.out.bits.h0_vld
+  pcfifo.io.in.cur_pc(0) := ipstage.io.out.bits.h0_pc
+  for(i <- 1 to 8) {
+    pcfifo.io.in.cur_pc(i) := ipstage.io.out.bits.cur_pc(i-1)
+  }
+  pcfifo.io.in.pc_oper   := ipstage.io.out.bits.chgflw_vld_mask(7,0)
+  pcfifo.io.in.jal       := ipstage.io.out.bits.jal
+  pcfifo.io.in.jalr      := ipstage.io.out.bits.jalr
+  pcfifo.io.in.con_br    := ipstage.io.out.bits.con_br
+  pcfifo.io.in.dst_vld   := ipstage.io.out.bits.dst
+  pcfifo.io.in.sel_res   := ipstage.io.out.bits.bht_resp.pre_sel
+  pcfifo.io.in.pre_res   := ipstage.io.out.bits.bht_res
+  pcfifo.io.in.vghr      := bht.io.bht_ghr
+  pcfifo.io.in.ind_btb_miss := false.B
+
   for(i <- 0 to 1){
-    io.ifuForward.bits(i).curPc := 0.U
-    io.ifuForward.bits(i).tarPc := Mux(RegNext(ipstage.io.out.bits.pret),ibstage.io.ras_target_pc,ibstage.io.ind_btb_target)
-    io.ifuForward.bits(i).jal   := false.B
-    io.ifuForward.bits(i).jalr  := false.B
-    io.ifuForward.bits(i).dstVld := false.B
-    io.ifuForward.bits(i).predStore.bhtPred := false.B
-    io.ifuForward.bits(i).predStore.chkIdx  := 0.U
-    io.ifuForward.bits(i).predStore.jmpMispred := false.B
-    io.ifuForward.valid := true.B
+    io.ifuForward(i) := pcfifo.io.out(i)
   }
 }
