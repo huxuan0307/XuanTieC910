@@ -326,10 +326,10 @@ class SqEntry extends Module with LsuConfig {
   //+-------------------+
   //include dcache info/no_restart info
   //include spec_fail/bkpt info for timing
-  val sq_entry_spec_fail    = Reg(false.B)
-  val sq_entry_bkpta_data   = Reg(false.B)
-  val sq_entry_bkptb_data   = Reg(false.B)
-  val sq_entry_vstart_vld   = Reg(false.B)
+  val sq_entry_spec_fail    = RegInit(false.B)
+  val sq_entry_bkpta_data   = RegInit(false.B)
+  val sq_entry_bkptb_data   = RegInit(false.B)
+  val sq_entry_vstart_vld   = RegInit(false.B)
   when(sq_entry_st_da_info_set){
     sq_entry_spec_fail    := io.in.daIn.stDaIn.wb.specFail
     sq_entry_bkpta_data   := io.in.daIn.bkptaData
@@ -363,7 +363,7 @@ class SqEntry extends Module with LsuConfig {
   //+---------+
   //| age_vec |
   //+---------+
-  val sq_entry_age_vec_next = Wire(0.U(LSIQ_ENTRY.W))
+  val sq_entry_age_vec_next = Wire(UInt(LSIQ_ENTRY.W))
   val sq_entry_age_vec = RegInit(0.U(LSIQ_ENTRY.W))
   when(sq_entry_create_dp_vld){
     sq_entry_age_vec := io.in.sqIn.createAgeVec

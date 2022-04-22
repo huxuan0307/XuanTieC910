@@ -107,8 +107,6 @@ class SqToWmbCe extends Bundle with LsuConfig{
   val popPtr       = UInt(LSIQ_ENTRY.W)
   val popSyncFence = Bool()
   val popWoSt      = Bool()
-  val full         = Bool()
-  val instHit      = Bool()
 }
 class SqToWmb extends Bundle with LsuConfig{
   val ce = new SqToWmbCe
@@ -175,9 +173,11 @@ class Sq extends Module with LsuConfig{
   entries.zipWithIndex.foreach{
     case(entry, i) =>
       // binded io, dispatch from input
+      entry.io.in.dcIn         := io.in.dcIn
+      entry.io.in.daIn         := io.in.daIn
       entry.io.in.cp0In        := io.in.cp0In
       entry.io.in.dcacheIn     := io.in.dcacheIn
-      entry.io.in.sdEx1In      := io.in.sdEx1In
+      entry.io.in.sdEx1In      := io.in.sdEx1In.toSqEntry
       entry.io.in.ldDaLsid     := io.in.ldDaIn.lsid
       entry.io.in.ldDcIn       := io.in.ldDcIn
       entry.io.in.rtuIn        := io.in.rtuIn
@@ -343,6 +343,7 @@ class Sq extends Module with LsuConfig{
       sq_entry_depd(i)                  := entry.io.out.depd_x
       sq_entry_depd_set(i)              := entry.io.out.depdSet_x
       sq_entry_cmit_data_vld(i)         := entry.io.out.cmitData_vld_x
+      sq_entry_fwd_req(i)               := entry.io.out.fwdReq_x
   }
   //------------------create ptr------------------------------
   //ptr 0 find empty entry from No.0
@@ -387,7 +388,7 @@ class Sq extends Module with LsuConfig{
   //------------------request---------------------------------
   io.out.toLdDc.cancelAheadWb   := io.out.toLdDc.newestFwdDataVldReq && sq_entry_cancel_ahead_wb.reduce(_ || _) || io.out.toLdDc.otherDiscardReq
   io.out.toLdDc.otherDiscardReq := sq_entry_discard_req.reduce(_ || _)
-  io.out.toLdDc.otherDiscardReq := sq_entry_addr1_dep_discard.reduce(_ || _)
+  io.out.toLdDc.addr1DepDiscard := sq_entry_addr1_dep_discard.reduce(_ || _)
   io.out.toLdDc.cancelAccReq    := sq_entry_cancel_acc_req.reduce(_ || _)
   //------------------data depd-------------------------------
   val sq_fwd_bypass_req         = sq_entry_fwd_bypass_req.reduce(_ || _)
@@ -422,7 +423,7 @@ class Sq extends Module with LsuConfig{
   //              Forward data pop entry
   //==========================================================
   val sq_fwd_data_sel = RegInit(0.U(XLEN.W))
-  val sq_fwd_data_pe_req = Wire(Bool())
+  val sq_fwd_data_pe_req = io.out.toLdDc.newestFwdDataVldReq
   val sq_fwd_data_pe = RegInit(0.U(XLEN.W))
   when(sq_fwd_data_pe_req){
     sq_fwd_data_pe := sq_fwd_data_sel
@@ -453,7 +454,7 @@ class Sq extends Module with LsuConfig{
   //if more than 1 entry have depend relationship, see fwd_en signal,
   //if no entry has fwd_en signal, then select the biggest entry
   val sq_data_discard_id_sel = RegInit(0.U(LSIQ_ENTRY.W))
-  val ld_fwd_id = Seq.fill(LSIQ_ENTRY)(UInt(1.W))
+  val ld_fwd_id = Seq.fill(LSIQ_ENTRY)(Wire(UInt(1.W)))
   for(i<- 0 until LSIQ_ENTRY){
     ld_fwd_id(i) := io.in.ldDaIn.sqFwdId(i)
   }
@@ -532,6 +533,13 @@ class Sq extends Module with LsuConfig{
       sq_pe_age_vec_surplus1_priv_mode := sq_entry_priv_mode(i)
       sq_pe_age_vec_surplus1_addr      := sq_entry_addr0(i)
       sq_pe_age_vec_surplus1_bytes_vld := sq_entry_bytes_vld(i)
+    }else{
+      sq_pe_age_vec_surplus1_inst_type := DontCare
+      sq_pe_age_vec_surplus1_inst_size := DontCare
+      sq_pe_age_vec_surplus1_inst_mode := DontCare
+      sq_pe_age_vec_surplus1_priv_mode := DontCare
+      sq_pe_age_vec_surplus1_addr      := DontCare
+      sq_pe_age_vec_surplus1_bytes_vld := DontCare
     }
   }
   // zero ptr
@@ -562,6 +570,13 @@ class Sq extends Module with LsuConfig{
       sq_pe_age_vec_zero_priv_mode := sq_entry_priv_mode(i)
       sq_pe_age_vec_zero_addr      := sq_entry_addr0(i)
       sq_pe_age_vec_zero_bytes_vld := sq_entry_bytes_vld(i)
+    }else {
+      sq_pe_age_vec_zero_inst_type := DontCare
+      sq_pe_age_vec_zero_inst_size := DontCare
+      sq_pe_age_vec_zero_inst_mode := DontCare
+      sq_pe_age_vec_zero_priv_mode := DontCare
+      sq_pe_age_vec_zero_addr      := DontCare
+      sq_pe_age_vec_zero_bytes_vld := DontCare
     }
   }
   val sq_pe_sel_age_vec_surplus1_entry_vld = Wire(Bool())
@@ -685,6 +700,10 @@ class Sq extends Module with LsuConfig{
       wmb_ce_fence_mode := sq_entry_fence_mode(i)
       wmb_ce_iid        := sq_entry_iid(i)
       wmb_ce_data64     := sq_entry_data(i)
+    }else{
+      wmb_ce_fence_mode := DontCare
+      wmb_ce_iid        := DontCare
+      wmb_ce_data64     := DontCare
     }
   }
   io.out.toWmb.fenceMode := wmb_ce_fence_mode
@@ -694,7 +713,7 @@ class Sq extends Module with LsuConfig{
   io.out.toWmb.bkptaData := (io.in.wmbIn.sqPtr & VecInit(sq_entry_bkpta_data).asUInt).orR
   io.out.toWmb.bkptbData := (io.in.wmbIn.sqPtr & VecInit(sq_entry_bkptb_data).asUInt).orR
   io.out.toWmb.vstartVld := (io.in.wmbIn.sqPtr & VecInit(sq_entry_vstart_vld).asUInt).orR
-  val wmb_ce_dcache_mesi = new DcacheDirtyDataEn
+  val wmb_ce_dcache_mesi = WireInit(0.U.asTypeOf(new DcacheDirtyDataEn))
   wmb_ce_dcache_mesi.share := (io.in.wmbIn.sqPtr & VecInit(sq_entry_dcache_valid).asUInt).orR
   wmb_ce_dcache_mesi.valid := (io.in.wmbIn.sqPtr & VecInit(sq_entry_dcache_share).asUInt).orR
   wmb_ce_dcache_mesi.dirty := (io.in.wmbIn.sqPtr & VecInit(sq_entry_dcache_dirty).asUInt).orR
@@ -703,6 +722,9 @@ class Sq extends Module with LsuConfig{
   val wmb_ce_dcache_way    = (io.in.wmbIn.sqPtr & VecInit(sq_entry_dcache_way).asUInt).orR
   wmb_ce_depd      := (io.in.wmbIn.sqPtr & VecInit(sq_entry_depd).asUInt).orR
   wmb_ce_depd_set  := (io.in.wmbIn.sqPtr & VecInit(sq_entry_depd_set).asUInt).orR
+  //==========================================================
+  //                  LsuDcacheInfoUpdate
+  //==========================================================
   val wmb_ce_dcache_update = Module(new LsuDcacheInfoUpdate)
   wmb_ce_dcache_update.io.in.originDcacheMesi  := wmb_ce_dcache_mesi
   wmb_ce_dcache_update.io.in.originDcacheWay   := wmb_ce_dcache_way
@@ -715,6 +737,8 @@ class Sq extends Module with LsuConfig{
   val wmb_ce_update_dcache_share = wmb_ce_dcache_update.io.out.updateDcacheMesi.share
   val wmb_ce_update_dcache_valid = wmb_ce_dcache_update.io.out.updateDcacheMesi.valid
   val wmb_ce_update_dcache_way   = wmb_ce_dcache_update.io.out.updateDcacheWay
+  io.out.toWmb.updateDcacheWay := wmb_ce_dcache_update.io.out.updateDcacheWay
+  io.out.toWmb.updateDcacheMesi := wmb_ce_dcache_update.io.out.updateDcacheMesi
   //==========================================================
   //                interface to idu
   //==========================================================
