@@ -276,7 +276,7 @@ class WmbOutput extends Bundle{
   }
   val toSQ = new Bundle{
     val pop_grnt = Bool()
-    val pop_to_ce_grn = Bool()
+    val pop_to_ce_grnt = Bool()
   }
   val toStoreWB = new Bundle{
     val bkpta_data = Bool()
@@ -398,6 +398,7 @@ class Wmb extends Module {
   val wmb_write_req_hit_idx = Wire(Bool())
   val wmb_data_ptr_met_create = Wire(Bool())
 
+  val wmb_sq_pop_grnt = Wire(Bool())
 
   //==========================================================
   //                 Instance of Gated Cell
@@ -649,6 +650,55 @@ class Wmb extends Module {
   //          Generate signal for sq pop
   //==========================================================
   //----------------can't merge signal------------------------
+  val wmb_has_dcache_inst = ParallelORR(wmb_entry_out.map(entry_x => entry_x.dcache_inst && entry_x.vld))
+
+  //------------------merge signal----------------------------
+  val wmb_merge_data_stall = ParallelORR(wmb_entry_out.map(_.merge_data_stall))
+  val wmb_merge_data_addr_hit = ParallelORR(wmb_entry_out.map(_.merge_data_addr_hit))
+
+  //------------------wmb ce create signal--------------------
+  io.out.toWmbCe.create_merge := io.in.fromSQ.wmb_merge_req && (wmb_merge_data_addr_hit || io.in.fromWmbCe.merge_data_addr_hit)
+
+  io.out.toWmbCe.create_stall := wmb_merge_data_stall || io.in.fromWmbCe.merge_data_stall ||
+    (wmb_merge_data_addr_hit || io.in.fromWmbCe.merge_data_addr_hit) && (io.in.fromSQ.wmb_merge_stall_req || wmb_has_dcache_inst)
+
+  for(i <- 0 until LSUConfig.WMB_ENTRY){
+    io.out.toWmbCe.create_same_dcache_line(i) :=
+      io.in.fromWmbCe.hit_sq_pop_dcache_line && wmb_create_vld && wmb_create_ptr(i) || wmb_entry_out(i).hit_sq_pop_dcache_line
+    io.out.toWmbCe.create_merge_ptr(i) :=
+      Mux(io.in.fromWmbCe.create_wmb_dp_req && io.in.fromWmbCe.merge_data_addr_hit, wmb_create_ptr(i), wmb_entry_out(i).merge_data_addr_hit)
+  }
+
+  val wmb_pop_to_ce_permit = wmb_sq_pop_grnt || !io.in.fromWmbCe.vld
+
+  wmb_ce_create_vld := io.in.fromSQ.wmb_pop_to_ce_req && wmb_pop_to_ce_permit
+  io.out.toWmbCe.create_vld := wmb_ce_create_vld
+
+  io.out.toWmbCe.create_dp_vld := io.in.fromSQ.wmb_pop_to_ce_dp_req && wmb_pop_to_ce_permit
+
+  io.out.toWmbCe.create_gateclk_en := io.in.fromSQ.wmb_pop_to_ce_gateclk_en && wmb_pop_to_ce_permit
+
+  //for wmb entry
+  wmb_ce_update_same_dcache_line_ptr := io.in.fromWmbCe.same_dcache_line.zip(wmb_entry_out).map(x => x._1 && x._2.vld)
+
+  wmb_ce_update_same_dcache_line := wmb_ce_update_same_dcache_line_ptr.asUInt.orR
+  //----------------------to sq-------------------------------
+  io.out.toSQ.pop_to_ce_grnt := io.in.fromSQ.wmb_pop_to_ce_req && wmb_pop_to_ce_permit
+
+  //==========================================================
+  //          Generate grnt signal for wmb ce
+  //==========================================================
+  //------------------grnt signal-----------------------------
+  val wmb_create_not_vld = Wire(Vec(LSUConfig.WMB_ENTRY, Bool()))
+  wmb_create_not_vld := wmb_create_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.vld)
+
+  val wmb_create_permit = wmb_create_not_vld.asUInt.orR
+
+  wmb_create_vld := wmb_create_permit && io.in.fromWmbCe.create_wmb_req
+
+  val wmb_merge_vld = io.in.fromWmbCe.merge_wmb_req
+
+
 
 
 }
