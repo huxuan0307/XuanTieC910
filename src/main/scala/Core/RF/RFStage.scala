@@ -256,11 +256,4 @@ class RFStage extends Module with RFStageConfig {
     pipe0PregLaunchValid  := aiq0IssueAluRegValid
     pipe0SpecialValid     := pipe0SpecialValid
   }
-
-  io.ctrl.out.toIq
-
-
-
-
-
 }
