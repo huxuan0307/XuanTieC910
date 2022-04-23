@@ -116,7 +116,7 @@ class StDaToRb extends Bundle with LsuConfig {
    val pageSo          = Bool()
    val cmit            = Bool()
    val createDpVld     = Bool()
-   val createGateclkEn = Bool()
+   val createGateclkEn = Bool() // also to ctrl
    val createLfb       = Bool()
    val createVld       = Bool()
    val pageShare       = Bool()
@@ -165,7 +165,7 @@ class StoreDaOut extends Bundle with LsuConfig with DCacheConfig {
   val bkptaData = Bool()              // sq/wb
   val bkptbData = Bool()              // sq/wb
   val instVld   = Bool()              // sq/ctrl/wb/
-  val iid       = UInt(IidWidth.W) // sq/rb/wb/pfu
+  val iid       = UInt(IidWidth.W)    // sq/rb/wb/pfu
 }
 //==========================================================
 //                          IO
