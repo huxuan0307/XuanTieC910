@@ -1,13 +1,13 @@
 package Core.IDU
 
 import Core.Config
-import Core.IDU.IS._
-import Core.IntConfig.XLEN
-import Core.IDU.RF._
+import Core.IS._
+import Core.IntConfig.{NumPhysicRegsBits, XLEN}
+import Core.RF._
 import chisel3._
 import chisel3.util._
 
-class IDUInput extends Bundle{
+class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
   val fromCp0 = new Bundle{
     val icgEn = Bool()
     val yyClkEn  = Bool()
@@ -17,7 +17,6 @@ class IDUInput extends Bundle{
      * val yyClkEn = Bool()
      * }
     val dlb_disable = Bool()
-    val iq_bypass_disable = Bool()
     val rob_fold_disable = Bool()
     val src2_fwd_disable = Bool()
     val srcv2_fwd_disable = Bool()
@@ -31,12 +30,17 @@ class IDUInput extends Bundle{
     val zeroDelayMoveDisable = Bool()
     val yyHyper = Bool()//yy_hyper
   }
+  val IQfromCp0sub = new Bundle {
+    val iq_bypass_disable = Bool()
+  }
   val IRfromCp0Sub = new Bundle {
     val dlbDisable = Bool()
     val robFoldDisable = Bool()
   }
-  val aiq0fromCp0sub = new Bundle {
-    val iqBypassDisable : Bool = Bool()
+  val RFfromCp0sub = new Bundle {
+    val lsuFenceIBroadDis = Bool()
+    val lsuFenceRwBroadDis = Bool()
+    val lsuTlbBroadDis = Bool()
   }
   val IDfromFence = new Bundle{
     val idStall = Bool()
@@ -76,10 +80,26 @@ class IDUInput extends Bundle{
     val ex2_pipe1_wb_preg_dupx       = UInt(7.W)
     val ex2_pipe1_wb_preg_vld_dupx   = Bool()
   }
+  val RFfromIU = new Bundle{
+    val stall = new Bundle {
+      val divWb   : Bool = Bool()
+      val mulEx1  : Bool = Bool()
+    }
+  }
   val aiq0fromIU = new Bundle {
     val div = new Bundle {
       val busy : Bool = Bool()
     }
+  }
+  val biqfromIU = new Bundle {
+    val div = new Bundle {
+      val instValid : Bool = Bool()
+      val preg : UInt = UInt(NumPhysicRegsBits.W)
+    }
+  }
+
+  val IQfromIUsub = new Bundle {
+    val wbPreg : Vec[ValidIO[UInt]] = Vec(WbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
   }
   val ISfromIUsub = new Bundle{
     val pcfifo_dis_inst_pid = Vec(4, UInt(5.W))
@@ -121,6 +141,12 @@ class IDUInput extends Bundle{
     val ex1_pipe_mfvr_inst_vld_dupx = Vec(2, Bool())//pipe6 pipe7
     val ex1_pipe_preg_dupx          = Vec(2, UInt(7.W))
   }
+  val RFfromVFPU = new Bundle {
+    val stall = new Bundle {
+      val vdivWb = Bool()
+    }
+  }
+
   val ifu_xx_sync_reset = Bool()
 
 
@@ -153,10 +179,13 @@ class IDUInput extends Bundle{
       val wb_pipe3_wb_vreg_dupx = UInt(7.W)
       val wb_pipe3_wb_vreg_vld_dupx = Bool()
     }
-    val aiq0fromLSU = new Bundle {
+    val IQfromLSU = new Bundle {
       val load = new Bundle {
         val dcFwdInstValid : Bool = Bool()
       }
+    }
+    val aiq0fromLSUsub = new Bundle {
+      val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
     }
   }
   val ISfromVFPU = Vec(2, new VFPU2IS)
@@ -184,7 +213,6 @@ class IDUOutput extends Bundle{
     val inst_vld = Vec(4, new Bool())
     val inst_type = Vec(4, new hpcp_type)
   }
-  val RFtoHpcp = new RFStageToHpcpBundle
   val IDtoIFU = new Bundle{
     val bypassStall = Bool()
     val stall = Bool()
@@ -197,9 +225,11 @@ class IDUOutput extends Bundle{
      * val div_issue = Bool()
      */
   }
-  val RFtoIU = new RFStageToExuGateClkBundle
 
+  val RFtoCp0 = new RFStageToCp0Bundle
+  val RFtoHpcp = new RFStageToHpcpBundle
   /**
+  val RFtoIU = new RFStageToExuGateClkBundle
   val RFtoIU_pipe = new RFtoIU_pipeBundle
    */
   val IStoLSU = new Bundle {
@@ -265,22 +295,39 @@ class IDUOutput extends Bundle{
 class IDUIO extends Bundle{
   val in  = Input(new IDUInput)
   val out = Output(new IDUOutput)
+  //////todo: complete io
 }
 
 class IDU extends Module with Config {
   val io = IO(new IDUIO)
+  val idstage = Module(new IDStage)
+  val irstage = Module(new IRStage)
+  val rt = Module(new RenameTable)
+  val isstage = Module(new ISStage)
+  val aiq0 = Module(new ArithInstQueue)
+  val biq = Module(new Biq)
+  val lsiq = Module(new Lsiq)
+  val rfstage = Module(new RFStage)
 
+  io.out := DontCare
   //aiq0 aiq1 biq lsiq sdiq viq0 viq1 vmb
-  val iq_cnt_info = Vec(8, Wire(new IQCntInfo))
+  //val iq_cnt_info = WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(5)(false.B)))))
+  val iq_cnt_info = WireInit(VecInit(Seq.fill(8)(0.U.asTypeOf(new IQCntInfo))))
   iq_cnt_info(0).left_1_updt := aiq0.io.out.ctrl.oneLeftUpdate
   iq_cnt_info(0).full := aiq0.io.out.ctrl.full
   iq_cnt_info(0).empty := aiq0.io.out.ctrl.empty
   iq_cnt_info(0).full_updt := aiq0.io.out.ctrl.fullUpdate
   iq_cnt_info(0).full_updt_clk_en := aiq0.io.out.ctrl.fullUpdateClkEn
+  //  iq_cnt_info(0)(0) := aiq0.io.out.ctrl.oneLeftUpdate
+  //  iq_cnt_info(0)(1) := aiq0.io.out.ctrl.full
+  //  iq_cnt_info(0)(2) := aiq0.io.out.ctrl.empty
+  //  iq_cnt_info(0)(3) := aiq0.io.out.ctrl.fullUpdate
+  //  iq_cnt_info(0)(4) := aiq0.io.out.ctrl.fullUpdateClkEn
+  //  iq_cnt_info(0) := Seq(aiq0.io.out.ctrl.oneLeftUpdate,aiq0.io.out.ctrl.full,aiq0.io.out.ctrl.empty,aiq0.io.out.ctrl.fullUpdate,aiq0.io.out.ctrl.fullUpdateClkEn)
   iq_cnt_info(1) := DontCare
   iq_cnt_info(2).left_1_updt := biq.io.out.ctrl.oneLeftUpdate
   iq_cnt_info(2).full := biq.io.out.ctrl.full
-  iq_cnt_info(2).empty := biq.io.out.ctrl.empty
+  iq_cnt_info(2).empty:= biq.io.out.ctrl.empty
   iq_cnt_info(2).full_updt := biq.io.out.ctrl.fullUpdate
   iq_cnt_info(2).full_updt_clk_en := biq.io.out.ctrl.fullUpdateClkEn
   iq_cnt_info(3).left_1_updt := lsiq.io.out.ctrl.oneLeftUpdate
@@ -288,12 +335,22 @@ class IDU extends Module with Config {
   iq_cnt_info(3).empty := lsiq.io.out.ctrl.empty
   iq_cnt_info(3).full_updt := lsiq.io.out.ctrl.fullUpdate
   iq_cnt_info(3).full_updt_clk_en := lsiq.io.out.ctrl.fullUpdateClkEn
+  //  iq_cnt_info(2)(0) := biq.io.out.ctrl.oneLeftUpdate
+  //  iq_cnt_info(2)(1) := biq.io.out.ctrl.full
+  //  iq_cnt_info(2)(2) := biq.io.out.ctrl.empty
+  //  iq_cnt_info(2)(3) := biq.io.out.ctrl.fullUpdate
+  //  iq_cnt_info(2)(4) := biq.io.out.ctrl.fullUpdateClkEn
+  //  iq_cnt_info(3)(0) := lsiq.io.out.ctrl.oneLeftUpdate
+  //  iq_cnt_info(3)(1) := lsiq.io.out.ctrl.full
+  //  iq_cnt_info(3)(2) := lsiq.io.out.ctrl.empty
+  //  iq_cnt_info(3)(3) := lsiq.io.out.ctrl.fullUpdate
+  //  iq_cnt_info(3)(4) := lsiq.io.out.ctrl.fullUpdateClkEn
   iq_cnt_info(4) := DontCare
   iq_cnt_info(5) := DontCare
   iq_cnt_info(6) := DontCare
   iq_cnt_info(7) := DontCare
 
-  val iq_create_entry = Wire((new ISStageInput).iq_create_entry)
+  val iq_create_entry = WireInit(0.U.asTypeOf((new ISStageInput).iq_create_entry))
   iq_create_entry.aiq0_aiq := aiq0.io.out.entryEnqOHVec //////todo: check it
   iq_create_entry.aiq1_aiq := DontCare
   iq_create_entry.biq_aiq := biq.io.out.entryEnqOHVec
@@ -308,7 +365,8 @@ class IDU extends Module with Config {
   //                       ID Stage
   //==========================================================
   // &Instance("ct_idu_id_ctrl", "x_ct_idu_id_ctrl"); @32
-  val idstage = Module(new IDStage)
+
+
 
   // &Instance("ct_idu_id_dp", "x_ct_idu_id_dp"); @33
   idstage.io.in.fromIR.irStall := irstage.io.out.ir_stall
@@ -316,7 +374,7 @@ class IDU extends Module with Config {
   idstage.io.in.fromCp0 := io.in.fromCp0
   idstage.io.in.fromPad := io.in.fromPad
   idstage.io.in.fromIFU := io.in.IDfromIFUIB
-  idstage.io.in.fromIU := io.in.fromIU.yyxxCancel
+  idstage.io.in.fromIU.yyxxCancel := io.in.fromIU.yyxxCancel
   idstage.io.in.fromFence := io.in.IDfromFence
   idstage.io.in.fromHad := io.in.IDfromHad
   idstage.io.in.fromHpcp := io.in.fromHpcp
@@ -329,7 +387,7 @@ class IDU extends Module with Config {
   //                       IR Stage
   //==========================================================
   // &Instance("ct_idu_ir_ctrl", "x_ct_idu_ir_ctrl"); @39
-  val irstage = Module(new IRStage)
+
   irstage.io.in.rt_resp := rt.io.out
   irstage.io.in.frt_resp := DontCare
   irstage.io.in.fromIU := io.in.fromIU
@@ -349,7 +407,7 @@ class IDU extends Module with Config {
 
   // &ConnRule(s/_dupx/_dup0/); @41
   // &Instance("ct_idu_ir_rt", "x_ct_idu_ir_rt"); @42
-  val rt = Module(new RenameTable)
+
   rt.io.in.rt_req := irstage.io.out.rt_req
   rt.io.in.fromRTU.flush_fe := io.in.fromRTU.flush_fe
   rt.io.in.fromRTU.flush_is := io.in.fromRTU.flush_is
@@ -375,7 +433,7 @@ class IDU extends Module with Config {
   //                       IS Stage
   //==========================================================
   // &Instance("ct_idu_is_ctrl", "x_ct_idu_is_ctrl"); @51
-  val isstage = Module(new ISStage)
+
   // &ConnRule(s/_dupx/_dup1/); @52
   // &Instance("ct_idu_is_dp", "x_ct_idu_is_dp"); @53
   isstage.io.in.fromLSU := io.in.fromLSU.ISfromLSU
@@ -401,7 +459,18 @@ class IDU extends Module with Config {
   isstage.io.in.fromRTU.rob_inst_idd := io.in.ISfromRTUsub.rob_inst_idd
   isstage.io.in.fromRf := DontCare //////todo: find out
   isstage.io.in.fromVFPU := io.in.ISfromVFPU
-  isstage.io.in.iq_cnt_info := iq_cnt_info
+  for(i <- 0 to 7) {
+    //    isstage.io.in.iq_cnt_info(i).left_1_updt := iq_cnt_info(i)(0)
+    //    isstage.io.in.iq_cnt_info(i).full := iq_cnt_info(i)(1)
+    //    isstage.io.in.iq_cnt_info(i).empty := iq_cnt_info(i)(2)
+    //    isstage.io.in.iq_cnt_info(i).full_updt := iq_cnt_info(i)(3)
+    //    isstage.io.in.iq_cnt_info(i).full_updt_clk_en := iq_cnt_info(i)(4)
+    isstage.io.in.iq_cnt_info(i).left_1_updt := iq_cnt_info(i).left_1_updt
+    isstage.io.in.iq_cnt_info(i).full := iq_cnt_info(i).full
+    isstage.io.in.iq_cnt_info(i).empty := iq_cnt_info(i).empty
+    isstage.io.in.iq_cnt_info(i).full_updt := iq_cnt_info(i).full_updt
+    isstage.io.in.iq_cnt_info(i).full_updt_clk_en := iq_cnt_info(i).full_updt_clk_en
+  }
   isstage.io.in.iq_create_entry := iq_create_entry
   isstage.io.in.ir_pipedown := irstage.io.out.ir_pipedown
   isstage.io.in.ir_type_stall_inst2_vld := irstage.io.out.ir_type_stall_inst2_vld
@@ -412,7 +481,7 @@ class IDU extends Module with Config {
 
   // &ConnRule(s/_dupx/_dup2/); @54
   // &Instance("ct_idu_is_aiq0", "x_ct_idu_is_aiq0"); @55
-  val aiq0 = Module(new ArithInstQueue)
+
   aiq0.io.in.ctrl.createVec(0).createEn(0) := isstage.io.out.iqCreateEn(0)(0).en //////todo: check it
   aiq0.io.in.ctrl.createVec(0).createEn(1) := isstage.io.out.iqCreateEn(0)(1).en
   aiq0.io.in.ctrl.createVec(0).createDpEn(0) := isstage.io.out.iqCreateEn(0)(0).dp_en
@@ -420,27 +489,38 @@ class IDU extends Module with Config {
   aiq0.io.in.ctrl.createVec(0).createGateClkEn(0) := isstage.io.out.iqCreateEn(0)(0).gateclk_en
   aiq0.io.in.ctrl.createVec(0).createGateClkEn(1) := isstage.io.out.iqCreateEn(0)(1).gateclk_en
   aiq0.io.in.ctrl.createVec(0).createSel := isstage.io.out.iqCreateEn(0)(0).sel //////todo: is something wrong???
-  aiq0.io.in.ctrl.createVec(0).stall := rf.io.ctrl.out.toIq(0).stall
-  aiq0.io.in.ctrl.createVec(0).rfLaunchFailValid := rf.io.ctrl.out.toIq(0).launchFailValid
+  aiq0.io.in.ctrl.createVec(0).stall := rfstage.io.ctrl.out.toIq(0).stall
+  aiq0.io.in.ctrl.createVec(0).rfLaunchFailValid := rfstage.io.ctrl.out.toIq(0).launchFailValid
   aiq0.io.in.ctrl.createVec(0).rfAluRegFwdValid := DontCare //////todo: complete rf
-  aiq0.io.in.ctrl.createVec(0).rfPopDlbValid := rf.io.ctrl.out.toIq(0).popDlbValid
-  aiq0.io.in.ctrl.createVec(0).rfPopValid := rf.io.ctrl.out.toIq(0).popValid
+  aiq0.io.in.ctrl.createVec(0).rfPopDlbValid := rfstage.io.ctrl.out.toIq(0).popDlbValid
+  aiq0.io.in.ctrl.createVec(0).rfPopValid := rfstage.io.ctrl.out.toIq(0).popValid
+  aiq0.io.in.ctrl.createVec(1) := DontCare
+  aiq0.io.in.ctrl.createVec(2) := DontCare
+  aiq0.io.in.ctrl.createVec(3) := DontCare
+  aiq0.io.in.ctrl.createVec(4) := DontCare
   aiq0.io.in.ctrl.xxRfPipe0PregLaunchValidDupx := DontCare//////todo: complete rf
   aiq0.io.in.ctrl.xxRfPipe1PregLaunchValidDupx := DontCare//////todo: complete rf
-  aiq0.io.in.data.createData := isstage.io.out.toAiq0.create_data
-  aiq0.io.in.data.bypassData := isstage.io.out.toAiq0.bypass_data
+  aiq0.io.in.data.createData := DontCare//isstage.io.out.toAiq0.create_data //////todo: make it same
+  aiq0.io.in.data.bypassData := DontCare//isstage.io.out.toAiq0.bypass_data //////todo: make it same
   aiq0.io.in.data.createDiv := isstage.io.out.toAiq0.create_div
   aiq0.io.in.data.srcReadyForBypass := isstage.io.out.toAiq0.src_rdy_for_bypass
-  aiq0.io.in.data.rfReadyClr := rf.io.data.out.toAiq0.readyClr
-  aiq0.io.in.data.rfLaunchEntry := rf.io.data.out.toAiq0.launchEntryOH
+  aiq0.io.in.data.rfReadyClr := rfstage.io.data.out.toAiq0.readyClr.asTypeOf(aiq0.io.in.data.rfReadyClr)
+  aiq0.io.in.data.rfLaunchEntry := rfstage.io.data.out.toAiq0.launchEntryOH.asTypeOf(aiq0.io.in.data.rfLaunchEntry)
   aiq0.io.in.data.dispatchInstSrcPregVec := isstage.io.out.toAiq.inst_src_preg
   aiq0.io.in.data.sdiqCreateSrcSelVec := isstage.io.out.toAiq.sdiq_create_src_sel
-  aiq0.io.in.fromLsu := io.in.fromLSU.aiq0fromLSU
+  aiq0.io.in.fromLsu := io.in.fromLSU.IQfromLSU
   aiq0.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
   aiq0.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
-  aiq0.io.in.fromCp0.iqBypassDisable := io.in.aiq0fromCp0sub.iqBypassDisable
+  aiq0.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
   aiq0.io.in.fromIu := io.in.aiq0fromIU
-  aiq0.io.in.aiqEntryCreateVec//////
+  aiq0.io.in.aiqEntryCreateVec := DontCare //////todo: add aiq1
+  aiq0.io.in.biqEntryCreateVec := biq.io.out.entryEnqOHVec
+  aiq0.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
+  aiq0.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
+  aiq0.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  aiq0.io.in.fuResultDstPreg := DontCare ////todo: complete rf: rf.io.data.out.dp_xx_rf_pipe0_dst_preg_dup0
+  aiq0.io.in.wbPreg := io.in.IQfromIUsub.wbPreg//iu_idu_ex2_pipe0_wb_preg_vld_dupx
+  aiq0.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg
 
   // &ConnRule(s/_dupx/_dup3/); @56
   // &Instance("ct_idu_is_aiq1", "x_ct_idu_is_aiq1"); @57
@@ -448,11 +528,38 @@ class IDU extends Module with Config {
 
   // &ConnRule(s/_dupx/_dup4/); @58
   // &Instance("ct_idu_is_biq", "x_ct_idu_is_biq"); @59
-  val biq = Module(new Biq)
+
+  biq.io.in.fuResultDstPreg := DontCare
+  biq.io.in.wbPreg := io.in.IQfromIUsub.wbPreg
+  biq.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg
+  biq.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
+  biq.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
+  biq.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  biq.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
+  biq.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
+  biq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
+  biq.io.in.fromIu.div := io.in.biqfromIU.div
+  biq.io.in.fromLsu := io.in.fromLSU.IQfromLSU
+  biq.io.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
+  biq.io.in.ctrl.gateClkEn(0) := isstage.io.out.iqCreateEn(2)(0).gateclk_en
+  biq.io.in.ctrl.gateClkEn(1) := isstage.io.out.iqCreateEn(2)(1).gateclk_en
+  biq.io.in.ctrl.createDpEn(0) := isstage.io.out.iqCreateEn(2)(0).dp_en
+  biq.io.in.ctrl.createDpEn(1) := isstage.io.out.iqCreateEn(2)(1).dp_en
+  biq.io.in.ctrl.createEn(0) := isstage.io.out.iqCreateEn(2)(0).en
+  biq.io.in.ctrl.createEn(1) := isstage.io.out.iqCreateEn(2)(1).en
+  biq.io.in.ctrl.rfPopValid := rfstage.io.ctrl.out.toIq(2).popValid
+  biq.io.in.ctrl.rfAluRegFwdValid := DontCare//////todo: add rfstage.io.ctrl.out.alu_reg_fwd_vld
+  biq.io.in.ctrl.rfLaunchFailValid := rfstage.io.ctrl.out.toIq(2).launchFailValid
+  biq.io.in.data.createData := isstage.io.out.toBiq.create_data.asTypeOf(biq.io.in.data.createData)
+  biq.io.in.data.bypassData := isstage.io.out.toBiq.bypass_data.asTypeOf(biq.io.in.data.bypassData)
+  biq.io.in.data.rfReadyClr := rfstage.io.data.out.toBiq.readyClr.asTypeOf(biq.io.in.data.rfReadyClr)
+  biq.io.in.data.rfLaunchEntry := rfstage.io.data.out.toBiq.launchEntryOH.asTypeOf(biq.io.in.data.rfLaunchEntry) //////todo: check it
+  biq.io.in.data.srcReadyForBypass := isstage.io.out.toBiq.src_rdy_for_bypass
 
   // &ConnRule(s/_dupx/_dup1/); @60
   // &Instance("ct_idu_is_lsiq", "x_ct_idu_is_lsiq"); @61
-  val lsiq = Module(new Lsiq)
+
+  lsiq.io.in := DontCare ////todo: connect lsiq
 
   // &ConnRule(s/_dupx/_dup1/); @62
   // &Instance("ct_idu_is_sdiq", "x_ct_idu_is_sdiq"); @63
@@ -471,10 +578,66 @@ class IDU extends Module with Config {
   //                       RF Stage
   //==========================================================
   // &Instance("ct_idu_rf_ctrl", "x_ct_idu_rf_ctrl"); @80
-  val rf = Module(new RFStage)
+
+  rfstage.io.ctrl.in.fromRtu.flush.fe := io.in.fromRTU.flush_fe
+  rfstage.io.ctrl.in.fromRtu.flush.is := io.in.fromRTU.flush_is
+  rfstage.io.ctrl.in.fromRtu.yyXxFlush := io.in.fromRTU.yy_xx_flush
+  rfstage.io.ctrl.in.fromIu.stall := io.in.RFfromIU.stall
+  rfstage.io.ctrl.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
+  rfstage.io.ctrl.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
+  rfstage.io.ctrl.in.fromCp0.iduIcgEn := io.in.fromCp0.icgEn //////todo: check it
+  rfstage.io.ctrl.in.fromCp0.lsuTlbBroadDis := io.in.RFfromCp0sub.lsuTlbBroadDis
+  rfstage.io.ctrl.in.fromCp0.lsuFenceIBroadDis := io.in.RFfromCp0sub.lsuFenceIBroadDis
+  rfstage.io.ctrl.in.fromCp0.lsuFenceRwBroadDis := io.in.RFfromCp0sub.lsuFenceRwBroadDis
+  rfstage.io.ctrl.in.issueEnVec(0).gateClkIssueEn := aiq0.io.out.xxGateClkIssueEn
+  rfstage.io.ctrl.in.issueEnVec(0).issueEn := aiq0.io.out.xxIssueEn
+  rfstage.io.ctrl.in.issueEnVec(1) := DontCare //////todo: add aiq1
+  rfstage.io.ctrl.in.issueEnVec(2).gateClkIssueEn := biq.io.out.xxGateClkIssueEn
+  rfstage.io.ctrl.in.issueEnVec(2).issueEn := biq.io.out.xxIssueEn
+  rfstage.io.ctrl.in.issueEnVec(3).gateClkIssueEn := lsiq.io.out.gateClkIssueEn
+  rfstage.io.ctrl.in.issueEnVec(3).issueEn := lsiq.io.out.issueEnVec(0) //////todo: is rfstage.io.ctrl.in.issueEnVec(3) wrong?
+  rfstage.io.ctrl.in.issueEnVec(4) := DontCare //////todo: add lsiq
+  rfstage.io.ctrl.in.issueEnVec(5) := DontCare //////todo: add sdiq
+  rfstage.io.ctrl.in.issueEnVec(6) := DontCare //////todo: add viq0
+  rfstage.io.ctrl.in.issueEnVec(7) := DontCare //////todo: add viq1
+  rfstage.io.ctrl.in.fromVfpu := io.in.RFfromVFPU
+  rfstage.io.data.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn //////todo: check it
+  rfstage.io.data.in.fromHad.iduWbBrValid := io.in.RFfromHad.iduWbBrValid
+  rfstage.io.data.in.fromHad.iduWbBrData := io.in.RFfromHad.iduWbBrData
+  rfstage.io.data.in.aiq0.issueEn := aiq0.io.out.xxIssueEn //////todo: check it
+  rfstage.io.data.in.aiq0.issueGateClkEn := aiq0.io.out.xxGateClkIssueEn //////todo: check it
+  rfstage.io.data.in.aiq0.issueReadData := aiq0.io.out.data.issueData
+  rfstage.io.data.in.aiq0.issueEntryOH := aiq0.io.out.data.issueEntryVec.asUInt//.asTypeOf(rfstage.io.data.in.aiq0.issueEntryOH)
+  rfstage.io.data.in.aiq1 := DontCare
+  rfstage.io.data.in.biq.issueEn := biq.io.out.xxIssueEn
+  rfstage.io.data.in.biq.issueGateClkEn := biq.io.out.xxGateClkIssueEn
+  rfstage.io.data.in.biq.issueReadData := biq.io.out.data.issueReadData
+  rfstage.io.data.in.biq.issueEntryOH := biq.io.out.data.issueEntryVec.asTypeOf(rfstage.io.data.in.biq.issueEntryOH)
+  rfstage.io.data.in.lsiq0.issueEn := lsiq.io.out.issueEnVec(0) //////todo: check it
+  rfstage.io.data.in.lsiq0.issueGateClkEn := lsiq.io.out.gateClkIssueEn
+  rfstage.io.data.in.lsiq0.issueReadData := lsiq.io.out.data.issueReadData(0) //////todo: check it
+  rfstage.io.data.in.lsiq0.issueEntryOH := lsiq.io.out.data.issueEntryVec(0).asTypeOf(rfstage.io.data.in.lsiq0.issueEntryOH) //////todo: check it
+  rfstage.io.data.in.lsiq1.issueEn := lsiq.io.out.issueEnVec(1)
+  rfstage.io.data.in.lsiq1.issueGateClkEn := lsiq.io.out.gateClkIssueEn
+  rfstage.io.data.in.lsiq1.issueReadData := lsiq.io.out.data.issueReadData(1)
+  rfstage.io.data.in.lsiq1.issueEntryOH := lsiq.io.out.data.issueEntryVec(1).asTypeOf(rfstage.io.data.in.lsiq1.issueEntryOH)
+  rfstage.io.data.in.sdiq := DontCare //////todo: add sdiq
+  rfstage.io.data.in.vfiq0 := DontCare
+  rfstage.io.data.in.vfiq1 := DontCare
   // &Instance("ct_idu_rf_dp", "x_ct_idu_rf_dp"); @81
 
   // &Instance("ct_idu_rf_fwd", "x_ct_idu_rf_fwd"); @82
   //todo: add rf_fwd
 
+  io.out.IDtoIFU := idstage.io.out.toIFU
+  io.out.IDtoHad := idstage.io.out.toHad
+  io.out.IDtoHpcp := idstage.io.out.toHpcp
+  io.out.IStoIU := isstage.io.out.toIU
+  io.out.IStoLSU := isstage.io.out.toLSU
+  io.out.IStoHad := isstage.io.out.toHad
+  io.out.IStoRTU := isstage.io.out.toRTU
+  io.out.IRtoRTU := irstage.io.out.toRTU
+  io.out.IRtoHpcp := irstage.io.out.toHpcp
+  io.out.RFtoCp0 := rfstage.io.ctrl.out.toCp0
+  io.out.RFtoHpcp := rfstage.io.ctrl.out.toHpcp
 }

@@ -215,6 +215,8 @@ class RFStageIO extends Bundle {
 class RFStage extends Module with RFStageConfig {
   val io = IO(new RFStageIO)
 
+  io.ctrl.out := DontCare
+  io.data.out := DontCare
   val rtu = io.ctrl.in.fromRtu
 
   /**
@@ -235,6 +237,9 @@ class RFStage extends Module with RFStageConfig {
   private val aiq0IssueLaunchPreg = Wire(Bool())
   private val aiq0IssueSpecial = Wire(Bool())
   private val aiq0IssueDiv = Wire(Bool())
+  aiq0IssueLaunchPreg := false.B //////todo: tem for firrtl
+  aiq0IssueSpecial := false.B //////todo: tem for firrtl
+  aiq0IssueDiv := false.B //////todo: tem for firrtl
 
   private val aiq0IssueAluRegValid = io.ctrl.in.issueEnVec(0).issueEn &&
                                       aiq0IssueLaunchPreg
