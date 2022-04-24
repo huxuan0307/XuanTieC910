@@ -192,7 +192,7 @@ class IFUIO extends CoreBundle {
   //val cache_resp = Flipped(Valid(new ICacheResp))
   //inst out
   val instData = Output(Vec(3, new IDData))
-  val instVld  = Input(Vec(3, Bool()))
+  val instVld  = Output(Vec(3, Bool()))
   //bht, btb update
   val bpu_update = new BPUUpdate
   val pc = Output(UInt(VAddrBits.W))
