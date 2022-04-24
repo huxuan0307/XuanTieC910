@@ -1,6 +1,6 @@
 package Core.LSU.Wmb
 
-import Core.LsuConfig
+import Core.{BIUConfig, LsuConfig}
 import Utils.ParallelORR
 import chisel3._
 import chisel3.util._
@@ -309,7 +309,7 @@ class WmbIO extends Bundle{
   val out = Output(new WmbOutput)
 }
 
-class Wmb extends Module with LsuConfig{
+class Wmb extends Module with LsuConfig with BIUConfig{
   val io = IO(new WmbIO)
 
   val ptr_init = Seq(false.B,false.B,false.B,false.B,false.B,false.B,false.B,true.B)
@@ -338,6 +338,10 @@ class Wmb extends Module with LsuConfig{
   val wmb_write_req_addr = Reg(UInt(PA_WIDTH.W))
   val wmb_ctc_secd = RegInit(false.B)
 
+  val wmb_write_dcache_pop_req = RegInit(false.B)
+  val wmb_write_dcache_ptr = Reg(Vec(WMB_ENTRY, Bool()))
+  val wmb_write_dcache_addr = Reg(UInt(PA_WIDTH.W))
+
   //Wire
   val wmb_empty = Wire(Bool())
   val wmb_pop_depd_ff = Wire(Bool())
@@ -354,7 +358,6 @@ class Wmb extends Module with LsuConfig{
   val wmb_fwd_data_pe_gateclk_en = Wire(Bool())
   val wmb_write_pop_up_wmb_ce_gateclk_en = Wire(Bool())
   val wmb_dcache_req_next = Wire(Bool())
-  val wmb_write_dcache_pop_req = Wire(Bool())
 
   val wmb_entry_in       = Wire(Vec(WMB_ENTRY, new WmbEntryIn))
   val wmb_entry_out      = Wire(Vec(WMB_ENTRY, new WmbEntryOutput))
@@ -425,6 +428,12 @@ class Wmb extends Module with LsuConfig{
   val wmb_write_pop_up_wmb_ce_vld = Wire(Bool())
 
   val wmb_biu_ar_addr = Wire(UInt(PA_WIDTH.W))
+
+  val wmb_write_dcache_ptr_set = Wire(Vec(WMB_ENTRY, Bool()))
+  val wmb_write_dcache_addr_set = Wire(UInt(PA_WIDTH.W))
+
+  val wmb_dcache_arb_req = Wire(Bool())
+  val wmb_dcache_data_high_sel = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -763,6 +772,7 @@ class Wmb extends Module with LsuConfig{
   val wmb_read_req_inst_type = wmb_entry_out_read_sel.inst_type
   val wmb_read_req_inst_size = wmb_entry_out_read_sel.inst_size
   val wmb_read_req_inst_mode = wmb_entry_out_read_sel.inst_mode
+  val wmb_read_req_data = wmb_entry_out_read_sel.data(15,0)
   val wmb_read_req_priv_mode = wmb_entry_out_read_sel.priv_mode
   val wmb_read_req_page_share = wmb_entry_out_read_sel.page_share
   val wmb_read_req_page_sec = wmb_entry_out_read_sel.page_sec
@@ -1055,5 +1065,303 @@ class Wmb extends Module with LsuConfig{
   io.out.toBiu.ar_req_gateclk_en := wmb_read_dp_req
 
   io.out.toBiu.ar_id := Mux(wmb_read_req_ctc_inst, BIU_R_CTC_ID, Cat(BIU_R_NORM_ID_T, wmb_read_ptr_encode))
+
+  //-----------------addr-----------------
+  val wmb_biu_ar_tlbi_first_addr =
+      Cat(wmb_read_req_data(15,8),  //ASID[15:8]    39:32
+      0.U(8.W),                     //
+      wmb_read_req_data(7,0),       //ASID[7:0]     23:16
+      0.U(1.W),                     //              15
+      0.U(3.W),                     //TLBI          14:12
+      2.U(2.W),                     //Guest?        11:10
+      2.U(2.W),                     //non-sec       9:8
+      0.U(1.W),                     //              7
+      0.U(1.W),                     //`PA_WIDTH-1:24 not vld 6
+      wmb_read_req_tlbi_asid_inst,  //23:16 vld     5
+      0.U(4.W),                     //              4:1
+      wmb_read_req_tlbi_va_inst)    //need secd     0
+
+  val wmb_biu_ar_tlbi_secd_addr =
+      Cat(wmb_read_req_addr(PA_WIDTH-1,4), //VA            PA_WIDTH-1:4
+      0.U(3.W),                            //              3:1
+      1.U(1.W))                            //end           0
+
+  val wmb_biu_ar_icache_first_addr =
+      Cat(0.U(24.W),                  //            PA_WIDTH-1:16
+      0.U(1.W),                       //              15
+      2.U(3.W),                       //ICACHEI       14:12
+      0.U(2.W),                       //Guest?        11:10
+      2.U(2.W),                       //              9:8
+      0.U(1.W),                       //              7
+      0.U(2.W),                       //              6:5
+      0.U(4.W),                       //              4:1
+      !wmb_read_req_icache_all_inst)  //need secd?    0
+
+  val wmb_biu_ar_icache_secd_addr =
+      Cat(wmb_read_req_addr(PA_WIDTH-1,4), //VA            PA_WIDTH-1:4
+      0.U(3.W),                            //              3:1
+      1.U(1.W))                            //end           0
+
+  val wmb_biu_ar_l2cache_first_addr =
+      Cat(0.U((PA_WIDTH-24).W),       //              PA_WIDTH-1:24
+      0.U(6.W),                       //              23:18
+      wmb_read_req_inst_size(0),      //CLEAR         17
+      wmb_read_req_inst_size(1),      //INV           16
+      0.U(1.W),                       //              15
+      7.U(3.W),                       //L2CACHE       14:12
+      2.U(2.W),                       //Guest?        11:10
+      2.U(2.W),                       //non-sec       9:8
+      0.U(1.W),                       //              7
+      0.U(1.W),                       //PA_WIDTH-1:24 not vld 6
+      0.U(1.W),                       //23:16 not vld 5
+      0.U(4.W),                       //              4:1
+      0.U(1.W))                       //end           0
+
+  val wmb_biu_ar_addr_judge = Cat(wmb_ctc_secd, wmb_read_req_tlbi_inst, wmb_read_req_icache_inst, wmb_read_req_l2cache_inst)
+
+  wmb_biu_ar_addr := MuxLookup(wmb_biu_ar_addr_judge, Cat(wmb_read_req_addr(PA_WIDTH-1,6), 0.U(6.W)), Seq(
+    "b0100".U -> wmb_biu_ar_tlbi_first_addr,
+    "b1100".U -> wmb_biu_ar_tlbi_secd_addr,
+    "b0010".U -> wmb_biu_ar_icache_first_addr,
+    "b1010".U -> wmb_biu_ar_icache_secd_addr,
+    "b0001".U -> wmb_biu_ar_l2cache_first_addr
+  ))
+
+  //-----------------others-----------------
+  //ctc   : 1
+  //other : 3
+  io.out.toBiu.ar_len := Mux(wmb_read_req_ctc_inst, 0.U(2.W), 3.U(2.W))
+  //128 bits
+  io.out.toBiu.ar_size := 4.U(3.W)
+  //increase
+  io.out.toBiu.ar_burst := 1.U(2.W)
+  //not exclusive
+  io.out.toBiu.ar_lock := false.B
+
+  //ctc 0010
+  //dcache.l1 0011
+  //others 1111
+  io.out.toBiu.ar_cache := MuxLookup(Cat(wmb_read_req_ctc_inst,wmb_read_req_dcache_va_l1_inst), "b1111".U, Seq(
+    "b10".U -> "b0010".U,
+    "b01".U -> "b0011".U
+  ))
+
+  io.out.toBiu.ar_prot := Cat(0.U(1.W), wmb_read_req_page_sec, wmb_read_req_priv_mode(0))
+
+  io.out.toBiu.ar_user := Cat(0.U(1.W), wmb_read_req_priv_mode(1), 0.U(1.W))
+
+  //-----------------snoop----------------
+  //st cleanunique 1011
+  //dcache only clr cleanshared  1000
+  //dcache only clr l1 cleanshared  1000
+  //dcache clr inv  cleaninvalid 1001
+  //dcache only inv makeinvalid  1101
+  //ctc 1111
+  val ar_snoop_sel_value = MuxLookup(wmb_read_req_inst_size, "b1011".U, Seq(
+    "b01".U -> "b1000".U,//CleanShared
+    "b00".U -> "b1000".U,//CleanShared
+    "b10".U -> "b1101".U,//MakeInvalid
+    "b11".U -> "b1001".U//CleanInvalid
+  ))
+
+  val ar_snoop_sel = Cat(wmb_read_req_atomic,wmb_read_req_icc,wmb_read_req_inst_type)
+
+  io.out.toBiu.ar_snoop := MuxLookup(ar_snoop_sel, "b1011".U, Seq(
+    BitPat("b0_1_10") -> ar_snoop_sel_value,
+    BitPat("b0_1_00") -> "b1111".U,//CTC
+    BitPat("b0_1_01") -> "b1111".U,
+    BitPat("b0_1_11") -> "b1111".U
+  ))
+
+  io.out.toBiu.ar_domain := Cat(0.U(1.W), wmb_read_req_page_share)
+
+  io.out.toBiu.ar_bar := 0.U(2.W)
+
+  //==========================================================
+  //                    Request dcache
+  //==========================================================
+  //-----------------dcache req ptr---------------------------
+  val wmb_write_dcache_pop_up = wmb_write_dcache_success || !wmb_write_dcache_pop_req && wmb_dcache_req_next
+
+  wmb_dcache_req_ptr := Mux(wmb_write_dcache_pop_req, wmb_write_dcache_ptr, VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val wmb_dcache_req_set = Wire(Vec(WMB_ENTRY, Bool()))
+  for(i <- 0 until WMB_ENTRY){
+    wmb_dcache_req_set(i) := wmb_entry_out(i).write_dcache_req && !wmb_dcache_req_ptr(i)
+  }
+
+  wmb_dcache_req_next := wmb_dcache_req_set.asUInt.orR
+
+  when(wmb_write_dcache_pop_up){
+    wmb_write_dcache_pop_req := wmb_dcache_req_next
+    wmb_write_dcache_ptr := wmb_write_dcache_ptr_set
+    wmb_write_dcache_addr := wmb_write_dcache_addr_set
+  }
+
+  //sel dcache req entry
+  val wmb_write_dcache_priority = PriorityEncoderOH(MuxLookup(wmb_write_ptr.asUInt, 0.U(8.W), Seq(
+    "b00000001".U -> wmb_dcache_req_set.asUInt,
+    "b00000010".U -> Cat(wmb_dcache_req_set.asUInt(0),wmb_dcache_req_set.asUInt(7,1)),
+    "b00000100".U -> Cat(wmb_dcache_req_set.asUInt(1,0),wmb_dcache_req_set.asUInt(7,2)),
+    "b00001000".U -> Cat(wmb_dcache_req_set.asUInt(2,0),wmb_dcache_req_set.asUInt(7,3)),
+    "b00010000".U -> Cat(wmb_dcache_req_set.asUInt(3,0),wmb_dcache_req_set.asUInt(7,4)),
+    "b00100000".U -> Cat(wmb_dcache_req_set.asUInt(4,0),wmb_dcache_req_set.asUInt(7,5)),
+    "b01000000".U -> Cat(wmb_dcache_req_set.asUInt(5,0),wmb_dcache_req_set.asUInt(7,6)),
+    "b10000000".U -> Cat(wmb_dcache_req_set.asUInt(6,0),wmb_dcache_req_set.asUInt(7))
+  )))
+
+  wmb_write_dcache_ptr_set := MuxLookup(wmb_write_dcache_priority.asUInt, VecInit(Seq.fill(WMB_ENTRY)(false.B)), Seq(
+    "b00000001".U -> wmb_write_ptr,
+    "b00000010".U -> wmb_write_ptr_next(1),
+    "b00000100".U -> wmb_write_ptr_next(2),
+    "b00001000".U -> wmb_write_ptr_next(3),
+    "b00010000".U -> wmb_write_ptr_next(4),
+    "b00100000".U -> wmb_write_ptr_next(5),
+    "b01000000".U -> wmb_write_ptr_next(6),
+    "b10000000".U -> wmb_write_ptr_next(7)
+  ))
+
+  wmb_write_dcache_addr_set := Mux1H(Seq(
+    wmb_write_dcache_ptr_set(0) -> wmb_entry_out(0).addr,
+    wmb_write_dcache_ptr_set(1) -> wmb_entry_out(1).addr,
+    wmb_write_dcache_ptr_set(2) -> wmb_entry_out(2).addr,
+    wmb_write_dcache_ptr_set(3) -> wmb_entry_out(3).addr,
+    wmb_write_dcache_ptr_set(4) -> wmb_entry_out(4).addr,
+    wmb_write_dcache_ptr_set(5) -> wmb_entry_out(5).addr,
+    wmb_write_dcache_ptr_set(6) -> wmb_entry_out(6).addr,
+    wmb_write_dcache_ptr_set(7) -> wmb_entry_out(7).addr
+  ))
+
+  //dcache pop signal
+  val wmb_write_req_dcache_way = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.dcache_way)).asUInt).orR
+
+  val wmb_write_dcache_bytes_vld = Mux1H(Seq(
+    wmb_write_dcache_ptr_set(0) -> wmb_entry_out(0).bytes_vld,
+    wmb_write_dcache_ptr_set(1) -> wmb_entry_out(1).bytes_vld,
+    wmb_write_dcache_ptr_set(2) -> wmb_entry_out(2).bytes_vld,
+    wmb_write_dcache_ptr_set(3) -> wmb_entry_out(3).bytes_vld,
+    wmb_write_dcache_ptr_set(4) -> wmb_entry_out(4).bytes_vld,
+    wmb_write_dcache_ptr_set(5) -> wmb_entry_out(5).bytes_vld,
+    wmb_write_dcache_ptr_set(6) -> wmb_entry_out(6).bytes_vld,
+    wmb_write_dcache_ptr_set(7) -> wmb_entry_out(7).bytes_vld
+  ))
+
+  val wmb_write_dcache_data = Mux1H(Seq(
+    wmb_write_dcache_ptr_set(0) -> wmb_entry_out(0).data,
+    wmb_write_dcache_ptr_set(1) -> wmb_entry_out(1).data,
+    wmb_write_dcache_ptr_set(2) -> wmb_entry_out(2).data,
+    wmb_write_dcache_ptr_set(3) -> wmb_entry_out(3).data,
+    wmb_write_dcache_ptr_set(4) -> wmb_entry_out(4).data,
+    wmb_write_dcache_ptr_set(5) -> wmb_entry_out(5).data,
+    wmb_write_dcache_ptr_set(6) -> wmb_entry_out(6).data,
+    wmb_write_dcache_ptr_set(7) -> wmb_entry_out(7).data
+  ))
+
+  val wmb_write_dcache_stall = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.write_stall)).asUInt).orR
+
+  val wmb_write_dcache_sync_fence = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.sync_fence)).asUInt).orR
+  val wmb_write_dcache_atomic     = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.atomic_and_vld)).asUInt).orR
+  val wmb_write_dcache_icc        = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.icc_and_vld)).asUInt).orR
+
+  wmb_write_dcache_req_icc_inst := !wmb_write_dcache_atomic && !wmb_write_dcache_sync_fence && wmb_write_dcache_icc
+
+  //----------------------hit_idx-----------------------------
+  wmb_write_req_hit_idx := io.in.fromLfb.write_req_hit_idx || io.in.fromVB.write_req_hit_idx
+
+  //for dcache_inst
+  wmb_dcache_inst_write_req_hit_idx := io.in.fromLfb.write_req_hit_idx || io.in.fromSnq.create_wmb_write_req_hit_idx ||
+    io.in.fromSnq.wmb_write_req_hit_idx ||io.in.fromVB.write_req_hit_idx
+
+  //-----------------for ecc ---------------------------------
+  val pw_read           = false.B
+  val pw_ecc_idle       = true.B
+  pw_merge_stall       := false.B
+  val wmb_ecc_write_req = false.B
+  val wmb_ecc_fatal_err = false.B
+
+  io.out.toDcacheArb.ld_borrow_req := wmb_dcache_arb_req && pw_read
+  io.out.toDcacheArb.data_way := wmb_dcache_data_high_sel
+
+  val wmb_write_dcache_wen = Mux(wmb_ecc_write_req, 0xffff.U, wmb_write_dcache_bytes_vld)
+
+  //----------------------cache interface---------------------
+  wmb_dcache_arb_req_unmask :=
+    wmb_write_dcache_pop_req && pw_ecc_idle && !wmb_write_dcache_stall && wmb_write_dcache_permit || wmb_ecc_write_req
+
+  wmb_dcache_arb_req := wmb_dcache_arb_req_unmask
+  io.out.toDcacheArb.ld_req := wmb_dcache_arb_req
+  io.out.toDcacheArb.st_req := wmb_dcache_arb_req
+
+  val wmb_write_dcache_success_ori = wmb_dcache_arb_req && io.in.fromDcache.arb_wmb_ld_grnt
+
+  //for ecc pw read
+  wmb_write_dcache_success := wmb_write_dcache_success_ori && (!pw_read || wmb_ecc_write_req) || wmb_ecc_fatal_err
+  //----------------tag array-------------
+  io.out.toDcacheArb.ld_tag_gateclk_en := wmb_dcache_arb_req_unmask && !pw_read && wmb_write_dcache_req_icc_inst
+
+  io.out.toDcacheArb.ld_tag_req := wmb_dcache_arb_req_unmask && !pw_read && wmb_write_dcache_req_icc_inst
+
+  io.out.toDcacheArb.ld_tag_idx := wmb_write_dcache_addr(14,6)
+  io.out.toDcacheArb.ld_tag_wen := Cat(wmb_write_req_dcache_way, !wmb_write_req_dcache_way)
+  //---------------dirty array------------
+  io.out.toDcacheArb.st_dirty_gateclk_en := wmb_dcache_arb_req_unmask && !pw_read
+
+  io.out.toDcacheArb.st_dirty_req := wmb_dcache_arb_req_unmask && !pw_read
+
+  io.out.toDcacheArb.st_dirty_idx := wmb_write_dcache_addr(14,6)
+  //fifo,dirty1,share1,valid1,dirty0,share0,valid0
+  io.out.toDcacheArb.st_dirty_din := Mux(wmb_write_dcache_req_icc_inst, 0.U(7.W), "b0101101".U)
+  io.out.toDcacheArb.st_dirty_wen :=
+    Cat(0.U(1.W), VecInit(Seq.fill(3)(wmb_write_req_dcache_way)).asUInt, VecInit(Seq.fill(3)(!wmb_write_req_dcache_way)).asUInt)
+
+  //---------------data array-------------
+  //pre signal
+  val wmb_dcache_data_region = Wire(Vec(4, Bool()))
+  for(i <- 0 until 4){
+    wmb_dcache_data_region(i) := wmb_write_dcache_bytes_vld(i*4+3,i*4).orR
+  }
+
+  wmb_dcache_data_high_sel := wmb_write_req_dcache_way ^ wmb_write_dcache_addr(4)
+
+  val wmb_dcache_arb_ld_data_req_unmask =
+    Cat(wmb_dcache_data_region.asUInt,wmb_dcache_data_region.asUInt) &
+    Cat(VecInit(Seq.fill(4)(wmb_dcache_data_high_sel)).asUInt,VecInit(Seq.fill(4)(!wmb_dcache_data_high_sel)).asUInt) &
+    VecInit(Seq.fill(4)(wmb_dcache_arb_req_unmask)).asUInt
+
+  io.out.toDcacheArb.ld_data_req := wmb_dcache_arb_ld_data_req_unmask
+  io.out.toDcacheArb.ld_data_gateclk_en := wmb_dcache_arb_ld_data_req_unmask
+
+  io.out.toDcacheArb.ld_data_idx := Cat(wmb_write_dcache_addr(14,5),wmb_write_req_dcache_way)
+  io.out.toDcacheArb.ld_data_low_din  := wmb_write_dcache_data
+  io.out.toDcacheArb.ld_data_high_din := wmb_write_dcache_data
+  io.out.toDcacheArb.ld_data_gwen := Mux(pw_read, 0.U(8.W), wmb_dcache_arb_ld_data_req_unmask)
+
+  io.out.toDcacheArb.ld_data_wen := Cat(wmb_write_dcache_wen,wmb_write_dcache_wen) &
+    Cat(VecInit(Seq.fill(16)(wmb_dcache_data_high_sel)).asUInt,VecInit(Seq.fill(16)(!wmb_dcache_data_high_sel)).asUInt)
+
+  //==========================================================
+  //                  Request victim buffer
+  //==========================================================
+  //req signal is used for arbitration
+  io.out.toVB.create_req := wmb_write_vb_req_unmask
+
+  //only create vb should check snq
+  wmb_vb_create_vld := wmb_write_vb_req_unmask && !wmb_dcache_inst_write_req_hit_idx
+  io.out.toVB.create_vld := wmb_vb_create_vld
+
+  io.out.toVB.create_dp_vld := wmb_write_vb_req_unmask
+  io.out.toVB.create_gateclk_en := wmb_write_vb_req_unmask
+  io.out.toVB.inv := wmb_write_req_inst_size(1)
+  io.out.toVB.set_way_mode := wmb_write_req_inst_mode === 2.U(2.W)
+  io.out.toVB.addr_tto6 := wmb_write_req_addr(PA_WIDTH-1,6)
+
+  //==========================================================
+  //      Request biu aw channel(include mem set request)
+  //==========================================================
+  //-----------------------inst type--------------------------
+
+
+
+
+
 
 }

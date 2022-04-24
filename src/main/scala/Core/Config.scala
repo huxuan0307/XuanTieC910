@@ -94,6 +94,15 @@ trait IUConfig {
   def IuPipeNum = 3
 }
 
+trait BIUConfig {
+  def BIU_R_NORM_ID_T     = 1.U(2.W)
+  def BIU_R_CTC_ID        = 28.U(5.W)
+  def BIU_B_NC_ID         = 24.U(5.W)
+  def BIU_B_SO_ID         = 29.U(5.W)
+  def BIU_B_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_B_SYNC_FENCE_ID = 31.U(5.W)
+}
+
 trait LsuConfig{
   def PA_WIDTH = 40
   def VPN_WIDTH = 28
