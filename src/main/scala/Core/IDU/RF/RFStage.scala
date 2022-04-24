@@ -604,7 +604,6 @@ class RFStage extends Module with RFStageConfig {
   //----------------------------------------------------------
   //               Pipe2 Exectuion Unit Selection
   //----------------------------------------------------------
-  io.ctrl.out.toIq(2).
 
 
 }
