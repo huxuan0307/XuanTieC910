@@ -1,4 +1,4 @@
-package Core.RF
+package Core.IDU.RF
 
 import chisel3._
 import chisel3.util._

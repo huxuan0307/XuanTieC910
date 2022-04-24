@@ -3,7 +3,7 @@ package Core.IDU
 import Core.Config
 import Core.IS._
 import Core.IntConfig.XLEN
-import Core.RF._
+import Core.IDU.RF._
 import chisel3._
 import chisel3.util._
 
