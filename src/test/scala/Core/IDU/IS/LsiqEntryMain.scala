@@ -1,12 +1,12 @@
-package Core.IS
+package Core.IDU.IS
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object BiqMain extends App {
+object LsiqEntryMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new Biq)
+      ChiselGeneratorAnnotation(() => new LsiqEntry)
     )
   )
 }

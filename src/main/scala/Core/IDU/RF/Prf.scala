@@ -1,11 +1,8 @@
-package Core.RF
+package Core.IDU.RF
 
+import Core.IntConfig._
 import chisel3._
 import chisel3.util._
-import Core.ROBConfig._
-import Core.VectorUnitConfig._
-import Core.PipelineConfig._
-import Core.IntConfig._
 
 trait PrfConfig {
   def NumPregReadPort = 11

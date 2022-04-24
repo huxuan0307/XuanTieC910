@@ -1,4 +1,4 @@
-package Core.IS
+package Core.IDU.IS
 
 import Core.ExceptionConfig._
 import Core.IntConfig._

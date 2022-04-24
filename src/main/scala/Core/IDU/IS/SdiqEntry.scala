@@ -1,4 +1,4 @@
-package Core.IS
+package Core.IDU.IS
 
 import Core.IntConfig._
 import chisel3._

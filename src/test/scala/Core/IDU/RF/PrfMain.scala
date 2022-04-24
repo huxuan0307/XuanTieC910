@@ -1,12 +1,12 @@
-package Core.IS
+package Core.IDU.RF
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
-object SdiqEntryMain extends App {
+object PrfMain extends App {
   (new ChiselStage).execute(
     args,
     Seq(
-      ChiselGeneratorAnnotation(() => new SdiqEntry)
+      ChiselGeneratorAnnotation(() => new Prf)
     )
   )
 }

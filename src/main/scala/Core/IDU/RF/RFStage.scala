@@ -1,14 +1,13 @@
-package Core.RF
+package Core.IDU.RF
 
-import Core.IS.AiqConfig.NumSrcArith
-import Core.IS.BiqConfig.NumSrcBr
-import Core.IS.LsiqConfig.NumSrcLs
-import Core.IS.SdiqConfig.NumSrcSd
-import Core.IS.VfiqConfig.NumSrcVf
-import Core.IS.{AiqEntryData, BiqEntryData, LsiqEntryData, SdiqEntryData, VfiqEntryData}
-import chisel3._
-import chisel3.util._
+import Core.IDU.IS.AiqConfig.NumSrcArith
+import Core.IDU.IS.BiqConfig.NumSrcBr
+import Core.IDU.IS.LsiqConfig.NumSrcLs
+import Core.IDU.IS.SdiqConfig.NumSrcSd
+import Core.IDU.IS.VfiqConfig.NumSrcVf
+import Core.IDU.IS._
 import Core.IntConfig._
+import chisel3._
 
 trait RFStageConfig {
   // aiq + biq + lsiq + sdiq + viq
