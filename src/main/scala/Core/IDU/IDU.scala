@@ -1,7 +1,7 @@
 package Core.IDU
 
 import Core.Config
-import Core.IS._
+import Core.IDU.IS._
 import Core.IntConfig.XLEN
 import Core.IDU.RF._
 import chisel3._
