@@ -1,0 +1,17 @@
+package ISA
+
+import chisel3.util.BitPat
+
+object RV64F extends Decoder32Bits {
+  // RV32F Standard Extension
+  // I-type         |-----imm-----|-rs1-|-funct3-|--rd-|opcode|
+  def flw = BitPat("b???????_?????_?????___010____?????_00001")
+
+  // S-type         |--imm--|-rs2-|-rs1-|-funct3-|-imm-|opcode|
+  def fsw = BitPat("b???????_?????_?????___010____?????_01001")
+
+  // R-type             |-func7-|-rs2-|-rs1-|-funct3-|--rd-|opcode|
+  def fmv_w_x = BitPat("b1111000_?????_?????___000____?????_10100")
+  // RV64F Standard Extension (in addition to RV32F)
+
+}
