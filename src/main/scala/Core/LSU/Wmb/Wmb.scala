@@ -1,6 +1,7 @@
 package Core.LSU.Wmb
 
-import Core.{BIUConfig, LsuConfig}
+import Core.LSU.Sq.DcacheDirtyDataEn
+import Core.{BIUConfig, DCacheConfig, LsuConfig}
 import Utils.ParallelORR
 import chisel3._
 import chisel3.util._
@@ -59,7 +60,7 @@ class FromWmbCe extends Bundle with LsuConfig{
 //val update_dcache_valid = Bool()
 //val update_dcache_way = Bool()
 
-class WmbInput extends Bundle with LsuConfig{
+class WmbInput extends Bundle with LsuConfig with DCacheConfig{
   val amr_l2_mem_set = Bool()
   val fromBiu = new Bundle{
     val b_id = UInt(5.W)
@@ -81,14 +82,14 @@ class WmbInput extends Bundle with LsuConfig{
   }
   val fromDcache = new Bundle{
     val arb_wmb_ld_grnt = Bool()
-    val dirty_din = UInt(7.W)
+    val dirty_din = Flipped(ValidIO(Vec(WAYS, new DcacheDirtyDataEn)))
     val dirty_gwen = Bool()
-    val dirty_wen = UInt(7.W)
+    val dirty_wen = Flipped(ValidIO(Vec(WAYS, new DcacheDirtyDataEn)))
     val idx = UInt(9.W)
     val snq_st_sel = Bool()
-    val tag_din = UInt(52.W)
+    val tag_din = Vec(WAYS,Flipped(ValidIO(UInt(TAG_WIDTH.W))))
     val tag_gwen = Bool()
-    val tag_wen = UInt(2.W)
+    val tag_wen = Vec(WAYS,Bool())
     val vb_snq_gwen = Bool()
   }
   val icc_wmb_write_imme = Bool()
@@ -342,9 +343,19 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_write_dcache_ptr = Reg(Vec(WMB_ENTRY, Bool()))
   val wmb_write_dcache_addr = Reg(UInt(PA_WIDTH.W))
 
+  val wmb_wakeup_queue = RegInit(VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
+  val wmb_pop_depd_ff = RegInit(false.B)
+
+  val wmb_fwd_data = RegInit(0.U(128.W))
+
+  //Reg Output
+  io.out.wmb_write_ptr := wmb_write_ptr
+  io.out.wmb_write_req_addr := wmb_write_req_addr
+  io.out.wmb_write_req_icc := wmb_write_req_icc
+  io.out.wmb_read_req_addr := wmb_read_req_addr
+
   //Wire
   val wmb_empty = Wire(Bool())
-  val wmb_pop_depd_ff = Wire(Bool())
   val wmb_read_ptr_unconditional_shift_imme = Wire(Bool())
   val wmb_read_ptr_chk_idx_shift_imme = Wire(Bool())
   val wmb_read_req_unmask = Wire(Bool())
@@ -393,8 +404,6 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_read_ptr_next1 = Wire(Vec(WMB_ENTRY, Bool()))
   val wmb_write_ptr_shift_vld = Wire(Bool())
   val wmb_write_ptr_next = Wire(Vec(8, Vec(WMB_ENTRY, Bool())))
-  val wmb_write_ptr_set = Wire(Vec(WMB_ENTRY, Bool()))
-  val wmb_write_ptr_circular_set = Wire(Bool())
   val wmb_data_ptr_shift_vld = Wire(Bool())
   val wmb_data_ptr_next1 = Wire(Vec(WMB_ENTRY, Bool()))
 
@@ -434,6 +443,15 @@ class Wmb extends Module with LsuConfig with BIUConfig{
 
   val wmb_dcache_arb_req = Wire(Bool())
   val wmb_dcache_data_high_sel = Wire(Bool())
+  val wmb_biu_nc_req_grnt = Wire(Bool())
+  val wmb_biu_so_req_grnt = Wire(Bool())
+
+  val wmb_wakeup_queue_next = Wire(Vec(LSIQ_ENTRY,Bool()))
+  val wmb_pop_depd = Wire(Bool())
+  val wmb_pop_discard_req = Wire(Bool())
+  val wmb_pop_fwd_req = Wire(Bool())
+  val wmb_b_nc_id_hit = Wire(Bool())
+  val wmb_b_so_id_hit = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -471,7 +489,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   //==========================================================
   //------------------empty signal----------------------------
   wmb_empty := !ParallelORR(wmb_entry_out.map(entry => entry.vld))
-
+  io.out.wmb_empty := wmb_empty
   //==========================================================
   //                 Non-cacheable FIFO
   //==========================================================
@@ -488,9 +506,12 @@ class Wmb extends Module with LsuConfig with BIUConfig{
 
   val wmb_entry_next_so_bypass = WireInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
 
+  //------------------pending---------------------------------
+  io.out.wmb_rb_so_pending := !wmb_so_no_pending
   //==========================================================
   //          Instance of write merge buffer entry
   //==========================================================
+  wmb_entry_in := DontCare
   val wmb_entry = Seq.fill(WMB_ENTRY)(Module(new WmbEntry))
   for(i <- 0 until WMB_ENTRY){
     wmb_entry(i).io.in.fromBiu    := io.in.fromBiu
@@ -550,6 +571,9 @@ class Wmb extends Module with LsuConfig with BIUConfig{
     wmb_entry_out(i) := wmb_entry(i).io.out
   }
 
+  io.out.wmb_entry_vld := VecInit(wmb_entry_out.map(_.vld))
+
+
 
   //==========================================================
   //                  Maintain pointer
@@ -607,6 +631,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_read_ptr_encode = OHToUInt(wmb_read_ptr.asUInt)(2,0)
 
   val wmb_write_ptr_encode = OHToUInt(wmb_write_ptr.asUInt)(2,0)
+  io.out.wmb_write_ptr_encode := wmb_write_ptr_encode
 
   val wmb_write_ptr_next3_encode = OHToUInt(wmb_write_ptr_next(3).asUInt)(2,0)
 
@@ -738,7 +763,8 @@ class Wmb extends Module with LsuConfig with BIUConfig{
     wmb_entry_in(i).merge_data_wait_not_vld_req := io.in.fromWmbCe.merge_wmb_wait_not_vld_req && io.in.fromWmbCe.merge_ptr(i)
   }
 
-  io.out.toSQ.pop_grnt := wmb_create_vld || wmb_merge_vld
+  wmb_sq_pop_grnt := wmb_create_vld || wmb_merge_vld
+  io.out.toSQ.pop_grnt := wmb_sq_pop_grnt
 
   io.out.toWmbCe.pop_vld := io.out.toSQ.pop_grnt
 
@@ -1064,7 +1090,8 @@ class Wmb extends Module with LsuConfig with BIUConfig{
 
   io.out.toBiu.ar_req_gateclk_en := wmb_read_dp_req
 
-  io.out.toBiu.ar_id := Mux(wmb_read_req_ctc_inst, BIU_R_CTC_ID, Cat(BIU_R_NORM_ID_T, wmb_read_ptr_encode))
+  wmb_biu_ar_id := Mux(wmb_read_req_ctc_inst, BIU_R_CTC_ID, Cat(BIU_R_NORM_ID_T, wmb_read_ptr_encode))
+  io.out.toBiu.ar_id := wmb_biu_ar_id
 
   //-----------------addr-----------------
   val wmb_biu_ar_tlbi_first_addr =
@@ -1126,6 +1153,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
     "b1010".U -> wmb_biu_ar_icache_secd_addr,
     "b0001".U -> wmb_biu_ar_l2cache_first_addr
   ))
+  io.out.toBiu.ar_addr := wmb_biu_ar_addr
 
   //-----------------others-----------------
   //ctc   : 1
@@ -1167,10 +1195,10 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val ar_snoop_sel = Cat(wmb_read_req_atomic,wmb_read_req_icc,wmb_read_req_inst_type)
 
   io.out.toBiu.ar_snoop := MuxLookup(ar_snoop_sel, "b1011".U, Seq(
-    BitPat("b0_1_10") -> ar_snoop_sel_value,
-    BitPat("b0_1_00") -> "b1111".U,//CTC
-    BitPat("b0_1_01") -> "b1111".U,
-    BitPat("b0_1_11") -> "b1111".U
+    "b0_1_10".U -> ar_snoop_sel_value,
+    "b0_1_00".U -> "b1111".U,//CTC
+    "b0_1_01".U -> "b1111".U,
+    "b0_1_11".U -> "b1111".U
   ))
 
   io.out.toBiu.ar_domain := Cat(0.U(1.W), wmb_read_req_page_share)
@@ -1358,10 +1386,291 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   //      Request biu aw channel(include mem set request)
   //==========================================================
   //-----------------------inst type--------------------------
+  val wmb_write_req_sync_fence_inst  = wmb_write_req_sync_fence && !wmb_write_req_atomic
 
+  val wmb_write_req_sync_inst  = wmb_write_req_sync_fence && !wmb_write_req_atomic && wmb_write_req_inst_type === 0.U(2.W)
 
+  //-----------------interface to bus_arb---------------------
+  wmb_biu_write_en := wmb_write_imme || wmb_write_biu_dcache_line
 
+  io.out.toBiu.aw_req := wmb_write_biu_dp_req && wmb_biu_write_en && wmb_write_biu_req_unmask &&
+    (!io.in.fromRB.wmb_so_pending || !wmb_write_req_page_so) && (!wmb_write_req_hit_idx || wmb_write_req_sync_fence_inst)
 
+  io.out.toBiu.aw_dp_req := wmb_write_biu_dp_req && wmb_biu_write_en && wmb_write_biu_req_unmask &&
+    (!io.in.fromRB.wmb_so_pending || !wmb_write_req_page_so)
 
+  io.out.toBiu.aw_req_gateclk_en := wmb_write_biu_dp_req
+  //-----------------id-------------------
+  wmb_biu_aw_id := MuxCase(0.U(5.W) ,Seq(
+    wmb_write_req_sync_fence_inst                         -> BIU_B_SYNC_FENCE_ID,
+    wmb_write_req_page_so                                 -> BIU_B_SO_ID,
+    (wmb_write_req_page_ca && !wmb_write_biu_dcache_line) -> Cat(BIU_R_NORM_ID_T,wmb_write_ptr_encode),
+    (wmb_write_req_page_ca && wmb_write_biu_dcache_line)  -> Cat(BIU_R_NORM_ID_T,wmb_write_ptr_next3_encode),
+    wmb_write_req_atomic                                  -> BIU_B_NC_ATOM_ID,
+    (!wmb_write_req_sync_fence_inst && wmb_write_req_page_so && !wmb_write_req_page_ca && !wmb_write_req_atomic) -> BIU_B_NC_ID
+  ))
+  io.out.toBiu.aw_id := wmb_biu_aw_id
+
+  val wmb_biu_aw_size_maintain = (wmb_write_req_page_so || wmb_write_req_page_nc_atomic) && !wmb_write_req_sync_fence_inst
+
+  io.out.toBiu.aw_addr := Cat(wmb_write_req_addr(PA_WIDTH-1,4), Mux(wmb_biu_aw_size_maintain, wmb_write_req_addr(4,0), 0.U(4.W)))
+
+  io.out.toBiu.aw_len := Mux(wmb_write_biu_dcache_line, 3.U(2.W), 0.U(2.W))
+
+  io.out.toBiu.aw_size := Mux(wmb_biu_aw_size_maintain, wmb_write_req_inst_size, 4.U(3.W))
+
+  io.out.toBiu.aw_burst := Mux(wmb_write_biu_dcache_line &&  wmb_write_burst_neg, 3.U(2.W), 1.U(2.W))
+
+  io.out.toBiu.aw_lock := !wmb_write_req_page_ca && wmb_write_req_atomic
+
+  //cache
+  //if sync/fence use normal, noncacheable
+  io.out.toBiu.aw_cache := Mux(wmb_write_req_sync_fence_inst, "b0011".U,
+    Cat(wmb_write_req_page_wa && !io.in.amr_l2_mem_set, wmb_write_req_page_ca, !wmb_write_req_page_so, wmb_write_req_page_buf))
+
+  //prot:supv,sec,inst
+  io.out.toBiu.aw_prot := Cat(0.U(1.W) ,wmb_write_req_page_sec, wmb_write_req_priv_mode(0))
+
+  io.out.toBiu.aw_user := wmb_write_req_priv_mode(1)
+
+  //-----------------snoop----------------
+  //for single core,send wu or wlu when not wns_en
+  val wmb_write_req_no_wns = true.B
+
+  io.out.toBiu.aw_snoop := Mux(wmb_write_req_page_ca && wmb_write_req_no_wns && wmb_write_biu_dcache_line, 1.U(3.W), 0.U(3.W))
+
+  val wmb_write_req_default_domain = !wmb_write_req_page_ca && (wmb_write_req_stex_inst || wmb_write_req_st_inst)
+
+  io.out.toBiu.aw_domain := Mux(wmb_write_req_default_domain, 3.U(2.W), Cat(0.U(1.W), wmb_write_req_no_wns))
+
+  io.out.toBiu.aw_bar := Cat(wmb_write_req_sync_inst,wmb_write_req_sync_fence_inst)
+
+  //-----------------mem_set counter--------------------------
+  wmb_mem_set_write_grnt := wmb_write_biu_dcache_line && io.in.fromBusArb.aw_grnt
+
+  wmb_entry_in.zip(wmb_write_ptr_to_next3).foreach(x => x._1.mem_set_write_grnt := wmb_mem_set_write_grnt && x._2)
+
+  //for timing use mem_set write gateclk en for biu_id clk
+  val wmb_mem_set_write_gateclk_en = wmb_write_biu_req_unmask && wmb_write_biu_dcache_line
+
+  wmb_entry_in.zip(wmb_write_ptr_to_next3).foreach(x => x._1.mem_set_write_gateclk_en := wmb_mem_set_write_gateclk_en && x._2)
+
+  //-----------------biu grnt signal--------------------------
+  wmb_biu_nc_req_grnt := io.in.fromBusArb.aw_grnt && !wmb_write_req_page_ca && !wmb_write_req_page_so && !wmb_write_req_atomic && !wmb_write_req_sync_fence_inst
+
+  wmb_biu_so_req_grnt := io.in.fromBusArb.aw_grnt && wmb_write_req_page_so && !wmb_write_req_sync_fence_inst
+
+  //set wmb_entry_w_last signal
+  for(i <- 0 until WMB_ENTRY){
+    wmb_entry_in(i).w_last_set := Mux(wmb_write_biu_dcache_line, wmb_write_ptr_next(3)(i), wmb_write_ptr(i))
+  }
+
+  //==========================================================
+  //                Request biu w channel
+  //==========================================================
+  io.out.toBiu.w_req          := wmb_data_biu_req
+  //w_id is used for debug
+  io.out.toBiu.w_id           := wmb_data_req_biu_id
+  io.out.toBiu.w_data         := wmb_data_req_data
+  io.out.toBiu.w_strb         := wmb_data_req_bytes_vld
+  io.out.toBiu.w_last         := wmb_data_req_w_last
+  io.out.toBiu.w_vld          := wmb_data_biu_req
+  io.out.toBiu.w_wns          := wmb_data_req_wns
+
+  //==========================================================
+  //                Request wb cmplt part
+  //==========================================================
+  val wmb_st_wb_cmplt_ptr = VecInit(PriorityEncoderOH(wmb_entry_out.map(_.wb_cmplt_req)))
+
+  //-----------------cmplt req info---------------------------
+  io.out.toStoreWB.cmplt_req  := VecInit(wmb_entry_out.map(_.wb_cmplt_req)).asUInt.orR
+  io.out.toStoreWB.inst_flush := VecInit(wmb_st_wb_cmplt_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.inst_flush)).asUInt.orR
+  io.out.toStoreWB.spec_fail  := VecInit(wmb_st_wb_cmplt_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.spec_fail)).asUInt.orR
+  io.out.toStoreWB.bkpta_data := VecInit(wmb_st_wb_cmplt_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.bkpta_data)).asUInt.orR
+  io.out.toStoreWB.bkptb_data := VecInit(wmb_st_wb_cmplt_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.bkptb_data)).asUInt.orR
+  io.out.toStoreWB.iid        := Mux1H(Seq(
+    wmb_st_wb_cmplt_ptr(0) -> wmb_entry_out(0).iid,
+    wmb_st_wb_cmplt_ptr(1) -> wmb_entry_out(1).iid,
+    wmb_st_wb_cmplt_ptr(2) -> wmb_entry_out(2).iid,
+    wmb_st_wb_cmplt_ptr(3) -> wmb_entry_out(3).iid,
+    wmb_st_wb_cmplt_ptr(4) -> wmb_entry_out(4).iid,
+    wmb_st_wb_cmplt_ptr(5) -> wmb_entry_out(5).iid,
+    wmb_st_wb_cmplt_ptr(6) -> wmb_entry_out(6).iid,
+    wmb_st_wb_cmplt_ptr(7) -> wmb_entry_out(7).iid
+  ))
+
+  //-------------------cmplt grnt-----------------------------
+  wmb_entry_in.zip(wmb_st_wb_cmplt_ptr).foreach(x => x._1.wb_cmplt_grnt := io.in.st_wb_wmb_cmplt_grnt && x._2)
+
+  //==========================================================
+  //                Request wb data part
+  //==========================================================
+  val wmb_ld_wb_data_ptr = VecInit(wmb_entry_out.map(_.wb_data_req))
+
+  io.out.toLoadWB.data_req := VecInit(wmb_entry_out.map(_.wb_data_req)).asUInt.orR
+
+  val wmb_entry_ld_wb_data_ptr_sel = Mux1H(Seq(
+    wmb_ld_wb_data_ptr(0) -> wmb_entry_out(0),
+    wmb_ld_wb_data_ptr(1) -> wmb_entry_out(1),
+    wmb_ld_wb_data_ptr(2) -> wmb_entry_out(2),
+    wmb_ld_wb_data_ptr(3) -> wmb_entry_out(3),
+    wmb_ld_wb_data_ptr(4) -> wmb_entry_out(4),
+    wmb_ld_wb_data_ptr(5) -> wmb_entry_out(5),
+    wmb_ld_wb_data_ptr(6) -> wmb_entry_out(6),
+    wmb_ld_wb_data_ptr(7) -> wmb_entry_out(7)
+  ))
+
+  io.out.toLoadWB.preg := wmb_entry_ld_wb_data_ptr_sel.preg
+
+  io.out.toLoadWB.data_addr := wmb_entry_ld_wb_data_ptr_sel.addr
+
+  io.out.toLoadWB.data_iid := wmb_entry_ld_wb_data_ptr_sel.iid
+
+  io.out.toLoadWB.vreg_sign_sel := 0.U(2.W)
+
+  val wmb_ld_wb_data_success = wmb_entry_ld_wb_data_ptr_sel.sc_wb_success
+  io.out.toLoadWB.data := Cat(0.U(63.W), !wmb_ld_wb_data_success)
+
+  //don't expand sign
+  io.out.toLoadWB.preg_sign_sel := "b0001".U
+  io.out.toLoadWB.vreg := 0.U(6.W)
+  io.out.toLoadWB.inst_vfls := false.B
+  //-------------------atomic inst----------------------------
+  val wmb_st_wb_atomic = VecInit(wmb_st_wb_cmplt_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.atomic)).asUInt.orR
+  io.out.wmb_lm_state_clr := io.out.toStoreWB.cmplt_req && wmb_st_wb_atomic
+  //-------------------data grnt------------------------------
+  wmb_entry_in.zip(wmb_ld_wb_data_ptr).foreach(x => x._1.wb_data_grnt := io.in.ld_wb_wmb_data_grnt && x._2)
+
+  //==========================================================
+  //            maintain restart wakeup queue
+  //==========================================================
+  //---------------------registers----------------------------
+  //+--------------+
+  //| wakeup_queue |
+  //+--------------+
+  //the queue stores the instructions waiting for wakeup
+  when(io.in.fromRTU.yy_xx_flush){
+    wmb_wakeup_queue := VecInit(Seq.fill(LSIQ_ENTRY)(false.B))
+  }.elsewhen(io.in.fromLoadDA.wmb_discard_vld || wmb_pop_depd_ff){
+    wmb_wakeup_queue := wmb_wakeup_queue_next
+  }
+
+  //+-------------+
+  //| depd_pop_ff |
+  //+-------------+
+  //if depd pop, this will set to 1, and clear wakeup_queue next cycle
+  when(wmb_pop_depd || wmb_pop_discard_req || wmb_pop_fwd_req){
+    wmb_pop_depd_ff := true.B
+  }.otherwise{
+    wmb_pop_depd_ff := false.B
+  }
+
+  wmb_wakeup_queue_not_empty := wmb_wakeup_queue.asUInt.orR
+  //------------------request---------------------------------
+  //------------wmb_pop_depd--------------
+  wmb_pop_depd := VecInit(wmb_entry_out.map(x => x.pop_vld && x.depd)).asUInt.orR
+  //---------interface to ld_dc-----------
+  val wmb_discard_req = VecInit(wmb_entry_out.map(_.discard_req)).asUInt.orR
+  io.out.toLoadDC.discard_req := wmb_discard_req
+  val wmb_fwd_req = VecInit(wmb_entry_out.map(_.fwd_req)).asUInt.orR
+
+  val wmb_entry_fwd_data_pe_req = VecInit(wmb_entry_out.map(_.fwd_data_pe_req)).asUInt
+
+  io.out.wmb_fwd_bytes_vld := MuxLookup(wmb_entry_fwd_data_pe_req, 0.U(16.W), Seq(
+    "b00000001".U -> wmb_entry_out(0).fwd_bytes_vld,
+    "b00000010".U -> wmb_entry_out(1).fwd_bytes_vld,
+    "b00000100".U -> wmb_entry_out(2).fwd_bytes_vld,
+    "b00001000".U -> wmb_entry_out(3).fwd_bytes_vld,
+    "b00010000".U -> wmb_entry_out(4).fwd_bytes_vld,
+    "b00100000".U -> wmb_entry_out(5).fwd_bytes_vld,
+    "b01000000".U -> wmb_entry_out(6).fwd_bytes_vld,
+    "b10000000".U -> wmb_entry_out(7).fwd_bytes_vld
+  ))
+
+  io.out.toLoadDC.fwd_req := wmb_fwd_req
+
+  io.out.toLoadDC.cancel_acc_req := VecInit(wmb_entry_out.map(_.cancel_acc_req)).asUInt.orR
+  //---------interface to wmb_entry--------
+  //for timing, discard req and set write imme/depd signal, and set wakeup queue
+  //at next cycle
+
+  //assign wmb_entry_discard_grnt[WMB_ENTRY-1:0]  = {WMB_ENTRY{ld_da_wmb_discard_vld}}
+  //                                                & wmb_entry_discard_req[WMB_ENTRY-1:0];
+  //-------forward to depd_pop_ff-------
+  wmb_pop_discard_req := VecInit(wmb_entry_out.map(x => x.pop_vld && x.discard_req)).asUInt.orR
+  wmb_pop_fwd_req     := VecInit(wmb_entry_out.map(x => x.pop_vld && x.fwd_req)).asUInt.orR
+
+  //------------------update wakeup queue---------------------
+  val wmb_wakeup_queue_grnt = Wire(Vec(LSIQ_ENTRY,Bool()))
+
+  for(i <- 0 until LSIQ_ENTRY){
+    wmb_wakeup_queue_grnt(i) := wmb_wakeup_queue(i) || io.in.fromLoadDA.wmb_discard_vld && io.in.fromLoadDA.lsid(i)
+    wmb_wakeup_queue_next(i) := Mux(wmb_pop_depd_ff, false.B, wmb_wakeup_queue_grnt(i))
+  }
+
+  //-------------------------wakeup---------------------------
+  io.out.wmb_depd_wakeup  := Mux(wmb_pop_depd_ff, wmb_wakeup_queue_grnt, VecInit(Seq.fill(LSIQ_ENTRY)(false.B)))
+
+  //==========================================================
+  //                Monitor biu b channel
+  //==========================================================
+  wmb_b_nc_id_hit := io.in.fromBiu.b_vld && (io.in.fromBiu.b_id ===  BIU_B_NC_ID)
+
+  wmb_b_so_id_hit := io.in.fromBiu.b_vld && (io.in.fromBiu.b_id ===  BIU_B_SO_ID)
+
+  wmb_b_resp_exokay := io.in.fromBiu.b_resp === EXOKAY
+
+  //==========================================================
+  //              Forward data to ld_da
+  //==========================================================
+  val wmb_fwd_data_sel = MuxLookup(wmb_entry_fwd_data_pe_req, 0.U(128.W), Seq(
+    "b00000001".U -> wmb_entry_out(0).data,
+    "b00000010".U -> wmb_entry_out(1).data,
+    "b00000100".U -> wmb_entry_out(2).data,
+    "b00001000".U -> wmb_entry_out(3).data,
+    "b00010000".U -> wmb_entry_out(4).data,
+    "b00100000".U -> wmb_entry_out(5).data,
+    "b01000000".U -> wmb_entry_out(6).data,
+    "b10000000".U -> wmb_entry_out(7).data
+  ))
+
+  val wmb_fwd_data_pe_req = wmb_entry_fwd_data_pe_req.orR && io.in.fromLoadDC.chk_ld_inst_vld && !io.in.fromLoadDA.fwd_ecc_stall
+
+  wmb_fwd_data_pe_gateclk_en := VecInit(wmb_entry_out.map(_.fwd_data_pe_gateclk_en)).asUInt.orR && io.in.fromLoadDC.chk_ld_inst_vld
+
+  when(wmb_fwd_data_pe_req){
+    wmb_fwd_data := wmb_fwd_data_sel
+  }
+
+  io.out.wmb_ld_da_fwd_data := wmb_fwd_data
+  //==========================================================
+  //                      Hit index
+  //==========================================================
+  io.out.wmb_pfu_biu_req_hit_idx := VecInit(wmb_entry_out.map(_.pfu_biu_req_hit_idx)).asUInt.orR
+  io.out.toSnq.depd := VecInit(wmb_entry_out.map(_.snq_depd))
+
+  io.out.toSnq.depd_remove := VecInit(wmb_entry_out.map(_.snq_depd_remove))
+
+  //hit cache line signal
+  io.out.wmb_rb_biu_req_hit_idx := VecInit(wmb_entry_out.map(_.rb_biu_req_hit_idx)).asUInt.orR
+
+  //==========================================================
+  //              Interface to other module
+  //==========================================================
+  io.out.wmb_sync_fence_biu_req_success := VecInit(wmb_entry_out.map(_.sync_fence_biu_req_success)).asUInt.orR
+
+  io.out.wmb_has_sync_fence := VecInit(wmb_entry_out.map(x => x.vld && x.sync_fence_inst)).asUInt.orR
+
+  io.out.wmb_no_op := VecInit(wmb_entry_out.map(_.no_op)).asUInt.orR
+
+  io.out.toHad.write_imme := wmb_write_imme
+  io.out.toHad.entry_vld  := VecInit(wmb_entry_out.map(_.vld))
+  io.out.toHad.ar_pending := VecInit(wmb_entry_out.map(_.ar_pending)).asUInt.orR
+  io.out.toHad.aw_pending := VecInit(wmb_entry_out.map(_.aw_pending)).asUInt.orR
+  io.out.toHad.w_pending  := VecInit(wmb_entry_out.map(_.w_pending)).asUInt.orR
+  io.out.toHad.create_ptr := wmb_create_ptr
+  io.out.toHad.write_ptr  := wmb_write_ptr
+  io.out.toHad.read_ptr   := wmb_read_ptr
+  io.out.toHad.data_ptr   := wmb_data_ptr
 
 }

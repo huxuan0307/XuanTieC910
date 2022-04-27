@@ -101,6 +101,11 @@ trait BIUConfig {
   def BIU_B_SO_ID         = 29.U(5.W)
   def BIU_B_NC_ATOM_ID    = 30.U(5.W)
   def BIU_B_SYNC_FENCE_ID = 31.U(5.W)
+
+  def OKAY   = 0.U(2.W)
+  def EXOKAY = 1.U(2.W)
+  def SLVERR = 2.U(2.W)
+  def DECERR = 3.U(2.W)
 }
 
 trait LsuConfig{
