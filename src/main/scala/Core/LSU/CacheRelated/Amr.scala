@@ -1,4 +1,5 @@
-package Core.LSU
+package Core.LSU.CacheRelated
+
 /*
 AMR-L1 is enable bit of automatic adjustment of the Cache write allocate strategy
 AMR is on the MHINT[3]
@@ -22,7 +23,9 @@ trait AmrStateConfig{
   def MEM_SET_1 = "b011".U // 1 add cancel write allocate
   def MEM_SET_2 = "b111".U // 2 add cancel l2 write allocate
 }
-
+//==========================================================
+//                        Input
+//==========================================================
 class Cp0ToAmr extends Bundle with LsuConfig{
   val amr        = Bool() // from MHINT[3]
   val amr2       = Bool() // from MHINT[3]
