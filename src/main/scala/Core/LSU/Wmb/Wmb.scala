@@ -1,5 +1,6 @@
 package Core.LSU.Wmb
 
+import Core.LSU.IdFifo8
 import Core.LSU.Sq.DcacheDirtyDataEn
 import Core.{BIUConfig, DCacheConfig, LsuConfig}
 import Utils.ParallelORR
@@ -355,6 +356,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   io.out.wmb_read_req_addr := wmb_read_req_addr
 
   //Wire
+  val wmb_write_ptr_encode = Wire(UInt(3.W))
   val wmb_empty = Wire(Bool())
   val wmb_read_ptr_unconditional_shift_imme = Wire(Bool())
   val wmb_read_ptr_chk_idx_shift_imme = Wire(Bool())
@@ -371,6 +373,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_dcache_req_next = Wire(Bool())
 
   val wmb_entry_in       = Wire(Vec(WMB_ENTRY, new WmbEntryIn))
+  wmb_entry_in := DontCare
   val wmb_entry_out      = Wire(Vec(WMB_ENTRY, new WmbEntryOutput))
   val wmb_dcache_req_ptr = Wire(Vec(WMB_ENTRY, Bool()))
   val pw_merge_stall = WireInit(false.B)
@@ -493,25 +496,51 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   //==========================================================
   //                 Non-cacheable FIFO
   //==========================================================
-  //TODO: implement
-  val wmb_nc_no_pending = WireInit(true.B)
+  val wmb_idfifo_nc_create_vld = wmb_biu_nc_req_grnt
+  val wmb_idfifo_nc_pop_vld    = wmb_b_nc_id_hit
 
-  val wmb_entry_next_nc_bypass = WireInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val idfifo_nc = Module(new IdFifo8)
+  idfifo_nc.io.in.cp0_lsu_icg_en      := io.in.fromCp0.lsu_icg_en
+  idfifo_nc.io.in.cp0_yy_clk_en       := io.in.fromCp0.yy_clk_en
+  idfifo_nc.io.in.idfifo_create_id    := wmb_write_ptr_encode
+  idfifo_nc.io.in.idfifo_create_id_oh := wmb_write_ptr.asUInt
+  idfifo_nc.io.in.idfifo_create_vld   := wmb_idfifo_nc_create_vld
+  idfifo_nc.io.in.idfifo_pop_vld      := wmb_idfifo_nc_pop_vld
+  idfifo_nc.io.in.pad_yy_icg_scan_en  := io.in.fromPad.yy_icg_scan_en
 
+
+  val wmb_nc_no_pending = idfifo_nc.io.out.idfifo_empty
+
+  val wmb_entry_next_nc_bypass = idfifo_nc.io.out.idfifo_pop_id_oh
+  for(i <- 0 until WMB_ENTRY){
+    wmb_entry_in(i).next_nc_bypass := wmb_entry_next_nc_bypass(i)
+  }
   //==========================================================
   //                 Strong order FIFO
-  //==========================================================v
-  //TODO: implement
-  val wmb_so_no_pending = WireInit(true.B)
+  //==========================================================
+  val wmb_idfifo_so_create_vld = wmb_biu_so_req_grnt
+  val wmb_idfifo_so_pop_vld    = wmb_b_so_id_hit
 
-  val wmb_entry_next_so_bypass = WireInit(VecInit(Seq.fill(WMB_ENTRY)(false.B)))
+  val idfifo_so = Module(new IdFifo8)
+  idfifo_so.io.in.cp0_lsu_icg_en      := io.in.fromCp0.lsu_icg_en
+  idfifo_so.io.in.cp0_yy_clk_en       := io.in.fromCp0.yy_clk_en
+  idfifo_so.io.in.idfifo_create_id    := wmb_write_ptr_encode
+  idfifo_so.io.in.idfifo_create_id_oh := wmb_write_ptr.asUInt
+  idfifo_so.io.in.idfifo_create_vld   := wmb_idfifo_so_create_vld
+  idfifo_so.io.in.idfifo_pop_vld      := wmb_idfifo_so_pop_vld
+  idfifo_so.io.in.pad_yy_icg_scan_en  := io.in.fromPad.yy_icg_scan_en
 
+  val wmb_so_no_pending = idfifo_so.io.out.idfifo_empty
+
+  val wmb_entry_next_so_bypass = idfifo_so.io.out.idfifo_pop_id_oh
+  for(i <- 0 until WMB_ENTRY){
+    wmb_entry_in(i).next_so_bypass := wmb_entry_next_so_bypass(i)
+  }
   //------------------pending---------------------------------
   io.out.wmb_rb_so_pending := !wmb_so_no_pending
   //==========================================================
   //          Instance of write merge buffer entry
   //==========================================================
-  wmb_entry_in := DontCare
   val wmb_entry = Seq.fill(WMB_ENTRY)(Module(new WmbEntry))
   for(i <- 0 until WMB_ENTRY){
     wmb_entry(i).io.in.fromBiu    := io.in.fromBiu
@@ -630,7 +659,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   //------------------pointer encode--------------------------
   val wmb_read_ptr_encode = OHToUInt(wmb_read_ptr.asUInt)(2,0)
 
-  val wmb_write_ptr_encode = OHToUInt(wmb_write_ptr.asUInt)(2,0)
+  wmb_write_ptr_encode := OHToUInt(wmb_write_ptr.asUInt)(2,0)
   io.out.wmb_write_ptr_encode := wmb_write_ptr_encode
 
   val wmb_write_ptr_next3_encode = OHToUInt(wmb_write_ptr_next(3).asUInt)(2,0)
