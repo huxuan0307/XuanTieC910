@@ -12,6 +12,8 @@ trait PrfConfig {
   def NumPregWritePort = 3
 }
 
+object PrfConfig extends PrfConfig
+
 class PrfFromCp0Bundle extends Bundle {
   val iduIcgEn : Bool = Bool()
   val yyClkEn : Bool = Bool()
