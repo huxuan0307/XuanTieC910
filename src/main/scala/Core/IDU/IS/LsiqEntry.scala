@@ -61,7 +61,7 @@ class LsiqEntryData extends Bundle with LsiqConfig with SdiqConfig{
   val srcValid  : Vec[Bool] = Vec(NumSrcLsX, Bool())
   val srcVmValid : Bool = Bool()
   val iid       : UInt = UInt(InstructionIdWidth.W)
-  val opcode    : UInt = UInt(OpcodeBits.W)
+  val inst      : UInt = UInt(InstBits.W)
 
   // Todo: create DepVregEntry
   val srcVm = new DepRegEntryData
@@ -335,7 +335,7 @@ class LsiqEntry extends Module with LsiqConfig {
   }
 
   when(create.dpEn) {
-    data.opcode   := create.data.opcode
+    data.inst     := create.data.inst
     data.iid      := create.data.iid
     data.srcValid := create.data.srcValid
     data.dstValid := create.data.dstValid
@@ -519,7 +519,7 @@ class LsiqEntry extends Module with LsiqConfig {
 //  private val srcEntryVm
 
   io.out.readData.ageVecAll := data.ageVecAll
-  io.out.readData.opcode    := data.opcode
+  io.out.readData.inst      := data.inst
   io.out.readData.iid       := data.iid
   io.out.readData.srcValid  := data.srcValid
   io.out.readData.dstValid  := data.dstValid
