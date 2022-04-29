@@ -14,6 +14,7 @@ class AiqEntryData extends Bundle with AiqConfig {
   val special : Bool = Bool()
   val vsew : UInt = UInt(VsewBits.W)
   val vlmul : UInt = UInt(VlmaxBits.W)
+  // Todo: Add other iq bypass
   val aluShort : Bool = Bool()
   // Todo: imm
   val pid : UInt = UInt(5.W)
@@ -30,7 +31,8 @@ class AiqEntryData extends Bundle with AiqConfig {
   val dstValid : Bool = Bool()
   val srcValid : Vec[Bool] = Vec(NumSrcArith, Bool())
   val iid : UInt = UInt(InstructionIdWidth.W)
-  val opcode : UInt = UInt(OpcodeBits.W)
+  // Replace opcode with inst
+  val inst : UInt = UInt(InstBits.W)
 }
 
 trait EntryHasDiv {
@@ -150,7 +152,7 @@ class AiqEntry extends Module with AiqConfig {
     data.pid            := create.data.pid
     data.exceptVec      := create.data.exceptVec
     data.highHwExcept   := create.data.highHwExcept
-    data.opcode         := create.data.opcode
+    data.inst         := create.data.inst
     data.iid            := create.data.iid
     data.srcValid       := create.data.srcValid
     data.dstValid       := create.data.dstValid
@@ -174,7 +176,7 @@ class AiqEntry extends Module with AiqConfig {
   io.out.readData.pid           := data.pid
   io.out.readData.exceptVec     := data.exceptVec
   io.out.readData.highHwExcept  := data.highHwExcept
-  io.out.readData.opcode        := data.opcode
+  io.out.readData.inst        := data.inst
   io.out.readData.iid           := data.iid
   io.out.readData.srcValid      := data.srcValid
   io.out.readData.dstValid      := data.dstValid
