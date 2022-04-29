@@ -33,7 +33,7 @@ class BiqEntryData extends Bundle with BiqConfig {
   val srcVec    : Vec[DepRegEntryData] = Vec(NumSrcBr, new DepRegEntryData)
   val srcValid  : Vec[Bool] = Vec(NumSrcBr, Bool())
   val iid       : UInt = UInt(InstructionIdWidth.W)
-  val opcode    : UInt = UInt(OpcodeBits.W)
+  val inst      : UInt = UInt(InstBits.W)
 }
 
 class BiqEntryInput extends Bundle
@@ -144,7 +144,7 @@ class BiqEntry extends Module with BiqConfig {
   //                 Instruction Information
   //==========================================================
   when(create.dpEn) {
-    data.opcode     := create.data.opcode
+    data.inst       := create.data.inst
     data.iid        := create.data.iid
     data.srcValid   := create.data.srcValid
     data.length     := create.data.length
@@ -159,7 +159,7 @@ class BiqEntry extends Module with BiqConfig {
   io.out.valid                := valid
   io.out.validWithoutFreeze   := valid && !freeze
   io.out.ageVec               := ageVec
-  io.out.readData.opcode      := data.opcode
+  io.out.readData.inst        := data.inst
   io.out.readData.iid         := data.iid
   io.out.readData.srcValid    := data.srcValid
   io.out.readData.length      := data.length
