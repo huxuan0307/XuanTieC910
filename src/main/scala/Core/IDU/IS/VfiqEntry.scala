@@ -39,5 +39,5 @@ class VfiqEntryData extends Bundle with VfiqConfig {
   val dstPregValid = Bool()
   val srcValidVec = Vec(NumSrcVf, Bool())
   val iid = UInt(InstructionIdWidth.W)
-  val opcode = UInt(OpcodeBits.W)
+  val inst = UInt(InstBits.W)
 }
