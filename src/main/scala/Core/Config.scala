@@ -17,7 +17,7 @@ trait IntConfig {
   def NumVPregs = 64
   def NumEregs = 32
   def NumPhysicRegs = 96
-  def OpcodeBits = 32
+  def InstBits = 32
   def NumInstructionId = 128
   def NumLogicRegsBits : Int = log2Up(NumLogicRegs)
   def NumFPregsBits : Int = log2Up(NumFPregs)
