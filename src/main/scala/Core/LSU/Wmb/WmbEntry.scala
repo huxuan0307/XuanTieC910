@@ -21,7 +21,7 @@ class WmbEntryIn extends Bundle{
  val wb_data_grnt = Bool()
 }
 
-class InstInfo extends Bundle with LsuConfig{
+class WmbEntryInstInfo extends Bundle with LsuConfig{
   val sync_fence     = Bool()
   val atomic         = Bool()
   val icc            = Bool()
@@ -256,7 +256,7 @@ class WmbEntry extends Module with LsuConfig{
 
   //Reg
   val wmb_entry_vld = RegInit(false.B)
-  val inst_info = RegInit(0.U.asTypeOf(new InstInfo))
+  val inst_info = RegInit(0.U.asTypeOf(new WmbEntryInstInfo))
   val dcache_info = RegInit(0.U.asTypeOf(new DcacheInfo))
   val wmb_entry_write_stall = RegInit(false.B)
   val wmb_entry_bytes_vld_full = RegInit(false.B)
