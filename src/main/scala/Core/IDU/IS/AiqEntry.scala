@@ -10,7 +10,7 @@ import Core.ExceptionConfig._
 
 class AiqEntryData extends Bundle with AiqConfig {
   val vl : UInt = UInt(VlmaxBits.W)
-  val lchPreg : Bool = Bool()
+  val launchPreg : Bool = Bool()
   val special : Bool = Bool()
   val vsew : UInt = UInt(VsewBits.W)
   val vlmul : UInt = UInt(VlmaxBits.W)
@@ -152,7 +152,7 @@ class AiqEntry extends Module with AiqConfig {
     data.pid            := create.data.pid
     data.exceptVec      := create.data.exceptVec
     data.highHwExcept   := create.data.highHwExcept
-    data.inst         := create.data.inst
+    data.inst           := create.data.inst
     data.iid            := create.data.iid
     data.srcValid       := create.data.srcValid
     data.dstValid       := create.data.dstValid
@@ -165,18 +165,18 @@ class AiqEntry extends Module with AiqConfig {
     data.vsew           := create.data.vsew
     data.vl             := create.data.vl
     data.special        := create.data.special
-    data.lchPreg        := create.data.lchPreg
+    data.launchPreg     := create.data.launchPreg
   }
 
-  io.out.valid := valid
-  io.out.validWithoutFreeze := valid && !freeze
-  io.out.ageVec := ageVec
+  io.out.valid                  := valid
+  io.out.validWithoutFreeze     := valid && !freeze
+  io.out.ageVec                 := ageVec
   io.out.readData.dstPreg       := data.dstPreg
   io.out.readData.dstVreg       := data.dstVreg
   io.out.readData.pid           := data.pid
   io.out.readData.exceptVec     := data.exceptVec
   io.out.readData.highHwExcept  := data.highHwExcept
-  io.out.readData.inst        := data.inst
+  io.out.readData.inst          := data.inst
   io.out.readData.iid           := data.iid
   io.out.readData.srcValid      := data.srcValid
   io.out.readData.dstValid      := data.dstValid
@@ -189,7 +189,7 @@ class AiqEntry extends Module with AiqConfig {
   io.out.readData.vsew          := data.vsew
   io.out.readData.vl            := data.vl
   io.out.readData.special       := data.special
-  io.out.readData.lchPreg       := data.lchPreg
+  io.out.readData.launchPreg    := data.launchPreg
 
   //==========================================================
   //              Source Dependency Information
