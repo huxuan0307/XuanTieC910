@@ -1,9 +1,9 @@
 package Core.IDU
 
 import Core.Config
-import Core.IS._
 import Core.IntConfig.{NumPhysicRegsBits, XLEN}
-import Core.RF._
+import IS._
+import RF._
 import chisel3._
 import chisel3.util._
 
