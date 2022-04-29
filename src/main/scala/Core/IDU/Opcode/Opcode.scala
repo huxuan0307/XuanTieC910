@@ -3,11 +3,12 @@ package Core.IDU.Opcode
 import chisel3._
 
 trait Opcode {
+  def width = 7
   def isPseudo(opcode : UInt) : Bool = opcode(4)
+  def NOP           : UInt = "b0000000".U
 }
 
 trait SpecialOpcode extends Opcode {
-  def NOP           : UInt = "b0000000".U
   def ECALL         : UInt = "b0000010".U
   def EBREAK        : UInt = "b0000011".U
   def AUIPC         : UInt = "b0000100".U
@@ -194,6 +195,7 @@ trait StoreOpcode extends Opcode {
   def maSize(op: UInt)  : UInt = op(1, 0)
 }
 
+object Opcode extends Opcode
 object AluOpcode extends AluOpcode
 object ShiftLogicOpcode extends ShiftLogicOpcode
 object DivOpcode extends DivOpcode
