@@ -624,6 +624,8 @@ class IDU extends Module with Config {
   rfstage.io.data.in.sdiq := DontCare //////todo: add sdiq
   rfstage.io.data.in.vfiq0 := DontCare
   rfstage.io.data.in.vfiq1 := DontCare
+  rfstage.io.data.r := DontCare //////todo: connect it
+  rfstage.io.ctrl.in.fromHpcp.iduCntEn := io.in.fromHpcp.cntEn
   // &Instance("ct_idu_rf_dp", "x_ct_idu_rf_dp"); @81
 
   // &Instance("ct_idu_rf_fwd", "x_ct_idu_rf_fwd"); @82

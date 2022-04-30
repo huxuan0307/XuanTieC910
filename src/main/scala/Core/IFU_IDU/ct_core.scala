@@ -9,6 +9,7 @@ import Core.IU._
 import Core.IFU._
 import Core.RTU._
 import difftest._
+import firrtl.transforms.DontTouchAnnotation
 
 class ct_coreBundle extends Bundle {
   val logCtrl = new LogCtrlIO
@@ -16,7 +17,7 @@ class ct_coreBundle extends Bundle {
   val uart = new UARTIO
 }
 
-class ct_core extends Module with Config with ROBConfig {
+class SimTop extends Module with Config with ROBConfig {
   val io = IO(new ct_coreBundle)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
@@ -225,58 +226,4 @@ class ct_core extends Module with Config with ROBConfig {
   dontTouch(idu.io)
   dontTouch(iu.io)
   dontTouch(rtu.io)
-  val instrCommit = Module(new DifftestInstrCommit)
-  instrCommit.io.clock := clock
-  instrCommit.io.coreid := 0.U
-  instrCommit.io.index := 0.U
-  instrCommit.io.skip := false.B
-  instrCommit.io.isRVC := false.B
-  instrCommit.io.scFailed := false.B
-
-  instrCommit.io.valid := true.B
-  instrCommit.io.pc    := 0.U
-
-  instrCommit.io.instr := 0.U
-
-  instrCommit.io.wen   := false.B
-  instrCommit.io.wdata := 0.U
-  instrCommit.io.wdest := 0.U
-
-
-  val csrCommit = Module(new DifftestCSRState)
-  csrCommit.io.clock          := clock
-  csrCommit.io.priviledgeMode := 0.U
-  csrCommit.io.mstatus        := 0.U
-  csrCommit.io.sstatus        := 0.U
-  csrCommit.io.mepc           := 0.U
-  csrCommit.io.sepc           := 0.U
-  csrCommit.io.mtval          := 0.U
-  csrCommit.io.stval          := 0.U
-  csrCommit.io.mtvec          := 0.U
-  csrCommit.io.stvec          := 0.U
-  csrCommit.io.mcause         := 0.U
-  csrCommit.io.scause         := 0.U
-  csrCommit.io.satp           := 0.U
-  csrCommit.io.mip            := 0.U
-  csrCommit.io.mie            := 0.U
-  csrCommit.io.mscratch       := 0.U
-  csrCommit.io.sscratch       := 0.U
-  csrCommit.io.mideleg        := 0.U
-  csrCommit.io.medeleg        := 0.U
-
-  val cycleCnt = RegInit(0.U(64.W))
-  cycleCnt := cycleCnt + 1.U
-  val instrCnt = RegInit(0.U(64.W))
-  when(instrCommit.io.valid){
-    instrCnt := instrCnt + 1.U
-  }
-
-  val trap = Module(new DifftestTrapEvent)
-  trap.io.clock    := clock
-  trap.io.coreid   := 0.U
-  trap.io.valid    := false.B
-  trap.io.code     := 0.U // GoodTrap
-  trap.io.pc       := 0.U
-  trap.io.cycleCnt := cycleCnt
-  trap.io.instrCnt := instrCnt
 }
