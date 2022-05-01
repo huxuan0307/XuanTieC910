@@ -444,7 +444,7 @@ parameter IS_OPCODE            = 31;
 //==========================================================
 //                 Instance of Gated Cell
 //==========================================================
-assign create_clk_en = x_create_gateclk_en;
+assign create_clk_en = 1'b0;//x_create_gateclk_en;
 // &Instance("gated_clk_cell", "x_create_gated_clk"); @147
 gated_clk_cell  x_create_gated_clk (
   .clk_in             (forever_cpuclk    ),
@@ -601,7 +601,7 @@ begin
   end
 end
 
-always @(posedge create_other_clk or negedge cpurst_b)
+always @(posedge forever_cpuclk or negedge cpurst_b)
 begin
   if(!cpurst_b) begin
     entry_bar_type[3:0]      <= 4'b0;
@@ -617,7 +617,7 @@ begin
   end
 end
 
-always @(posedge create_clk or negedge cpurst_b)
+always @(posedge forever_cpuclk or negedge cpurst_b)
 begin
   if(!cpurst_b) begin
     entry_opcode[31:0]       <= 32'b0;

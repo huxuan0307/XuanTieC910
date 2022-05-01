@@ -268,7 +268,8 @@ wire            decd_inst_vec;
 wire            decd_inst_vls;                  
 wire            decd_length;                    
 wire            decd_lsu_illegal;               
-wire            decd_ovlp_illegal;              
+wire            decd_ovlp_illegal;
+wire    [5 :0]  decd_sel_in;              
 wire    [5 :0]  decd_sel;                       
 wire            decd_size_illegal;              
 wire    [4 :0]  decd_src0_reg;                  
@@ -775,23 +776,33 @@ parameter SPECIAL               = 10'b1000000000;
 //32 bits
 assign decd_sel[0] = decd_length
                      && !decd_fp_sel
-                     && !decd_sel[3]
-                     && !decd_sel[4]
-                     && !decd_sel[5];
+                     && !decd_sel_in[3]
+                     && !decd_sel_in[4]
+                     && !decd_sel_in[5];
+assign decd_sel_in[0] = 1'b0;
 //16 bits
 assign decd_sel[1] = !decd_length;
+assign decd_sel_in[1] = !decd_length;
 //fp
 assign decd_sel[2] = decd_fp_sel;
+assign decd_sel_in[2] = decd_fp_sel;
 //cache
 assign decd_sel[3] = ({x_inst[31:26],x_inst[14:0]}
                      == 21'b000000_000_00000_0001011)
                      && cp0_idu_cskyee;
+assign decd_sel_in[3] = ({x_inst[31:26],x_inst[14:0]}
+		     == 21'b000000_000_00000_0001011)
+		     && cp0_idu_cskyee;
 //perf
 assign decd_sel[4] = (x_inst[6:0] == 7'b0001011)
                      && (x_inst[14:12] != 3'b000)
                      && cp0_idu_cskyee;
+assign decd_sel_in[4] = (x_inst[6:0] == 7'b0001011)
+                     && (x_inst[14:12] != 3'b000)
+                     && cp0_idu_cskyee;
 //vector
 assign decd_sel[5] = 1'b0;
+assign decd_sel_in[5] = 1'b0;
 
 // &CombBeg; @546
 always @( decd_32_srcv2_vld
