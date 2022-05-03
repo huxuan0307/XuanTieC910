@@ -79,6 +79,16 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.ISfromRTUsub.rob_full := rtu.io.out.toIdu.robFull
   idu.io.in.ISfromRTUsub.rob_inst_idd := rtu.io.out.toIdu.robInstIidVec
   idu.io.in.ISfromRTUsub.retire_int_vld := rtu.io.out.toIdu.retire0InstValid
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg := iu.io.iuToRtu.rbusRslt(0).wbPreg
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg_vld := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg_data := iu.io.iuToRtu.rbusRslt(0).wbData
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_vld := iu.io.iuToRtu.rbusRslt(1).wbPregVld
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_data := iu.io.iuToRtu.rbusRslt(1).wbData
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromRTUsub.yyXxDebugOn := rtu.io.out.yyXx.debugOn
 
   //IDU ignore other signals
   idu.io.in.ifu_xx_sync_reset := false.B //////todo: ifu add signals
@@ -128,16 +138,36 @@ class SimTop extends Module with Config with ROBConfig {
 
 
   //IU ignore other signals
-  iu.io.alu0Sel := DontCare //////todo: find out
-  iu.io.alu1Sel := DontCare //////todo: find out
+  iu.io.alu0Sel.sel := idu.io.out.RFCtrl.toAlu0.sel
+  iu.io.alu0Sel.gateSel := idu.io.out.RFCtrl.toAlu0.gateClkSel
+  iu.io.alu1Sel.sel := idu.io.out.RFCtrl.toAlu1.sel
+  iu.io.alu1Sel.gateSel := idu.io.out.RFCtrl.toAlu1.gateClkSel
   iu.io.isIn.issue := DontCare //////todo: ISStage add idu_iu_is_div_issue
   iu.io.isIn.gateClkIssue := DontCare //////todo: idu_iu_is_div_gateclk_issue ???
   iu.io.specialPid := DontCare //////todo: check idu_iu_rf_pipe0_pid and idu_iu_rf_pipe1_pid ???
-  iu.io.bjuSel := DontCare //////todo: from rf
-  iu.io.mulSel := DontCare //////todo: from rf
-  iu.io.specialSel := DontCare //////todo: from rf
-  iu.io.divSel := DontCare //////todo: from rf
-  iu.io.pipe0 := DontCare //////todo: from rf?
+  iu.io.bjuSel.sel := idu.io.out.RFCtrl.toBju.sel
+  iu.io.bjuSel.gateSel := idu.io.out.RFCtrl.toBju.gateClkSel
+  iu.io.mulSel.sel := idu.io.out.RFCtrl.toMul.sel
+  iu.io.mulSel.gateSel := idu.io.out.RFCtrl.toMul.gateClkSel
+  iu.io.specialSel.sel := idu.io.out.RFCtrl.toSpecial.sel
+  iu.io.specialSel.gateSel := idu.io.out.RFCtrl.toSpecial.gateClkSel
+  iu.io.divSel.sel := idu.io.out.RFCtrl.toDiv.sel
+  iu.io.divSel.gateSel := idu.io.out.RFCtrl.toDiv.gateClkSel
+  iu.io.pipe0.iid := idu.io.out.RFData.iid
+  iu.io.pipe0.dstVld := idu.io.out.RFData.dstPreg.valid
+  iu.io.pipe0.dstPreg := idu.io.out.RFData.dstPreg.bits
+  iu.io.pipe0.opcode := idu.io.out.RFData.opcode
+  iu.io.pipe0.exptVec := idu.io.out.RFData.exceptVec.bits
+  iu.io.pipe0.exptVld := idu.io.out.RFData.exceptVec.valid
+  iu.io.pipe0.highHwExpt := idu.io.out.RFData.highHwExpt
+  iu.io.pipe0.specialImm := idu.io.out.RFData.specialImm
+  iu.io.pipe0.aluShort := idu.io.out.RFData.aluShort
+  iu.io.pipe0.imm := idu.io.out.RFData.imm
+  iu.io.pipe0.src0 := idu.io.out.RFData.src0
+  iu.io.pipe0.src1 := idu.io.out.RFData.src1
+  iu.io.pipe0.src2 := idu.io.out.RFData.src2
+  iu.io.pipe0.src1NoImm := idu.io.out.RFData.src1NoImm
+  iu.io.pipe0.func := DontCare //////todo: find it
   iu.io.pipe1 := DontCare //////todo: from rf?
   iu.io.pipe2 := DontCare //////todo: from rf
   iu.io.cp0In := DontCare
@@ -208,12 +238,12 @@ class SimTop extends Module with Config with ROBConfig {
   }
 
   //RTU ignore other signals
-  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: find out, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare
-  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare
+  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := DontCare //////todo: find out
   rtu.io.in.fromLsu := DontCare
-  rtu.io.in.fromIu := DontCare
+  rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0 := DontCare
   rtu.io.in.fromPad := DontCare
   rtu.io.in.fromHad := DontCare
@@ -226,4 +256,63 @@ class SimTop extends Module with Config with ROBConfig {
   dontTouch(idu.io)
   dontTouch(iu.io)
   dontTouch(rtu.io)
+
+  io.uart.in.valid  := false.B
+  io.uart.out.valid := false.B
+  io.uart.out.ch    := 0.U
+
+  val instrCommit = Module(new DifftestInstrCommit)
+  instrCommit.io.clock := clock
+  instrCommit.io.coreid := 0.U
+  instrCommit.io.index := 0.U
+  instrCommit.io.skip := false.B
+  instrCommit.io.isRVC := false.B
+  instrCommit.io.scFailed := false.B
+
+  instrCommit.io.valid := true.B
+  instrCommit.io.pc    := 0.U
+
+  instrCommit.io.instr := 0.U
+
+  instrCommit.io.wen   := false.B
+  instrCommit.io.wdata := 0.U
+  instrCommit.io.wdest := 0.U
+
+
+  val csrCommit = Module(new DifftestCSRState)
+  csrCommit.io.clock          := clock
+  csrCommit.io.priviledgeMode := 0.U
+  csrCommit.io.mstatus        := 0.U
+  csrCommit.io.sstatus        := 0.U
+  csrCommit.io.mepc           := 0.U
+  csrCommit.io.sepc           := 0.U
+  csrCommit.io.mtval          := 0.U
+  csrCommit.io.stval          := 0.U
+  csrCommit.io.mtvec          := 0.U
+  csrCommit.io.stvec          := 0.U
+  csrCommit.io.mcause         := 0.U
+  csrCommit.io.scause         := 0.U
+  csrCommit.io.satp           := 0.U
+  csrCommit.io.mip            := 0.U
+  csrCommit.io.mie            := 0.U
+  csrCommit.io.mscratch       := 0.U
+  csrCommit.io.sscratch       := 0.U
+  csrCommit.io.mideleg        := 0.U
+  csrCommit.io.medeleg        := 0.U
+
+  val cycleCnt = RegInit(0.U(64.W))
+  cycleCnt := cycleCnt + 1.U
+  val instrCnt = RegInit(0.U(64.W))
+  when(instrCommit.io.valid){
+    instrCnt := instrCnt + 1.U
+  }
+
+  val trap = Module(new DifftestTrapEvent)
+  trap.io.clock    := clock
+  trap.io.coreid   := 0.U
+  trap.io.valid    := false.B
+  trap.io.code     := 0.U // GoodTrap
+  trap.io.pc       := 0.U
+  trap.io.cycleCnt := cycleCnt
+  trap.io.instrCnt := instrCnt
 }

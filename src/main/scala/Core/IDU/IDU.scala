@@ -1,6 +1,7 @@
 package Core.IDU
 
 import Core.Config
+import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig.{NumPhysicRegsBits, XLEN}
 import IS._
 import RF._
@@ -104,6 +105,18 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
   val ISfromIUsub = new Bundle{
     val pcfifo_dis_inst_pid = Vec(4, UInt(5.W))
   }
+  val PRFfromIU = new Bundle{
+    val ex2_pipe0_wb_preg_data = UInt(XLEN.W)
+    //todo: add //val ex2_pipe0_wb_preg_expand = UInt(NumPhysicRegs.W)
+    val ex2_pipe0_wb_preg_vld = Bool()
+    val ex2_pipe1_wb_preg_data = UInt(XLEN.W)
+    val ex2_pipe0_wb_preg = UInt(NumPhysicRegsBits.W)
+    val ex2_pipe1_wb_preg_vld = Bool()
+    val ex2_pipe1_wb_preg = UInt(NumPhysicRegsBits.W)
+    val lsu_wb_pipe3_wb_preg_data = UInt(XLEN.W)
+    val lsu_wb_pipe3_wb_preg_vld = Bool()
+    val lsu_wb_pipe3_wb_preg = UInt(NumPhysicRegsBits.W)
+  }
   //  val IDfromRTU = new Bundle{
   //    val flushFe = Bool()
   //  }
@@ -122,6 +135,9 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
     val freg = Vec(4, UInt(6.W))
     val preg = Vec(4, UInt(7.W))
     val vreg = Vec(4, UInt(6.W))
+  }
+  val PRFfromRTUsub = new Bundle {
+    val yyXxDebugOn : Bool = Bool()
   }
   val ISfromRTUsub = new Bundle {
     val rob_full = Bool()
@@ -206,6 +222,7 @@ class IDUOutput extends Bundle{
   val IStoHad = new Bundle {
     val iq_empty = Bool()
   }
+  val PRFtoHad = new PrfToHadBundle
   val IDtoHpcp = new Bundle {
     val backendStall = Bool()
   }
@@ -226,8 +243,10 @@ class IDUOutput extends Bundle{
      */
   }
 
-  val RFtoCp0 = new RFStageToCp0Bundle
-  val RFtoHpcp = new RFStageToHpcpBundle
+  //////val RFtoCp0 = new RFStageToCp0Bundle
+  //////val RFtoHpcp = new RFStageToHpcpBundle
+  val RFCtrl = new RFStageCtrlOutput
+  val RFData = (new RFStageDataOutput).toIu
   /**
   val RFtoIU = new RFStageToExuGateClkBundle
   val RFtoIU_pipe = new RFtoIU_pipeBundle
@@ -308,6 +327,8 @@ class IDU extends Module with Config {
   val biq = Module(new Biq)
   val lsiq = Module(new Lsiq)
   val rfstage = Module(new RFStage)
+  val prf = Module(new Prf)
+  //////todo: add 1ereg, 2 vreg, 2freg
 
   io.out := DontCare
   //aiq0 aiq1 biq lsiq sdiq viq0 viq1 vmb
@@ -624,12 +645,36 @@ class IDU extends Module with Config {
   rfstage.io.data.in.sdiq := DontCare //////todo: add sdiq
   rfstage.io.data.in.vfiq0 := DontCare
   rfstage.io.data.in.vfiq1 := DontCare
-  rfstage.io.data.r := DontCare //////todo: connect it
+  rfstage.io.data.r <> prf.io.r//DontCare
   rfstage.io.ctrl.in.fromHpcp.iduCntEn := io.in.fromHpcp.cntEn
   // &Instance("ct_idu_rf_dp", "x_ct_idu_rf_dp"); @81
 
   // &Instance("ct_idu_rf_fwd", "x_ct_idu_rf_fwd"); @82
   //todo: add rf_fwd
+
+  // &Instance("ct_idu_rf_prf_pregfile", "x_ct_idu_rf_prf_pregfile"); @83
+  prf.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
+  prf.io.in.fromCp0.iduIcgEn := io.in.fromCp0.icgEn
+  prf.io.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
+  prf.io.in.fromRtu.yyXxDebugOn := io.in.PRFfromRTUsub.yyXxDebugOn
+  io.out.PRFtoHad := prf.io.out.toHad
+  prf.io.w(0).data := io.in.PRFfromIU.ex2_pipe0_wb_preg_data
+  prf.io.w(0).en := io.in.PRFfromIU.ex2_pipe0_wb_preg_vld
+  prf.io.w(0).preg := io.in.PRFfromIU.ex2_pipe0_wb_preg//from IU
+  prf.io.w(1).data := io.in.PRFfromIU.ex2_pipe1_wb_preg_data
+  prf.io.w(1).en := io.in.PRFfromIU.ex2_pipe1_wb_preg_vld
+  prf.io.w(1).preg := io.in.PRFfromIU.ex2_pipe1_wb_preg
+  prf.io.w(2).data := io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data
+  prf.io.w(2).en := io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld
+  prf.io.w(2).preg := io.in.PRFfromIU.lsu_wb_pipe3_wb_preg
+  //  for(i <- 0 to NumPregReadPort) {
+  //    prf.io.r(i).preg := rfstage.io.data.r(i).preg
+  //  }
+  //  prf.io.r.zipWithIndex.foreach {
+  //    case (rbundle, i) =>
+  //      if (i > 2)
+  //        rbundle.preg := DontCare
+  //  }
 
   io.out.IDtoIFU := idstage.io.out.toIFU
   io.out.IDtoHad := idstage.io.out.toHad
@@ -640,6 +685,8 @@ class IDU extends Module with Config {
   io.out.IStoRTU := isstage.io.out.toRTU
   io.out.IRtoRTU := irstage.io.out.toRTU
   io.out.IRtoHpcp := irstage.io.out.toHpcp
-  io.out.RFtoCp0 := rfstage.io.ctrl.out.toCp0
-  io.out.RFtoHpcp := rfstage.io.ctrl.out.toHpcp
+  //////io.out.RFtoCp0 := rfstage.io.ctrl.out.toCp0
+  //////io.out.RFtoHpcp := rfstage.io.ctrl.out.toHpcp
+  io.out.RFCtrl := rfstage.io.ctrl.out
+  io.out.RFData := rfstage.io.data.out.toIu
 }

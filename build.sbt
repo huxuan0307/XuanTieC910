@@ -21,7 +21,4 @@ lazy val root = (project in file("."))
       "-P:chiselplugin:genBundleElements",
     ),
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % chiselVersion cross CrossVersion.full),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)
   )
-  .dependsOn(difftest)
-lazy val difftest = project in file("./ThirdParty/difftest")
