@@ -8,6 +8,7 @@ import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig._
 import Core.VectorUnitConfig._
+import difftest._
 
 class RtuFromCp0Bundle extends Bundle {
   val srtEn : Bool = Bool()
@@ -463,4 +464,38 @@ class RtuTop extends Module {
   io.out.yyXx.exceptVec     := retire.io.out.yyXx.exceptVec
   io.out.yyXx.flush         := retire.io.out.yyXx.flush
   io.out.yyXx.retire0Normal := retire.io.out.yyXx.retire0Normal
+
+  for (i <- 0 to 2) {
+    val instrCommit = Module(new DifftestInstrCommit)
+    instrCommit.io.clock := clock
+    instrCommit.io.coreid := 0.U
+    instrCommit.io.index := i.U
+    instrCommit.io.skip := false.B
+    instrCommit.io.isRVC := false.B
+    instrCommit.io.scFailed := false.B
+
+    instrCommit.io.valid := rob.io.out.toRetire.commitValidVec(i)
+    instrCommit.io.pc    := rob.io.out.toRetire.instVec(i).pc
+
+    instrCommit.io.instr := 0.U
+
+    instrCommit.io.wen   := pstPreg.io.out.toTop.retiredRegWb(0)
+    instrCommit.io.wdata := 0.U
+    instrCommit.io.wdest := 0.U
+  }
+  val cycleCnt = RegInit(0.U(64.W))
+  cycleCnt := cycleCnt + 1.U
+  val instrCnt = RegInit(0.U(64.W))
+  when(rob.io.out.toRetire.commitValidVec(0)|| rob.io.out.toRetire.commitValidVec(1) || rob.io.out.toRetire.commitValidVec(2)) {
+    instrCnt := instrCnt + rob.io.out.toRetire.commitValidVec(0).asUInt + rob.io.out.toRetire.commitValidVec(1).asUInt + rob.io.out.toRetire.commitValidVec(2).asUInt
+  }
+
+  val trap = Module(new DifftestTrapEvent)
+  trap.io.clock    := clock
+  trap.io.coreid   := 0.U
+  trap.io.valid    := false.B
+  trap.io.code     := 0.U // GoodTrap
+  trap.io.pc       := 0.U
+  trap.io.cycleCnt := cycleCnt
+  trap.io.instrCnt := instrCnt
 }
