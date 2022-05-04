@@ -105,7 +105,7 @@ class IntegerUnitIO extends Bundle{
   // to alu0, special, div
   val alu0Sel    = Input(new unitSel)
   val pipe0      = Input(new IduRfPipe0)
-  val divSel     = Input(new unitSel)
+  val divSel      = Input(new unitSel)
   val specialSel = Input(new unitSel)
   // to alu1&mult
   val alu1Sel    = Input(new unitSel)

@@ -234,8 +234,8 @@ class Bju extends Module{
   val ex2_pipe_tar_pc      = RegEnable(bju_jump_pc,ex2_pipe_inst_vld)
   val ex2_pipe_is_br       = RegEnable(is_br,ex2_pipe_inst_vld)
   val ex2_pipe_is_jmp      = RegEnable(is_jmp,ex2_pipe_inst_vld)
-  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex2_pipe_inst_vld)
-  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex2_pipe_inst_vld)
+  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex2_pipe_inst_vld) // rtu ptr
+  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex2_pipe_inst_vld) // pid pc fifo ptr
   //----------------------------------------------------------
   //                 Write Result to PCFIFO
   //----------------------------------------------------------
