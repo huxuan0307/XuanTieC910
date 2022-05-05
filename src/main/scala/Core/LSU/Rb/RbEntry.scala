@@ -52,30 +52,30 @@ class RbEntryIn extends Bundle{
 
 class RbEntryInput extends Bundle with LsuConfig{
   val fromBiu = new Bundle{
-    val b_id = UInt(5.W)
-    val b_vld = Bool()
+    val b_id        = UInt(5.W)
+    val b_vld       = Bool()
     val r_data_mask = UInt(128.W)
-    val r_id = UInt(5.W)
-    val r_vld = Bool()
+    val r_id        = UInt(5.W)
+    val r_vld       = Bool()
   }
   val fromCp0 = new RbFromCp0
   val fromLoadDA = new RbFromLoadDA
 
-  val lm_already_snoop = Bool()
-  val lsu_has_fence = Bool()
-  val lsu_special_clk = Bool()
+  val lm_already_snoop   = Bool()
+  val lsu_has_fence      = Bool()
+  val lsu_special_clk    = Bool()
   val pad_yy_icg_scan_en = Bool()
-  val pfu_biu_req_addr = UInt(PA_WIDTH.W)
-  val rb_biu_ar_id = UInt(5.W)
+  val pfu_biu_req_addr   = UInt(PA_WIDTH.W)
+  val rb_biu_ar_id       = UInt(5.W)
 
   val RbEntry = new RbEntryIn
 
-  val rb_fence_ld = Bool()
-  val rb_ld_biu_pe_req_grnt = Bool()
-  val rb_r_resp_err = Bool()
-  val rb_r_resp_okay = Bool()
+  val rb_fence_ld                  = Bool()
+  val rb_ld_biu_pe_req_grnt        = Bool()
+  val rb_r_resp_err                = Bool()
+  val rb_r_resp_okay               = Bool()
   val rb_ready_all_req_biu_success = Bool()
-  val rb_ready_ld_req_biu_success = Bool()
+  val rb_ready_ld_req_biu_success  = Bool()
 
   val fromRTU = new RbFromRTU
   val fromSQ = new Bundle{
