@@ -157,6 +157,9 @@ trait LsuConfig{
   def HALF        = "b01"
   def WORD        = "b10"
   def DWORD       = "b11"
+
+  def CACHE_DIST_SELECT_ADDR = 4
+  def CACHE_DIST_SELECT = log2Up(CACHE_DIST_SELECT_ADDR)
 }
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
