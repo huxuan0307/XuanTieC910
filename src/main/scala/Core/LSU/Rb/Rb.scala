@@ -240,7 +240,8 @@ class Rb extends Module with LsuConfig with BIUConfig{
   val lsu_has_fence = RegInit(false.B)
   val rb_biu_req_unmask = RegInit(false.B)
   val rb_biu_req_ptr = RegInit(VecInit(Seq.fill(RB_ENTRY)(false.B)))
-
+  val rb_biu_req_create_lfb = RegInit(false.B)
+  val rb_biu_req_addr = RegInit(0.U(PA_WIDTH.W))
 
 
   //Wire
@@ -264,6 +265,16 @@ class Rb extends Module with LsuConfig with BIUConfig{
   val rb_r_resp_okay = Wire(Bool())
   val rb_ready_all_req_biu_success = Wire(Bool())
   val rb_ready_ld_req_biu_success = Wire(Bool())
+
+  val rb_pipe_biu_pe_req = Wire(Bool())
+  val rb_read_req_grnt = Wire(Bool())
+  val rb_biu_pe_req_permit = Wire(Bool())
+  val rb_biu_pe_req = Wire(Bool())
+  val rb_biu_pe_req_ptr = Wire(Vec(RB_ENTRY, Bool()))
+  val rb_biu_pe_create_lfb = Wire(Bool())
+  val rb_biu_pe_req_addr = Wire(UInt(PA_WIDTH.W))
+
+  val rb_nc_fifo_empty = Wire(Bool())
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
@@ -388,5 +399,157 @@ class Rb extends Module with LsuConfig with BIUConfig{
   io.out.toLoadDA.merge_fail := VecInit(rb_entry_out.map(_.merge_fail)).asUInt.orR
 
   //------------------create vld------------------------------
+  val rb_create_ld_success = io.in.fromLoadDA.rb_create_vld && !rb_ld_da_full && !io.in.fromRTU.yy_xx_flush
+
+  val rb_create_st_success = io.in.fromStoreDA.rb_create_vld && !rb_st_da_full && !io.in.fromRTU.yy_xx_flush
+
+  rb_entry_in.zip(rb_create_ptr0).foreach{case(entry_in, ptr) => entry_in.ld_create_vld := ptr && rb_create_ld_success}
+  rb_entry_in.zip(rb_create_ptr1).foreach{case(entry_in, ptr) => entry_in.st_create_vld := ptr && rb_create_st_success}
+
+  //------------------create dp vld---------------------------
+  rb_entry_in.zip(rb_create_ptr0).foreach{
+    case(entry_in, ptr) => entry_in.ld_create_dp_vld := ptr && !rb_ld_da_full && io.in.fromLoadDA.rb_create_dp_vld
+  }
+  rb_entry_in.zip(rb_create_ptr1).foreach{
+    case(entry_in, ptr) => entry_in.st_create_dp_vld := ptr && !rb_st_da_full && io.in.fromStoreDA.rb_create_dp_vld
+  }
+
+  //------------------create gateclk vld----------------------
+  rb_entry_in.zip(rb_create_ptr0).foreach{
+    case(entry_in, ptr) => entry_in.ld_create_gateclk_en := ptr && !rb_ld_da_full && io.in.fromLoadDA.rb_create_gateclk_en
+  }
+  rb_entry_in.zip(rb_create_ptr1).foreach{
+    case(entry_in, ptr) => entry_in.st_create_gateclk_en := ptr && !rb_st_da_full && io.in.fromStoreDA.rb_create_gateclk_en
+  }
+
+  //==========================================================
+  //                    info for bar ready
+  //==========================================================
+  //success neglect mmu request
+  val rb_ready_ld_req_biu = VecInit(rb_entry_out.map(entry_out => !entry_out.st && !entry_out.mcic_req && entry_out.biu_req)).asUInt.orR
+
+  rb_ready_ld_req_biu_success := !rb_ready_ld_req_biu
+  val rb_ready_req_biu = VecInit(rb_entry_out.map(entry_out => !entry_out.mcic_req && entry_out.biu_req)).asUInt.orR
+  rb_ready_all_req_biu_success := !rb_ready_req_biu
+
+  //==========================================================
+  //                        Fence signal
+  //==========================================================
+  val rb_has_sync_fence = VecInit(rb_entry_out.map(entry_out => !entry_out.vld && entry_out.sync_fence)).asUInt.orR
+  val lsu_has_fence_set = rb_has_sync_fence || io.in.fromWmb.has_sync_fence
+  io.out.lsu_idu_no_fence := !lsu_has_fence
+
+  when(rb_create_st_success  &&  !lsu_has_fence){
+    lsu_has_fence := io.in.fromStoreDA.sync_fence
+  }.otherwise{
+    lsu_has_fence := lsu_has_fence_set
+  }
+
+  //==========================================================
+  //                  Request biu pop entry
+  //==========================================================
+  //------------------------registers-------------------------
+  //+---------+
+  //| biu_req |
+  //+---------+
+  when(rb_pipe_biu_pe_req){
+    rb_biu_req_unmask := true.B
+  }.elsewhen(rb_read_req_grnt || rb_biu_req_flush_clear){
+    rb_biu_req_unmask := false.B
+  }
+
+  //+---------+------+------------+
+  //| pop ptr | addr | lfb_create |
+  //+---------+------+------------+
+  when(rb_biu_pe_req_permit  &&  rb_biu_pe_req){
+    rb_biu_req_ptr        :=  rb_biu_pe_req_ptr
+    rb_biu_req_create_lfb :=  rb_biu_pe_create_lfb
+    rb_biu_req_addr       :=  rb_biu_pe_req_addr
+  }.elsewhen(rb_ld_biu_pe_req_grnt){
+    rb_biu_req_ptr        :=  rb_create_ptr0
+    rb_biu_req_create_lfb :=  io.in.fromLoadDA.rb_create_lfb
+    rb_biu_req_addr       :=  io.in.fromLoadDA.addr
+  }
+
+  //-----------------------biu req ptr------------------------
+  rb_biu_pe_req_gateclk_en := VecInit(rb_entry_out.map(_.biu_pe_req_gateclk_en)).asUInt.orR
+  rb_biu_pe_req := VecInit(rb_entry_out.map(_.biu_pe_req)).asUInt.orR
+
+  rb_biu_pe_req_ptr := VecInit(PriorityEncoderOH(rb_entry_out.map(_.biu_pe_req)))
+
+  rb_biu_pe_create_lfb := VecInit(rb_entry_out.zip(rb_biu_pe_req_ptr).map(x => x._1.create_lfb && x._2)).asUInt.orR
+  rb_biu_pe_req_addr := VecInit(rb_entry_out.zip(rb_biu_pe_req_ptr).map(x => Mux(x._2, x._1.addr, 0.U(PA_WIDTH.W)))).reduce(_ | _)
+
+  //-------------------ld/st biu pop req----------------------
+  val rb_ld_biu_pe_req    = rb_create_ld_success && !io.in.fromLoadDA.rb_data_vld && !io.in.fromLoadDA.page_so && !lsu_has_fence
+
+  rb_pipe_biu_pe_req := rb_biu_pe_req || rb_ld_biu_pe_req
+
+  //---------------------pe_req_grnt-------------------------
+  rb_biu_pe_req_permit := !rb_biu_req_unmask || rb_read_req_grnt || rb_biu_req_flush_clear
+  rb_entry_in.zip(rb_biu_pe_req_ptr).foreach{
+    case(entry_in, ptr) => entry_in.biu_pe_req_grnt := rb_biu_pe_req_permit && ptr
+  }
+
+  rb_ld_biu_pe_req_grnt := rb_biu_pe_req_permit && !rb_biu_pe_req && rb_ld_biu_pe_req
+
+  //-----------------flush clear in coror----------------------
+  rb_biu_req_flush_clear := VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.flush_clear && x._2)).asUInt.orR && rb_biu_req_unmask
+
+  //==========================================================
+  //                      Request biu
+  //==========================================================
+  //------------------barrier---------------------------------
+  rb_fence_ld := VecInit(rb_entry_out.map(_.fence_ld_vld)).asUInt.orR
+
+  //------------------biu req info----------------------------
+  val rb_biu_req_mcic_req   = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.mcic_req && x._2)).asUInt.orR
+  val rb_biu_req_page_ca    = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.page_ca && x._2)).asUInt.orR
+  val rb_biu_req_page_so    = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.page_so && x._2)).asUInt.orR
+  val rb_biu_req_page_sec   = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.page_sec && x._2)).asUInt.orR
+  val rb_biu_req_page_buf   = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.page_buf && x._2)).asUInt.orR
+  val rb_biu_req_page_share = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.page_share && x._2)).asUInt.orR
+  val rb_biu_req_sync       = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.sync && x._2)).asUInt.orR
+  val rb_biu_req_fence      = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.fence && x._2)).asUInt.orR
+  val rb_biu_req_atomic     = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.atomic && x._2)).asUInt.orR
+  val rb_biu_req_ldamo      = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.ldamo && x._2)).asUInt.orR
+  val rb_biu_req_st         = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._1.st && x._2)).asUInt.orR
+
+  val rb_biu_req_inst_size = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => Mux(x._2, x._1.inst_size, 0.U(3.W)))).reduce(_ | _)
+  val rb_biu_req_priv_mode = VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => Mux(x._2, x._1.priv_mode, 0.U(2.W)))).reduce(_ | _)
+
+  val rb_biu_req_page_ca_dcache_en = rb_biu_req_page_ca && io.in.fromCp0.lsu_dcache_en
+  val rb_biu_req_page_nc_atomic    = !rb_biu_req_page_ca &&  rb_biu_req_atomic
+
+  val rb_biu_req_hit_idx = io.in.fromWmb.rb_biu_req_hit_idx || io.in.fromLfb.rb_biu_req_hit_idx || io.in.vb_rb_biu_req_hit_idx
+
+  io.out.toBiu.ar_req := rb_biu_req_unmask && !rb_biu_req_flush_clear &&
+    (!rb_biu_req_hit_idx && rb_biu_req_page_ca && !io.in.fromLfb.addr_full && (io.in.fromLfb.rb_ca_rready_grnt || rb_nc_fifo_empty) ||
+      !rb_biu_req_page_ca && io.in.fromLfb.rb_nc_rready_grnt)
+
+  io.out.toBiu.ar_dp_req := rb_biu_req_unmask && !rb_biu_req_flush_clear &&
+    (rb_biu_req_page_ca && !io.in.fromLfb.addr_full && (io.in.fromLfb.rb_ca_rready_grnt || rb_nc_fifo_empty) ||
+      !rb_biu_req_page_ca && io.in.fromLfb.rb_nc_rready_grnt)
+
+  io.out.toBiu.ar_req_gateclk_en := rb_biu_req_unmask
+
+  //----------ar_id-----------------------
+  val rb_biu_req_sync_fence = rb_biu_req_sync  ||  rb_biu_req_fence
+
+  rb_biu_ar_id := PriorityMux(Seq(
+    rb_biu_req_sync_fence -> BIU_R_SYNC_FENCE_ID,
+    rb_biu_req_page_so -> BIU_R_SO_ID,
+    rb_biu_req_page_ca -> io.in.fromLfb.rb_create_id,
+    rb_biu_req_atomic -> BIU_R_NC_ATOM_ID,
+    (!rb_biu_req_sync_fence &&
+    !rb_biu_req_page_so &&
+    !rb_biu_req_page_ca &&
+    !rb_biu_req_atomic) -> BIU_R_NC_ID
+  ))
+
+  //----------ar others-------------------
+
+
+
 
 }
