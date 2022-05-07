@@ -62,8 +62,8 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   val SRam_write  = WireInit(VecInit(Seq.fill(CacheCatNum)(VecInit(Seq.fill(Banks)(0.U(sram_width.W))))))//4次取，bank表数目，每表32bit
 
 
-  val paddr = io.cache_req.bits.paddr
-  val vaddr = io.cache_req.bits.vaddr
+  val paddr = io.cache_req.bits.paddr //////todo: check addrBits, 39 or 40
+  val vaddr = io.cache_req.bits.vaddr //////todo: check addrBits, 39 or 40
   val tag = ftag(paddr)
   val index = findex(vaddr) //目前data_array、predecd_array采用与其它不同宽度的index
   val Dindex = fDindex(vaddr) //

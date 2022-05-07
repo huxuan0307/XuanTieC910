@@ -6,6 +6,7 @@ import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Core.PipelineConfig._
 import Core.IntConfig._
+import chisel3.util.experimental.BoringUtils
 
 trait PrfConfig {
   def NumPregReadPort = 11
@@ -104,4 +105,16 @@ class Prf extends Module {
 
   io.out.toHad.wb.valid := io.in.fromRtu.yyXxDebugOn && wen
   io.out.toHad.wb.data  := Mux(wen, wdata, 0.U)
+
+
+  //==========================================================
+  //          to Difftest
+  //==========================================================
+  val diffcommitpreg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
+  BoringUtils.addSink(diffcommitpreg,"diffcommitpreg")
+  val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
+  for (i <- 0 until NumRetireEntry) {
+    diffcommitwdata(i) := data(diffcommitpreg(i))
+  }
+  BoringUtils.addSource(diffcommitwdata,"diffcommitwdata")
 }

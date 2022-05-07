@@ -63,6 +63,7 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   val pipe1_en = io.sel.gateSel // TODO add gate_sel
   val ex1_pipe = RegEnable(io.in, pipe1_en)
+  //val res = RegInit(0.U(XLEN.W))
 
   val (src1, src2, op) = (io.in.src0,io.in.src1, io.in.func)
   //----------------------------------------------------------
@@ -100,7 +101,7 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   io.toRbus.dataVld  := ex1_pipe.dstVld && alu_ex1_inst_vld
   io.toRbus.fwdVld   := alu_ex1_fwd_vld
-  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
+  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res) //////ex1 pipe Reg
   io.toRbus.preg     := ex1_pipe.dstPreg
   io.toRbus.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res)
 }

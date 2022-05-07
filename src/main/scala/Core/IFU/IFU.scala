@@ -174,7 +174,7 @@ class IFU extends Module with Config {
     io.instData(i).opcode       := ibuf.io.out(i).bits.inst
 //    io.instData(i)             := ibuf.io.out(i).valid
 //    ibuf.io.out(i).ready             := true.B
-//    io.instVld(i)                    := ibuf.io.out(i).valid
+    io.instVld(i)                    := ibuf.io.out(i).valid
 //    io.ifu_idu(i).ready             := ibuf.io.out(i).ready
   }
   io.toROB.curPcLoad := pc_gen.io.ifu_rtu_cur_pc_load

@@ -8,17 +8,25 @@ import Core.IDU._
 import Core.IU._
 import Core.IFU._
 import Core.RTU._
+import difftest._
+import firrtl.transforms.DontTouchAnnotation
 
 class ct_coreBundle extends Bundle {
-  val RtutoIfu = new RetireToIfuBundle
+  val logCtrl = new LogCtrlIO
+  val perfInfo = new PerfInfoIO
+  val uart = new UARTIO
 }
 
-class ct_core extends Module with Config with ROBConfig {
+class SimTop extends Module with Config with ROBConfig {
+  val io = IO(new ct_coreBundle)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
   val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
+  io.uart.in.valid  := false.B
+  io.uart.out.valid := false.B
+  io.uart.out.ch    := 0.U
   //IFU
   ifu.io.bpu_update.rtu_flush := rtu.io.out.toIfu.flush
   ifu.io.bpu_update.rtu_ras_update.isret := rtu.io.out.toIfu.retire0.pReturn
@@ -41,7 +49,7 @@ class ct_core extends Module with Config with ROBConfig {
   ifu.io.bru_redirect.bits := DontCare
   ifu.io.tlb.tlb_miss := false.B
   ifu.io.tlb.paddr := ifu.io.tlb.vaddr // todo: add TLB, Now, suppose that paddr===vaddr
-  ifu.io.instVld := Seq(true.B,true.B,true.B) //todo: ???
+  //ifu.io.instVld := Seq(true.B,true.B,true.B).map(_) //todo: ???
   dontTouch(ifu.io)
 
 
@@ -71,6 +79,16 @@ class ct_core extends Module with Config with ROBConfig {
   idu.io.in.ISfromRTUsub.rob_full := rtu.io.out.toIdu.robFull
   idu.io.in.ISfromRTUsub.rob_inst_idd := rtu.io.out.toIdu.robInstIidVec
   idu.io.in.ISfromRTUsub.retire_int_vld := rtu.io.out.toIdu.retire0InstValid
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg := iu.io.iuToRtu.rbusRslt(0).wbPreg //////todo: check it, seem that iu_rtu_ex2_pipe0_wb_preg_expand same with iu_idu_ex2_pipe0_wb_preg_expand
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg_vld := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.PRFfromIU.ex2_pipe0_wb_preg_data := iu.io.iuToRtu.rbusRslt(0).wbData
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_vld := iu.io.iuToRtu.rbusRslt(1).wbPregVld
+  idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_data := iu.io.iuToRtu.rbusRslt(1).wbData
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromRTUsub.yyXxDebugOn := rtu.io.out.yyXx.debugOn
 
   //IDU ignore other signals
   idu.io.in.ifu_xx_sync_reset := false.B //////todo: ifu add signals
@@ -120,16 +138,36 @@ class ct_core extends Module with Config with ROBConfig {
 
 
   //IU ignore other signals
-  iu.io.alu0Sel := DontCare //////todo: find out
-  iu.io.alu1Sel := DontCare //////todo: find out
+  iu.io.alu0Sel.sel := idu.io.out.RFCtrl.toAlu0.sel
+  iu.io.alu0Sel.gateSel := idu.io.out.RFCtrl.toAlu0.gateClkSel
+  iu.io.alu1Sel.sel := idu.io.out.RFCtrl.toAlu1.sel
+  iu.io.alu1Sel.gateSel := idu.io.out.RFCtrl.toAlu1.gateClkSel
   iu.io.isIn.issue := DontCare //////todo: ISStage add idu_iu_is_div_issue
   iu.io.isIn.gateClkIssue := DontCare //////todo: idu_iu_is_div_gateclk_issue ???
   iu.io.specialPid := DontCare //////todo: check idu_iu_rf_pipe0_pid and idu_iu_rf_pipe1_pid ???
-  iu.io.bjuSel := DontCare //////todo: from rf
-  iu.io.mulSel := DontCare //////todo: from rf
-  iu.io.specialSel := DontCare //////todo: from rf
-  iu.io.divSel := DontCare //////todo: from rf
-  iu.io.pipe0 := DontCare //////todo: from rf?
+  iu.io.bjuSel.sel := idu.io.out.RFCtrl.toBju.sel
+  iu.io.bjuSel.gateSel := idu.io.out.RFCtrl.toBju.gateClkSel
+  iu.io.mulSel.sel := idu.io.out.RFCtrl.toMul.sel
+  iu.io.mulSel.gateSel := idu.io.out.RFCtrl.toMul.gateClkSel
+  iu.io.specialSel.sel := idu.io.out.RFCtrl.toSpecial.sel
+  iu.io.specialSel.gateSel := idu.io.out.RFCtrl.toSpecial.gateClkSel
+  iu.io.divSel.sel := idu.io.out.RFCtrl.toDiv.sel
+  iu.io.divSel.gateSel := idu.io.out.RFCtrl.toDiv.gateClkSel
+  iu.io.pipe0.iid := idu.io.out.RFData.iid
+  iu.io.pipe0.dstVld := idu.io.out.RFData.dstPreg.valid
+  iu.io.pipe0.dstPreg := idu.io.out.RFData.dstPreg.bits
+  iu.io.pipe0.opcode := idu.io.out.RFData.opcode
+  iu.io.pipe0.exptVec := idu.io.out.RFData.exceptVec.bits
+  iu.io.pipe0.exptVld := idu.io.out.RFData.exceptVec.valid
+  iu.io.pipe0.highHwExpt := idu.io.out.RFData.highHwExpt
+  iu.io.pipe0.specialImm := idu.io.out.RFData.specialImm
+  iu.io.pipe0.aluShort := idu.io.out.RFData.aluShort
+  iu.io.pipe0.imm := idu.io.out.RFData.imm
+  iu.io.pipe0.src0 := idu.io.out.RFData.src0
+  iu.io.pipe0.src1 := idu.io.out.RFData.src1
+  iu.io.pipe0.src2 := idu.io.out.RFData.src2
+  iu.io.pipe0.src1NoImm := idu.io.out.RFData.src1NoImm
+  iu.io.pipe0.func := DontCare //////todo: find it
   iu.io.pipe1 := DontCare //////todo: from rf?
   iu.io.pipe2 := DontCare //////todo: from rf
   iu.io.cp0In := DontCare
@@ -199,17 +237,155 @@ class ct_core extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.toPst.vfreg(i).iid := idu.io.out.IStoRTU.pst_dis(i).vreg_iid
   }
 
+  rtu match {
+    case rtu: RtuTop =>
+      val in0 = rtu.io.in.fromIu.pipeCtrlVec(0)
+      val in1 = rtu.io.in.fromIu.pipeCtrlVec(1)
+      val in2 = rtu.io.in.fromIu.pipeCtrlVec(2)
+      val wbdata = rtu.io.in.fromIu.wbData
+      val pcFifoPop0 = rtu.io.in.fromIu.pcFifoPopDataVec(0)
+      val pcFifoPop1 = rtu.io.in.fromIu.pcFifoPopDataVec(1)
+      val pcFifoPop2 = rtu.io.in.fromIu.pcFifoPopDataVec(2)
+      in0.iid := iu.io.iuToRtu.cbusRslt.pipe0Iid
+      in1.iid := iu.io.iuToRtu.cbusRslt.pipe1Iid
+      in2.iid := iu.io.iuToRtu.cbusRslt.pipe2Iid
+      in0.flush := iu.io.iuToRtu.cbusRslt.pipe0Flush
+      in1.flush := DontCare //////todo: find it
+      in2.flush := DontCare //////todo: find it
+      in0.noSpec := DontCare //////todo: find it
+      in1.noSpec := DontCare //////todo: find it
+      in2.noSpec := DontCare //////todo: find it
+      in0.mtval := iu.io.iuToRtu.cbusRslt.pipe0Mtval
+      in1.mtval := DontCare //////todo: find it
+      in2.mtval := DontCare //////todo: find it
+      in0.instMmuException := DontCare //////todo: find it
+      in1.instMmuException := DontCare //////todo: find it
+      in2.instMmuException := DontCare //////todo: find it
+      in0.abnormal := iu.io.iuToRtu.cbusRslt.pipe0Abnormal
+      in1.abnormal := DontCare //////todo: find it
+      in2.abnormal := iu.io.iuToRtu.cbusRslt.pipe2Abnormal //////todo: check it
+      in0.bhtMispred := DontCare
+      in1.bhtMispred := DontCare
+      in2.bhtMispred := iu.io.iuToRtu.cbusRslt.pipe2BhtMispred
+      in0.breakPoint := iu.io.iuToRtu.cbusRslt.pipe0Bkpt
+      in1.breakPoint := DontCare
+      in2.breakPoint := DontCare
+      in0.breakpointData := DontCare //////todo: find it
+      in1.breakpointData := DontCare //////todo: find it
+      in2.breakpointData := DontCare //////todo: find it
+      in0.cmplt := iu.io.iuToRtu.cbusRslt.pipe0Cmplt
+      in1.cmplt := iu.io.iuToRtu.cbusRslt.pipe1Cmplt
+      in2.cmplt := iu.io.iuToRtu.cbusRslt.pipe2Cmplt
+      in0.efPc.bits := iu.io.iuToRtu.cbusRslt.pipe0Efpc
+      in0.efPc.valid := iu.io.iuToRtu.cbusRslt.pipe0EfpcVld
+      in1.efPc := DontCare
+      in2.efPc := DontCare
+      in0.exceptionVec.bits := iu.io.iuToRtu.cbusRslt.pipe0ExptVec //////todo: check it, exceptionVec and exceptVec
+      in0.exceptionVec.valid := iu.io.iuToRtu.cbusRslt.pipe0ExptVld
+      in1.exceptionVec := DontCare
+      in2.exceptionVec := DontCare
+      in0.exceptVec.bits := iu.io.iuToRtu.cbusRslt.pipe0ExptVec
+      in0.exceptVec.valid := iu.io.iuToRtu.cbusRslt.pipe0ExptVld //////todo: check it, exceptionVec and exceptVec
+      in1.exceptVec := DontCare
+      in2.exceptVec := DontCare
+      in0.highHwException := iu.io.iuToRtu.cbusRslt.pipe0HighHwExpt
+      in1.highHwException := DontCare
+      in2.highHwException := DontCare
+      in0.jmpMispred := DontCare //////todo: check it
+      in1.jmpMispred := DontCare
+      in2.jmpMispred := iu.io.iuToRtu.cbusRslt.pipe2JmpMispred
+      in0.specFail := DontCare //////todo: find it
+      in1.specFail := DontCare
+      in2.specFail := DontCare
+      in0.splitSpecFailIid := DontCare //////todo: find it
+      in1.splitSpecFailIid := DontCare
+      in2.splitSpecFailIid := DontCare
+      in0.vsetvl := DontCare
+      in1.vsetvl := DontCare
+      in2.vsetvl := DontCare
+      in0.vstart := DontCare
+      in1.vstart := DontCare
+      in2.vstart := DontCare
+      wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools //////todo: check it
+      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools
+      wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+      wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
+      pcFifoPop0.length := DontCare //////todo: find it
+      pcFifoPop0.bhtPred := iu.io.bjuToRtu.bhtPred //////todo: popNum = 3
+      pcFifoPop0.bhtMispred := iu.io.bjuToRtu.bhtMispred
+      pcFifoPop0.jmp := iu.io.bjuToRtu.jmp
+      pcFifoPop0.pret := iu.io.bjuToRtu.pRet
+      pcFifoPop0.pcall := iu.io.bjuToRtu.pCall
+      pcFifoPop0.condBranch := iu.io.bjuToRtu.condBr
+      pcFifoPop0.pcNext := iu.io.bjuToRtu.pc
+      pcFifoPop0.lsb := DontCare //////todo: add it
+      pcFifoPop1 := DontCare
+      pcFifoPop2 := DontCare
+  }
+
+
   //RTU ignore other signals
-  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: find out, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare
-  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare
+  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := DontCare //////todo: find out
   rtu.io.in.fromLsu := DontCare
-  rtu.io.in.fromIu := DontCare
+  //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0 := DontCare
   rtu.io.in.fromPad := DontCare
   rtu.io.in.fromHad := DontCare
   rtu.io.in.fromHpcp := DontCare
   rtu.io.in.fromMmu := DontCare
   rtu.io.in.fromVfpu := DontCare
+
+
+  dontTouch(ifu.io)
+  dontTouch(idu.io)
+  dontTouch(iu.io)
+  dontTouch(rtu.io)
+
+  io.uart.in.valid  := false.B
+  io.uart.out.valid := false.B
+  io.uart.out.ch    := 0.U
+
+  //  val instrCommit = Module(new DifftestInstrCommit)
+  //  instrCommit.io.clock := clock
+  //  instrCommit.io.coreid := 0.U
+  //  instrCommit.io.index := 0.U
+  //  instrCommit.io.skip := false.B
+  //  instrCommit.io.isRVC := false.B
+  //  instrCommit.io.scFailed := false.B
+  //
+  //  instrCommit.io.valid := true.B
+  //  instrCommit.io.pc    := 0.U
+  //
+  //  instrCommit.io.instr := 0.U
+  //
+  //  instrCommit.io.wen   := false.B
+  //  instrCommit.io.wdata := 0.U
+  //  instrCommit.io.wdest := 0.U
+
+
+  val csrCommit = Module(new DifftestCSRState)
+  csrCommit.io.clock          := clock
+  csrCommit.io.priviledgeMode := 0.U
+  csrCommit.io.mstatus        := 0.U
+  csrCommit.io.sstatus        := 0.U
+  csrCommit.io.mepc           := 0.U
+  csrCommit.io.sepc           := 0.U
+  csrCommit.io.mtval          := 0.U
+  csrCommit.io.stval          := 0.U
+  csrCommit.io.mtvec          := 0.U
+  csrCommit.io.stvec          := 0.U
+  csrCommit.io.mcause         := 0.U
+  csrCommit.io.scause         := 0.U
+  csrCommit.io.satp           := 0.U
+  csrCommit.io.mip            := 0.U
+  csrCommit.io.mie            := 0.U
+  csrCommit.io.mscratch       := 0.U
+  csrCommit.io.sscratch       := 0.U
+  csrCommit.io.mideleg        := 0.U
+  csrCommit.io.medeleg        := 0.U
+
+
 }

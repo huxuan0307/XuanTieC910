@@ -660,7 +660,10 @@ class RFStage extends Module with RFStageConfig {
   private val aluDecodeTable = AluDecodeTable.table
 
   private val aiq0_inst = io.data.in.aiq0.issueReadData.inst
-  private val funcUnit :: opcode :: rd :: rs1Vld :: rs2Vld = ListLookup(aiq0_inst, DefaultInst.inst, aluDecodeTable)
+
+  private val decodeList = ListLookup(aiq0_inst, DefaultInst.inst, aluDecodeTable)
+  private val funcUnit :: opcode :: rd :: rs1Vld :: rs2Vld :: Nil = decodeList
+
   // Todo: Add imm sel in decode table
   private val iu_imm_sel = Wire(Vec(5, Bool()))
   iu_imm_sel(0) := aiq0_inst(6,0) === "b0110111".U || aiq0_inst(6,0) === "b0010111".U

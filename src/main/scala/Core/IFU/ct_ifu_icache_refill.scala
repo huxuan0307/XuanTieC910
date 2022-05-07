@@ -9,8 +9,8 @@ import chisel3.util._
 class ct_ifu_icache_refill extends Module with Config with CacheConfig {
   val io = IO(new icache_RefillIO)
 
-  val paddr = io.req.bits.paddr
-  val paddrReg = RegNext(0.U(PC_WIDTH.W))
+  val paddr = Cat(0.U((XLEN-PAddrBits).W),io.req.bits.paddr) - PcStart.U(XLEN.W)//todo: change addr width
+  val paddrReg = RegNext(0.U(XLEN.W))
 
 
   when(io.req.valid){

@@ -159,18 +159,19 @@ class Bju extends Module{
   //----------------------------------------------------------
   //                BJU jump address calculation
   //---------------------------------------------------------
-  val jump_pc = Mux(op === BRUOpType.jalr,
+  val jump_pc_64 = Mux(op === BRUOpType.jalr,
     Cat(ex1_pipe_rf.src0(63,1), 0.U(1.W)) + ex1_pipe_rf.offset, ex1_pipe_pcfifo_read.pc + ex1_pipe_rf.offset)
+  val jump_pc = jump_pc_64(39,1)
   val brunch_pc = Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc + ex1_pipe_rf.offset ,ex1_pipe_pcfifo_read.pc + 4.U) // otherwise PC+4 TODO pc + pclengh
   val bju_jump_pc = Mux(is_jmp&&bj_taken,jump_pc,brunch_pc)
   //----------------------------------------------------------
   //                      BHT Check
   //---------------------------------------------------------- @732 XOR
-  val bju_bht_mispred = bj_taken ^ ex1_pipe_pcfifo_read.bhtPred
+  val bju_bht_mispred = is_br && (bj_taken ^ ex1_pipe_pcfifo_read.bhtPred)
   //----------------------------------------------------------
   //                Indirect Jump / RAS Check
   //---------------------------------------------------------- @742
-  val bju_jmp_mispred = bju_jump_pc =/= ex1_pipe_pcfifo_read.pc // TODO  @ 745 rts?
+  val bju_jmp_mispred = is_jmp && (bju_jump_pc =/= ex1_pipe_pcfifo_read.pc) // TODO  @ 745 rts?
   //----------------------------------------------------------
   //                Change Flow (cancel) signal                 @change flow signal @ct_iu_bju.v @752
   //----------------------------------------------------------
@@ -233,8 +234,8 @@ class Bju extends Module{
   val ex2_pipe_tar_pc      = RegEnable(bju_jump_pc,ex2_pipe_inst_vld)
   val ex2_pipe_is_br       = RegEnable(is_br,ex2_pipe_inst_vld)
   val ex2_pipe_is_jmp      = RegEnable(is_jmp,ex2_pipe_inst_vld)
-  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex2_pipe_inst_vld)
-  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex2_pipe_inst_vld)
+  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex2_pipe_inst_vld) // rtu ptr
+  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex2_pipe_inst_vld) // pid pc fifo ptr
   //----------------------------------------------------------
   //                 Write Result to PCFIFO
   //----------------------------------------------------------
