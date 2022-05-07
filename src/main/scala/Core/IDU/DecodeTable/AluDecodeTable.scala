@@ -15,7 +15,7 @@ object AluDecodeTable {
     //            |    |       rs1|
     //            |    |    rd |  |
     lui   -> List(ALU, LUI, T, F, F),
-//    auipc -> List(ALU, ADD, T, F, F),
+    auipc -> List(ALU, ADD, T, F, F),
     addi  -> List(ALU, ADD, T, T, F),
     slti  -> List(ALU, SLT, T, T, F),
     sltiu -> List(ALU, SLT, T, T, F),
