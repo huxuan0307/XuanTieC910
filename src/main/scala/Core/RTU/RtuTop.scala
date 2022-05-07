@@ -8,6 +8,7 @@ import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig._
 import Core.VectorUnitConfig._
+import chisel3.util.experimental.BoringUtils
 import difftest._
 
 class RtuFromCp0Bundle extends Bundle {
@@ -465,6 +466,15 @@ class RtuTop extends Module {
   io.out.yyXx.flush         := retire.io.out.yyXx.flush
   io.out.yyXx.retire0Normal := retire.io.out.yyXx.retire0Normal
 
+
+
+  //==========================================================
+  //          to Difftest
+  //==========================================================
+  val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
+  val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
+  BoringUtils.addSink(diffcommitdestReg,"diffcommitdestReg")
+  BoringUtils.addSink(diffcommitwdata,"diffcommitwdata")
   for (i <- 0 to 2) {
     val instrCommit = Module(new DifftestInstrCommit)
     instrCommit.io.clock := clock
@@ -479,9 +489,10 @@ class RtuTop extends Module {
 
     instrCommit.io.instr := 0.U
 
-    instrCommit.io.wen   := pstPreg.io.out.toTop.retiredRegWb(0)
-    instrCommit.io.wdata := 0.U
-    instrCommit.io.wdest := 0.U
+    instrCommit.io.wen   := rob.io.out.toRetire.instVec(i).pstPregValid
+    instrCommit.io.wdata := diffcommitwdata(i)
+    //////todo: 3 retire valid, dst 5bits, rel preg 7bits, toIDU read Preg file
+    instrCommit.io.wdest := diffcommitdestReg(i)
   }
   val cycleCnt = RegInit(0.U(64.W))
   cycleCnt := cycleCnt + 1.U

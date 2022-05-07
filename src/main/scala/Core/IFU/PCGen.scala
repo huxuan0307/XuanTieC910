@@ -50,7 +50,7 @@ class PCGen extends Module with Config {
   rtu_cur_pc := Mux(io.had_ifu_pcload, io.had_ifu_pc, io.vector_pcgen_pc)
 
   ifu_rtu_cur_pc_loadReg := rtu_cur_pc_load
-  ifu_rtu_cur_pcReg := Mux(rtu_cur_pc_load, rtu_cur_pc, ifu_rtu_cur_pcReg)
+  ifu_rtu_cur_pcReg := Mux(io.continue, pc, Mux(rtu_cur_pc_load, rtu_cur_pc, ifu_rtu_cur_pcReg)) //////todo: fix this logic
 
   io.ifu_rtu_cur_pc_load := ifu_rtu_cur_pc_loadReg
   io.ifu_rtu_cur_pc := ifu_rtu_cur_pcReg

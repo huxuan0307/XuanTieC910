@@ -42,6 +42,7 @@ class PstPregEntryInterconnectOutput extends Bundle {
   val destRegOH         : Vec[Bool] = Vec(NumLogicRegs, Bool())
   val releasePregOH     : Vec[Bool] = Vec(NumPhysicRegs, Bool())
   val retiredReleasedWb : Bool      = Bool()
+  val retireValidVec    : Vec[Bool] = Vec(NumRetireEntry,Bool()) //////todo: only for difftest
 }
 
 class PstPregEntryInterconnectBundle extends Bundle {
@@ -320,4 +321,11 @@ class PstPregEntry extends Module {
     true.B
   )
 
+  //==========================================================
+  //          to Difftest
+  //==========================================================
+  private val retireValidVec  = VecInit(io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
+    case (wbValid, iidMatch) => wbValid && iidMatch
+  })
+  io.x.out.retireValidVec := retireValidVec //////for difftest
 }

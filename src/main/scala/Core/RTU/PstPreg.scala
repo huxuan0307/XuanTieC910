@@ -5,6 +5,8 @@ import chisel3.util._
 import Core.ROBConfig._
 import Core.IntConfig._
 import Core.PipelineConfig._
+import Utils.ParallelXOR
+import chisel3.util.experimental.BoringUtils
 
 import scala.language.postfixOps
 
@@ -388,4 +390,38 @@ class PstPreg extends Module {
   }
 
   io.out.toIdu.rtRecoverPreg := regPregVec
+
+
+  //==========================================================
+  //          to Difftest
+  //==========================================================
+  val temdestReg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val temdestReg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val temdestReg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  entries.zipWithIndex.foreach{
+    case (entries, i) =>
+      val destReg = OHToUInt(entries.io.x.out.destRegOH)
+      val preg = OHToUInt(entries.io.x.out.releasePregOH)
+      val retireValidVec = entries.io.x.out.retireValidVec
+      temdestReg0(i) := retireValidVec(0) & destReg
+      tempreg0(i)  := retireValidVec(0) & preg
+      temdestReg1(i) := retireValidVec(1) & destReg
+      tempreg1(i)  := retireValidVec(1) & preg
+      temdestReg2(i) := retireValidVec(2) & destReg
+      tempreg2(i)  := retireValidVec(2) & preg
+  }
+  val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
+  val diffcommitpreg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
+  diffcommitdestReg(0) := ParallelXOR(temdestReg0)
+  diffcommitpreg(0) := ParallelXOR(tempreg0)
+  diffcommitdestReg(1) := ParallelXOR(temdestReg1)
+  diffcommitpreg(1) := ParallelXOR(tempreg1)
+  diffcommitdestReg(2) := ParallelXOR(temdestReg2)
+  diffcommitpreg(2) := ParallelXOR(tempreg2)
+
+  BoringUtils.addSource(diffcommitdestReg,"diffcommitdestReg")
+  BoringUtils.addSource(diffcommitpreg,"diffcommitpreg")
 }
