@@ -142,6 +142,7 @@ trait LsuConfig{
   def WMB_ENTRY     = 8
   def VMB_ENTRY     = 8
   def RB_ENTRY = 8
+  def SNQ_ENTRY     = 6
 
   def SNOOP_ID_WIDTH = 6
   def SDID_WIDTH = log2Up(SQ_ENTRY)
