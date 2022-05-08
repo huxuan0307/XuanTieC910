@@ -100,15 +100,58 @@ trait IUConfig {
   def IuPipeNum = 3
 }
 
+trait BIUConfig {
+  def BIU_R_NORM_ID_T     = 1.U(2.W)
+  def BIU_R_CTC_ID        = 28.U(5.W)
+  def BIU_B_NC_ID         = 24.U(5.W)
+  def BIU_B_SO_ID         = 29.U(5.W)
+  def BIU_B_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_B_SYNC_FENCE_ID = 31.U(5.W)
+
+  def BIU_R_NC_ID         = 24.U(5.W)
+  def BIU_R_SO_ID         = 29.U(5.W)
+  def BIU_R_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_R_SYNC_FENCE_ID = 31.U(5.W)
+
+  def OKAY   = 0.U(2.W)
+  def EXOKAY = 1.U(2.W)
+  def SLVERR = 2.U(2.W)
+  def DECERR = 3.U(2.W)
+
+  def pa_widthBits = 40
+  def barBits = 2
+  def burstBits = 2
+  def cacheBits = 4
+  def domainBits = 2
+  def idBits = 5
+  def lenBits = 2
+  def protBits = 3
+  def sizeBits = 3
+  def ar_snoopBits = 4
+  def aw_snoopBits = 3
+  def ar_userBits = 3
+
+  def dataBits = 128
+  def strbBits = dataBits/8
+
+
+  def qosBits = 4
+  def respBits = 2
+  def regionBits = 4
+}
+
 trait LsuConfig{
   def PA_WIDTH = 40
+  def VPN_WIDTH = 28
+  def PPN_WIDTH = 28
   def FENCE_MODE_WIDTH = 4
   def INST_CODE_WIDTH = 32
   def INST_MODE_WIDTH = 2
   def INST_SIZE_WIDTH = 2
   def INST_TYPE_WIDTH = 2
+
   def LSU_PC_WIDTH = 15 //@ ct_lst_st_ag.v  534  parameter PC_LEN = 15;
-  def SDIQ_ENYTY_ADDR = 12
+
   def SHITF_WIDTH = 4
 
   def ADDR_PA_WIDTH = 28
@@ -118,12 +161,19 @@ trait LsuConfig{
   def BYTES_ACCESS_WIDTH = 16
   def ROT_SEL_WIDTH = 4
   def ROT_SEL_WIDTH_8 = 8
-  def LSIQ_ENTRY = 12
-  def VPN_WIDTH = 28
+
+  def LSIQ_ENTRY  = 12
+  def LQ_ENTRY    = 16
+  def SQ_ENTRY    = 12
+  def VB_DATA_ENTRY = 3
+  def VB_ADDR_ENTRY = 2
+  def WMB_ENTRY     = 8
+  def VMB_ENTRY     = 8
+  def RB_ENTRY = 8
+  def SNQ_ENTRY     = 6
 
   def SNOOP_ID_WIDTH = 6
-
-  def SDID_WIDTH = log2Up(LSIQ_ENTRY)
+  def SDID_WIDTH = log2Up(SQ_ENTRY)
 
   //def DCACHE_DIRTY_ARRAY_WITDH = 7
   //def DCACHE_TAG_ARRAY_WITDH   = 52
@@ -131,8 +181,16 @@ trait LsuConfig{
   def PREG_SIGN_SEL = 4
   def VREG_SIGN_SEL = 2
   def DATA_UPDATE_PATH_WIDTH = 5
-  def VMB_ENTRY = 8
+
+  def BYTE        = "b00"
+  def HALF        = "b01"
+  def WORD        = "b10"
+  def DWORD       = "b11"
+
+  def CACHE_DIST_SELECT_ADDR = 4
+  def CACHE_DIST_SELECT = log2Up(CACHE_DIST_SELECT_ADDR)
 }
+
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
   def half:  UInt = 1.U(ACCESS_SIZE_CHOOSE.W)
@@ -148,6 +206,14 @@ trait DCacheConfig {
   def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
   def INDEX_WIDTH: Int = log2Up(SET) // 9
   def TAG_WIDTH: Int = LsuConfig.PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
+
+  def PFU_ENTRY = 9
+  def PFU_IDX = log2Up(PFU_ENTRY)
+
+  def LFB_ADDR_ENTRY = 8
+  def LFB_DATA_ENTRY = 2
+  def LFB_ID_WIDTH = 3
+
 }
 trait Cp0Config {
   def APB_BASE_WIDTH = 40
@@ -182,6 +248,10 @@ object MDUOpType {
   def isDivSign(op: UInt) = isDiv(op) && !op(0)
   def isW(op: UInt) = op(3)
   def isRem(op: UInt) = op(2) && op(1)
+}
+object BiuID {
+  def BIU_LFB_ID_T = "b00".U
+  def BIU_VB_ID_T = "b000".U
 }
 object IntConfig extends IntConfig
 object ROBConfig extends ROBConfig
