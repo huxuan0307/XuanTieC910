@@ -160,6 +160,7 @@ trait LsuConfig{
   def LQ_ENTRY    = 16
   def SQ_ENTRY    = 12
   def VB_DATA_ENTRY = 3
+  def VB_ADDR_ENTRY = 2
   def WMB_ENTRY     = 8
   def VMB_ENTRY     = 8
   def RB_ENTRY = 8
@@ -198,6 +199,14 @@ trait DCacheConfig {
   def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
   def INDEX_WIDTH: Int = log2Up(SET) // 9
   def TAG_WIDTH: Int = LsuConfig.PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
+
+  def PFU_ENTRY = 9
+  def PFU_IDX = log2Up(PFU_ENTRY)
+
+  def LFB_ADDR_ENTRY = 8
+  def LFB_DATA_ENTRY = 2
+  def LFB_ID_WIDTH = 3
+
 }
 trait Cp0Config {
   def APB_BASE_WIDTH = 40
@@ -232,6 +241,10 @@ object MDUOpType {
   def isDivSign(op: UInt) = isDiv(op) && !op(0)
   def isW(op: UInt) = op(3)
   def isRem(op: UInt) = op(2) && op(1)
+}
+object BiuID {
+  def BIU_LFB_ID_T = "b00".U
+  def BIU_VB_ID_T = "b000".U
 }
 
 object IntConfig extends IntConfig
