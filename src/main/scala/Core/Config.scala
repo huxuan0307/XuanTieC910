@@ -111,6 +111,27 @@ trait BIUConfig {
   def EXOKAY = 1.U(2.W)
   def SLVERR = 2.U(2.W)
   def DECERR = 3.U(2.W)
+
+  def pa_widthBits = 40
+  def barBits = 2
+  def burstBits = 2
+  def cacheBits = 4
+  def domainBits = 2
+  def idBits = 5
+  def lenBits = 2
+  def protBits = 3
+  def sizeBits = 3
+  def ar_snoopBits = 4
+  def aw_snoopBits = 3
+  def ar_userBits = 3
+
+  def dataBits = 128
+  def strbBits = dataBits/8
+
+
+  def qosBits = 4
+  def respBits = 2
+  def regionBits = 4
 }
 
 trait LsuConfig{
