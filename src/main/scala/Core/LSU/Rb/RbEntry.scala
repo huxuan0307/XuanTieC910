@@ -731,7 +731,6 @@ class RbEntry extends Module with LsuConfig {
 
   //------------------boundary depd clr-----------------------
   rb_entry_boundary_wakeup := rb_entry_boundary_depd && (rb_entry_state === WAIT_MERGE)
-  io.out.boundary_wakeup
 
   //==========================================================
   //                 Barrier inst

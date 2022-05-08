@@ -255,12 +255,12 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
   //==========================================================
   //                 State 4 : grnt write data
   //==========================================================
-  val bias_ptr = Seq.fill(4)(Wire(Bool()))
+  val bias_ptr = Wire(Vec(4, Bool()))
   bias_ptr.zipWithIndex.foreach {
     case (ptr, i) =>
       ptr := io.in.vbIn.wdSm.dataBias(i)
   }
-  val data_vec =Seq.fill(4)(Wire(UInt(128.W)))
+  val data_vec = Wire(Vec(4, UInt(128.W)))
   val vb_data_entry_write_data128 = bias_ptr.zip(vb_data_entry_data.asTypeOf(data_vec)).map {
     case (ptr, data) =>
       Mux(ptr, data, 0.U((128).W))
