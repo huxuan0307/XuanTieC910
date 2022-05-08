@@ -3,6 +3,7 @@ import chisel3._
 import chisel3.util._
 
 class ROBData extends Bundle{
+  val INSTR           = UInt(32.W)
   val VL_PRED         = Bool() //39
   val VL              = UInt(8.W) //38
   val VEC_DIRTY       = Bool() //30
@@ -547,6 +548,7 @@ class ISStage extends Module{
   val rob_create_data = WireInit(VecInit(Seq.fill(4)(0.U.asTypeOf(new ROBData))))
 
   for(i <- 0 until 4){
+    rob_create_data(i).INSTR   := inst_read_data(i).opcode
     rob_create_data(i).VL_PRED := inst_read_data(i).VL_PRED
     rob_create_data(i).VL := inst_read_data(i).VL
     //rob_create_data(i).VEC_DIRTY :=

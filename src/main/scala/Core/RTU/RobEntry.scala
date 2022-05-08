@@ -13,6 +13,7 @@ class RobEntryCtrlPath extends Bundle {
 }
 
 class RobEntryDataPath extends Bundle {
+  val instr           : UInt = UInt(32.W)
   val vlPred          : Bool = Bool()
   val vl              : UInt = UInt(VlmaxBits.W)
   val vecDirty        : Bool = Bool()
