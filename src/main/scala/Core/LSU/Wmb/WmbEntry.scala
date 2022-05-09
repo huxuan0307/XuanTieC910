@@ -1,6 +1,7 @@
 package Core.LSU.Wmb
 
-import Core.LsuConfig
+import Core.LSU.Sq.{DcacheDirtyDataEn, LsuDcacheInfoUpdate}
+import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
 
@@ -20,7 +21,7 @@ class WmbEntryIn extends Bundle{
  val wb_data_grnt = Bool()
 }
 
-class InstInfo extends Bundle with LsuConfig{
+class WmbEntryInstInfo extends Bundle with LsuConfig{
   val sync_fence     = Bool()
   val atomic         = Bool()
   val icc            = Bool()
@@ -53,7 +54,7 @@ class DcacheInfo extends Bundle{
   val way   = Bool()
 }
 
-class WmbEntryInput extends Bundle with LsuConfig{
+class WmbEntryInput extends Bundle with LsuConfig with DCacheConfig{
   val fromBiu = new Bundle{
     val b_id = UInt(5.W)
     val b_resp = UInt(2.W)
@@ -74,14 +75,14 @@ class WmbEntryInput extends Bundle with LsuConfig{
   }
   val fromDCache = new Bundle{
     val arb_wmb_ld_grnt = Bool()
-    val dirty_din = UInt(7.W)
+    val dirty_din = Flipped(ValidIO(Vec(WAYS, new DcacheDirtyDataEn)))
     val dirty_gwen = Bool()
-    val dirty_wen = UInt(7.W)
+    val dirty_wen = Flipped(ValidIO(Vec(WAYS, new DcacheDirtyDataEn)))
     val idx = UInt(9.W)
     val snq_st_sel = Bool()
-    val tag_din = UInt(52.W)
+    val tag_din = Vec(WAYS,Flipped(ValidIO(UInt(TAG_WIDTH.W))))
     val tag_gwen = Bool()
-    val tag_wen = UInt(2.W)
+    val tag_wen = Vec(WAYS,Bool())
     val vb_snq_gwen = Bool()
   }
   val wmb_dcache_req_ptr = Bool()
@@ -255,7 +256,7 @@ class WmbEntry extends Module with LsuConfig{
 
   //Reg
   val wmb_entry_vld = RegInit(false.B)
-  val inst_info = RegInit(0.U.asTypeOf(new InstInfo))
+  val inst_info = RegInit(0.U.asTypeOf(new WmbEntryInstInfo))
   val dcache_info = RegInit(0.U.asTypeOf(new DcacheInfo))
   val wmb_entry_write_stall = RegInit(false.B)
   val wmb_entry_bytes_vld_full = RegInit(false.B)
@@ -701,10 +702,27 @@ class WmbEntry extends Module with LsuConfig{
   //==========================================================
   //            Compare dcache write port(dcwp)
   //==========================================================
-  //TODO: Module ct_lsu_dcache_info_update
-  update_dcache_info := dcache_info
-  val wmb_entry_dcache_hit_idx = WireInit(false.B)
-  val wmb_entry_dcache_update_vld_unmask = WireInit(false.B)
+  val dcache_info_update = Module(new LsuDcacheInfoUpdate)
+  dcache_info_update.io.in.compareDcwpAddr := inst_info.addr
+  dcache_info_update.io.in.compareDcwpSwInst := wmb_entry_dcache_sw_inst
+  dcache_info_update.io.in.dcacheIn.dirtyDin  := io.in.fromDCache.dirty_din
+  dcache_info_update.io.in.dcacheIn.dirtyGwen := io.in.fromDCache.dirty_gwen
+  dcache_info_update.io.in.dcacheIn.dirtyWen  := io.in.fromDCache.dirty_wen
+  dcache_info_update.io.in.dcacheIn.idx       := io.in.fromDCache.idx
+  dcache_info_update.io.in.dcacheIn.tagDin    := io.in.fromDCache.tag_din
+  dcache_info_update.io.in.dcacheIn.tagGwen   := io.in.fromDCache.tag_gwen
+  dcache_info_update.io.in.dcacheIn.tagWen    := io.in.fromDCache.tag_wen
+  dcache_info_update.io.in.originDcacheMesi.dirty := dcache_info.dirty
+  dcache_info_update.io.in.originDcacheMesi.share := dcache_info.share
+  dcache_info_update.io.in.originDcacheMesi.valid := dcache_info.valid
+  dcache_info_update.io.in.originDcacheWay := dcache_info.way
+
+  update_dcache_info.dirty := dcache_info_update.io.out.updateDcacheMesi.dirty
+  update_dcache_info.share := dcache_info_update.io.out.updateDcacheMesi.share
+  update_dcache_info.valid := dcache_info_update.io.out.updateDcacheMesi.valid
+  update_dcache_info.way   := dcache_info_update.io.out.updateDcacheWay
+  val wmb_entry_dcache_hit_idx = dcache_info_update.io.out.compareDcwpHitIdx
+  val wmb_entry_dcache_update_vld_unmask = dcache_info_update.io.out.compareDcwpUpdateVld
 
   wmb_entry_dcache_update_vld := wmb_entry_dcache_update_vld_unmask && wmb_entry_vld
 

@@ -94,6 +94,46 @@ trait IUConfig {
   def IuPipeNum = 3
 }
 
+trait BIUConfig {
+  def BIU_R_NORM_ID_T     = 1.U(2.W)
+  def BIU_R_CTC_ID        = 28.U(5.W)
+  def BIU_B_NC_ID         = 24.U(5.W)
+  def BIU_B_SO_ID         = 29.U(5.W)
+  def BIU_B_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_B_SYNC_FENCE_ID = 31.U(5.W)
+
+  def BIU_R_NC_ID         = 24.U(5.W)
+  def BIU_R_SO_ID         = 29.U(5.W)
+  def BIU_R_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_R_SYNC_FENCE_ID = 31.U(5.W)
+
+  def OKAY   = 0.U(2.W)
+  def EXOKAY = 1.U(2.W)
+  def SLVERR = 2.U(2.W)
+  def DECERR = 3.U(2.W)
+
+  def pa_widthBits = 40
+  def barBits = 2
+  def burstBits = 2
+  def cacheBits = 4
+  def domainBits = 2
+  def idBits = 5
+  def lenBits = 2
+  def protBits = 3
+  def sizeBits = 3
+  def ar_snoopBits = 4
+  def aw_snoopBits = 3
+  def ar_userBits = 3
+
+  def dataBits = 128
+  def strbBits = dataBits/8
+
+
+  def qosBits = 4
+  def respBits = 2
+  def regionBits = 4
+}
+
 trait LsuConfig{
   def PA_WIDTH = 40
   def VPN_WIDTH = 28
@@ -123,6 +163,8 @@ trait LsuConfig{
   def VB_ADDR_ENTRY = 2
   def WMB_ENTRY     = 8
   def VMB_ENTRY     = 8
+  def RB_ENTRY = 8
+  def SNQ_ENTRY     = 6
 
   def SNOOP_ID_WIDTH = 6
   def SDID_WIDTH = log2Up(SQ_ENTRY)
