@@ -349,14 +349,21 @@ class Sq extends Module with LsuConfig{
   //------------------create ptr------------------------------
   //ptr 0 find empty entry from No.0
   val sq_create_ptr = Wire(UInt(LSIQ_ENTRY.W))
-  val create_ptr_idx = sq_entry_vld.takeWhile(_ == false.B).length
+  val create_ptr_idx = PriorityEncoder((~(VecInit(sq_entry_vld).asUInt)).asUInt) //sq_entry_vld.takeWhile(_ == false.B).length // todo  use  PriorityEncoderOH
   sq_create_ptr := Mux(sq_entry_vld.reduce(_ && _) , 0.U(LSIQ_ENTRY.W),
-    UIntToOH(create_ptr_idx.U))
+    UIntToOH(create_ptr_idx))
+
   //------------------full signal-----------------------------
   val sq_has_cmit = sq_entry_cmit.reduce(_ || _)
   val sq_full     = sq_entry_vld.reduce(_ && _)
-  val sq_empty_less2 = Mux(sq_entry_vld.reduce(_ && _) , true.B,
-    sq_entry_vld.drop(create_ptr_idx-1).reduce(_ && _) )
+  for (i <- 0 until LSIQ_ENTRY) {
+    if(create_ptr_idx == i.U){
+
+    }
+  }
+//  val sq_empty_less2 = Mux(sq_entry_vld.reduce(_ && _) , true.B,
+//    sq_entry_vld.drop(create_ptr_idx-1).reduce(_ && _) )
+  val sq_empty_less2 = (VecInit(sq_entry_vld).asUInt | sq_create_ptr).andR
   io.out.toDc.instHit := sq_entry_inst_hit.reduce(_ || _)
   io.out.toDc.full    := sq_full || (!io.in.dcIn.sqda.old) && sq_empty_less2 && (!sq_has_cmit)
   //------------------empty signal----------------------------

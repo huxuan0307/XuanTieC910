@@ -1,6 +1,6 @@
 package Core.LSU.Lfb
+import Core.BiuID.BIU_LFB_ID_T
 import Core.IntConfig.XLEN
-import Core.LSU.Lfb.BiuID.BIU_LFB_ID_T
 import Core.LSU.Lfb.BiuResp._
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
@@ -209,6 +209,9 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_addr_entry_wmb_write_req_hit_idx = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
   val lfb_addr_entry_wmb_read_req_hit_idx = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
   val lfb_addr_entry_vld = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
+  val lfb_addr_entry_linefill_permit =  Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
+  val lfb_addr_entry_linefill_abort =  Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
+
   lfb_addr_entry.zipWithIndex.foreach {
     case (entry, i) =>
       // input
@@ -232,6 +235,10 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
       lfb_addr_entry_wmb_write_req_hit_idx(i) := entry.io.out.addrEntryWmbWriteReqHitIdx_x
       lfb_addr_entry_wmb_read_req_hit_idx(i)  := entry.io.out.addrEntryWmbWriteReqHitIdx_x
       lfb_addr_entry_vld(i)  := entry.io.out.addrEntryVld_x
+      lfb_addr_entry_linefill_permit(i) := entry.io.out.addrEntryLinefillPermit_x
+      lfb_addr_entry_linefill_abort(i) := entry.io.out.addrEntryLinefillAbort_x
+
+
   }
   //2 data entry
   val lfb_data_entry = Seq.fill(LFB_DATA_ENTRY)(Module(new LfbDataEntry))
@@ -239,35 +246,37 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_data_entry_vld          = Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
   val lfb_data_entry_wait_surplus = Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
   val lfb_data_entry_lf_sm_req    = Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
-  val lfb_data_entry_addr_id      = Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
+  val lfb_data_entry_addr_id      = Seq.fill(LFB_DATA_ENTRY)(Wire(UInt(LFB_ADDR_ENTRY.W)))
   val lfb_data_entry_dcache_share   = Seq.fill(LFB_DATA_ENTRY)(Wire(UInt(2.W)))
   val lfb_data_entry_data = Seq.fill(LFB_DATA_ENTRY)(Wire(UInt((XLEN*8).W)))
-  val lfb_data_entry_addr_pop_req =  Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
+  val lfb_data_entry_addr_pop_req =  Seq.fill(LFB_DATA_ENTRY)(Wire(UInt(LFB_ADDR_ENTRY.W)))
   val lfb_data_entry_full =  Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
   lfb_data_entry.zipWithIndex.foreach {
     case (entry, i) =>
       // input
 
       // output
-      lfb_data_entry_vld(i) := entry.io.out.vld_x
+      lfb_data_entry_vld(i)          := entry.io.out.vld_x
       lfb_data_entry_wait_surplus(i) := entry.io.out.waitSurplus_x
-      lfb_data_entry_lf_sm_req(i) := entry.io.out.lfSmReq_x
-      lfb_data_entry_addr_id(i) := entry.io.out.addrId_v
-      lfb_data_entry_data(i) := entry.io.out.data_v
+      lfb_data_entry_lf_sm_req(i)    := entry.io.out.lfSmReq_x
+      lfb_data_entry_addr_id(i)      := entry.io.out.addrId_v
+      lfb_data_entry_data(i)         := entry.io.out.data_v
       lfb_data_entry_addr_pop_req(i) := entry.io.out.addrPopReq_v
-      lfb_data_entry_full(i) := entry.io.out.full_x
-      lfb_data_entry_vld(i) := entry.io.out.vld_x
+      lfb_data_entry_full(i)         := entry.io.out.full_x
+      lfb_data_entry_vld(i)          := entry.io.out.vld_x
+      lfb_data_entry_dcache_share(i) := entry.io.out.dcacheShare_x
   }
   //==========================================================
   //            Generate addr signal
   //==========================================================
   //------------------create ptr------------------------------
   val lfb_addr_create_ptr = RegInit(0.U(LFB_ADDR_ENTRY.W))
-  lfb_addr_create_ptr := PriorityEncoder(VecInit(addr_entry_vld).asUInt)
+  lfb_addr_create_ptr := UIntToOH(PriorityEncoder(VecInit(addr_entry_vld).asUInt))
   //------------------grnt signal to lfb/pfu------------------
   val lfb_rb_create_grnt   = io.in.bus_arb_rb_ar_sel && io.in.rbIn.createReq
   val lfb_pfu_create_grnt  = io.in.bus_arb_pfu_ar_sel && io.in.pfuIn.createReq
-  val lfb_create_id = OHToUInt(lfb_addr_create_ptr) // equal to ct_rtu_encode_8 x_lsu_lfb_create_ptr_encode  @1276
+  val lfb_create_id = Wire(UInt(LFB_ID_WIDTH.W))
+  lfb_create_id := OHToUInt(lfb_addr_create_ptr) // equal to ct_rtu_encode_8 x_lsu_lfb_create_ptr_encode  @1276
   io.out.toRb.createId  := Cat(BIU_LFB_ID_T,lfb_create_id)
   io.out.toPfu.createId := Cat(BIU_LFB_ID_T,lfb_create_id)
   //------------------create signal---------------------------/
@@ -279,11 +288,11 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   lfb_addr_entry.zipWithIndex.foreach {
     case (entry, i) =>
       // input
-      entry.io.in.lfbIn.addrEntryRbCreateVld_x(i)   := lfb_addr_rb_create_vld && lfb_addr_create_ptr(i).asBool
-      entry.io.in.lfbIn.addrEntryRbCreateDpVld_x(i) := lfb_addr_rb_create_dp_vld && lfb_addr_create_ptr(i).asBool
-      entry.io.in.lfbIn.addrEntryPfuCreateVld_x(i)   := lfb_addr_pfu_create_vld && lfb_addr_create_ptr(i).asBool
-      entry.io.in.lfbIn.addrEntryPfuCreateDpVld_x(i) := lfb_addr_pfu_create_dp_vld && lfb_addr_create_ptr(i).asBool
-      entry.io.in.lfbIn.addrEntryCreateGateclkEn_x(i) := io.in.rbIn.createGateclkEn || io.in.pfuIn.createGateclkEn && lfb_addr_create_ptr(i).asBool
+      entry.io.in.lfbIn.addrEntryRbCreateVld_x   := lfb_addr_rb_create_vld && (lfb_addr_create_ptr(i).asBool)
+      entry.io.in.lfbIn.addrEntryRbCreateDpVld_x := lfb_addr_rb_create_dp_vld && lfb_addr_create_ptr(i).asBool
+      entry.io.in.lfbIn.addrEntryPfuCreateVld_x   := lfb_addr_pfu_create_vld && lfb_addr_create_ptr(i).asBool
+      entry.io.in.lfbIn.addrEntryPfuCreateDpVld_x := lfb_addr_pfu_create_dp_vld && lfb_addr_create_ptr(i).asBool
+      entry.io.in.lfbIn.addrEntryCreateGateclkEn_x := io.in.rbIn.createGateclkEn || io.in.pfuIn.createGateclkEn && lfb_addr_create_ptr(i).asBool
   }
   //==========================================================
   //                Request vb addr entry
@@ -297,14 +306,13 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   }
   val lfb_vb_addr_ptr  = RegInit(0.U(LFB_ADDR_ENTRY.W))
   val lfb_vb_addr_tto6 = RegInit(0.U((PA_WIDTH-6).W))
-  val lfb_vb_pe_req_ptr       = Seq.fill(LFB_ADDR_ENTRY)(RegInit(false.B))
+  val lfb_vb_pe_req_ptr       = RegInit(0.U(LFB_ADDR_ENTRY.W))
   val lfb_vb_pe_req_addr_tto6 = RegInit(0.U((PA_WIDTH-6).W))
-  val fb_vb_pe_req_permit = Wire(Bool())
   val lfb_vb_pe_req_permit = Wire(Bool())
   val lfb_vb_pe_rb_req  = Wire(Bool())
   val lfb_vb_pe_pfu_req = Wire(Bool())
-  when(fb_vb_pe_req_permit &&  lfb_vb_pe_req){
-    lfb_vb_addr_ptr  := VecInit(lfb_vb_pe_req_ptr).asUInt
+  when(lfb_vb_pe_req_permit &&  lfb_vb_pe_req){
+    lfb_vb_addr_ptr  := (lfb_vb_pe_req_ptr)
     lfb_vb_addr_tto6 := lfb_vb_pe_req_addr_tto6
   }.elsewhen(lfb_vb_pe_req_permit &&  lfb_vb_pe_rb_req){
     lfb_vb_addr_ptr  := lfb_addr_create_ptr
@@ -313,6 +321,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
     lfb_vb_addr_ptr  := lfb_addr_create_ptr
     lfb_vb_addr_tto6 := io.in.pfuIn.reqAddr(PA_WIDTH-1,6)
   }
+  io.out.toVb.addrTto6 := lfb_vb_addr_tto6
   //-----------------pop req signal---------------------------
   lfb_vb_pe_rb_req  := io.in.cp0In.lsuDcacheEn  &&  lfb_addr_rb_create_vld
   lfb_vb_pe_pfu_req := lfb_addr_pfu_create_vld
@@ -321,15 +330,15 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //------------------permit signal---------------------------
   lfb_vb_pe_req_permit  := !lfb_vb_req_unmask || lfb_create_vb_cancel ||  lfb_create_vb_success
   val lfb_lf_sm_req_addr_tto6 = Wire(UInt((PA_WIDTH-6).W))
-  val lfb_addr_entry_vb_pe_req_grnt = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
+  val lfb_addr_entry_vb_pe_req_grnt = Wire(UInt(LFB_ADDR_ENTRY.W))
+  lfb_vb_pe_req_ptr := UIntToOH(PriorityEncoder(VecInit(lfb_addr_entry_vb_pe_req).asUInt))
   for(i<- 0 until(LFB_ADDR_ENTRY)){
-    lfb_vb_pe_req_ptr(i) := UIntToOH(VecInit(lfb_vb_pe_req_ptr).asUInt)(i).asBool
     when(lfb_vb_pe_req_ptr(i)){
       lfb_vb_pe_req_addr_tto6 := lfb_addr_entry_addr_tto4(i)(PA_WIDTH-5,2)
       //-------------------pop grnt signal------------------------
-      lfb_addr_entry_vb_pe_req_grnt(i) := lfb_vb_pe_req_permit && lfb_vb_pe_req_ptr(i)
     }
   }
+  lfb_addr_entry_vb_pe_req_grnt := Cat(Seq.fill(LFB_ADDR_ENTRY)(lfb_vb_pe_req_permit)) & lfb_vb_pe_req_ptr
   //-------------------request signal-------------------------
   val lfb_vb_req_ldamo = (lfb_vb_addr_ptr & VecInit(lfb_addr_entry_ldamo).asUInt).orR
   val lfb_vb_req_hit_idx = io.in.vbIn.vbReqHitIdx || io.in.snqIn.vbReqHitIdx  &&  !(lfb_vb_req_ldamo && io.in.lmIn.stateIsAmoLock)  ||  io.in.snqIn.vbReqHitIdx
@@ -338,7 +347,9 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   io.out.toVb.createVld       := lfb_vb_req_unmask &&  !lfb_vb_req_hit_idx
   io.out.toVb.createDpVld     := lfb_vb_req_unmask
   io.out.toVb.createGateclkEn := lfb_vb_req_unmask
-  val lfb_vb_id = OHToUInt(lfb_vb_addr_ptr)
+  val lfb_vb_id = Wire(UInt(LFB_ID_WIDTH.W))
+  lfb_vb_id := OHToUInt(lfb_vb_addr_ptr)
+  io.out.toVb.id := lfb_vb_id
   lfb_create_vb_success := io.out.toVb.createVld && io.in.vbIn.createGrnt
   //when snq invalid lfb,should cancel vb req
   val lfb_vb_req_entry_vld = (lfb_vb_addr_ptr & VecInit(addr_entry_vld).asUInt).orR
@@ -348,6 +359,8 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   val lfb_pfu_dcache_hit  = lfb_addr_entry_pfu_dcache_hit.reduce(_ & _).orR
   val lfb_pfu_dcache_miss = lfb_addr_entry_pfu_dcache_miss.reduce(_ & _).orR
+  io.out.toPfu.dcacheHit   := lfb_pfu_dcache_hit
+  io.out.toPfu.dcacheMiss  := lfb_pfu_dcache_miss
   //==========================================================
   //                Pass data to data entry
   //==========================================================
@@ -365,7 +378,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_r_resp_share = io.in.biuIn.rResp(3)
   val lfb_r_resp_err = io.in.biuIn.rResp(1,0) === DECERR ||  io.in.biuIn.rResp(1,0) === SLVERR
   //------------------create ptr------------------------------
-  val lfb_data_create_ptr =  PriorityEncoder(VecInit(lfb_data_entry_vld).asUInt)
+  val lfb_data_create_ptr =  UIntToOH(PriorityEncoder(VecInit(lfb_data_entry_vld).asUInt))
   //------------------create signal---------------------------
   //if no vld, or only one vld and full, then create
   val lfb_data_wait_surplus = lfb_data_entry_wait_surplus.reduce(_ || _)
@@ -382,10 +395,13 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
     lfb_data_entry_create_gateclk_en(i) := lfb_data_create_vld && lfb_data_create_ptr(i).asBool
   }
   //------------------first pass ptr--------------------------
+  val lfb_r_id_hit_addr_ptr_encode = Wire(UInt(LFB_ADDR_ENTRY.W))
+  lfb_r_id_hit_addr_ptr_encode := UIntToOH(lfb_biu_id_2to0)
   for(i<- 0 to LFB_DATA_ENTRY){
-    lfb_r_id_hit_addr_ptr(i) := UIntToOH(lfb_biu_id_2to0)(i).asBool
+    lfb_r_id_hit_addr_ptr(i) := lfb_r_id_hit_addr_ptr_encode(i).asBool
   }
-  val lfb_pass_addr_5to4 = lfb_r_id_hit_addr_ptr.zip(lfb_addr_entry_addr_tto4).map{
+  val lfb_pass_addr_5to4 = Wire(UInt(2.W))
+  lfb_pass_addr_5to4 := lfb_r_id_hit_addr_ptr.zip(lfb_addr_entry_addr_tto4).map{
     case(ptr, tto4) =>
       Mux(ptr, tto4,0.U)
   }.reduce(_ | _)
@@ -414,13 +430,13 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_lf_sm_addr_tto6 = RegInit(0.U((PA_WIDTH-6).W))
   val lfb_lf_sm_data_dcache_share = Wire(Bool())
   val lfb_lf_sm_req_refill_way    = Wire(Bool())
-  val lfb_lf_sm_req_addr_ptr  = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
+  val lfb_lf_sm_req_addr_ptr  = Wire(UInt(LFB_ADDR_ENTRY.W))
   val lfb_lf_sm_req_data_ptr  = Wire(UInt(LFB_DATA_ENTRY.W))
 
   when(lfb_lf_sm_req && lfb_lf_sm_permit){
     lfb_lf_sm_dcache_share :=  lfb_lf_sm_data_dcache_share
     lfb_lf_sm_refill_way   :=  lfb_lf_sm_req_refill_way
-    lfb_lf_sm_addr_id      :=  VecInit(lfb_lf_sm_req_addr_ptr).asUInt
+    lfb_lf_sm_addr_id      :=  (lfb_lf_sm_req_addr_ptr)
     lfb_lf_sm_data_id      :=  lfb_lf_sm_req_data_ptr
     lfb_lf_sm_addr_tto6    :=  lfb_lf_sm_req_addr_tto6
   }
@@ -437,24 +453,21 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   }.elsewhen(io.in.dcache_arb_lfb_ld_grnt){
     lfb_lf_sm_cnt := !lfb_lf_sm_cnt
   }
-  lfb_lf_sm_req_data_ptr := PriorityEncoder(VecInit(lfb_data_entry_lf_sm_req).asUInt)
-  val lfb_lf_sm_data_grnt = Seq.fill(LFB_DATA_ENTRY)(Wire(Bool()))
-  for(i<- 0 until(LFB_DATA_ENTRY)){
-    lfb_lf_sm_data_grnt(i) := lfb_lf_sm_create_vld && lfb_lf_sm_req_data_ptr(i).asBool
-  }
-  for(i<- 0 until(LFB_ADDR_ENTRY)){
-    // mux 2 data entries output addr id
-    lfb_lf_sm_req_addr_ptr(i) := lfb_lf_sm_req_data_ptr(0) && lfb_data_entry_addr_id(0)(i).asBool ||
-      lfb_lf_sm_req_data_ptr(1) && lfb_data_entry_addr_id(1)(i).asBool
-  }
+  lfb_lf_sm_req_data_ptr := UIntToOH(PriorityEncoder(VecInit(lfb_data_entry_lf_sm_req).asUInt))
+  val lfb_lf_sm_data_grnt = Cat(Seq.fill(LFB_DATA_ENTRY)(lfb_lf_sm_create_vld))  & lfb_lf_sm_req_data_ptr
+
+  lfb_lf_sm_req_addr_ptr := Cat(Seq.fill(LFB_ADDR_ENTRY)(lfb_lf_sm_req_data_ptr(0))) & lfb_data_entry_addr_id(0) |
+    Cat(Seq.fill(LFB_ADDR_ENTRY)(lfb_lf_sm_req_data_ptr(1))) & lfb_data_entry_addr_id(1)
   for(i<- 0 until(LFB_ADDR_ENTRY)){
     when(lfb_lf_sm_req_addr_ptr(i).asBool){
       lfb_lf_sm_req_addr_tto6 := lfb_addr_entry_addr_tto4(i)
+    }.otherwise{
+      lfb_lf_sm_req_addr_tto6 := 0.U
     }
   }
-  val lfb_lf_sm_req_depd       = (VecInit(lfb_lf_sm_req_addr_ptr).asUInt & VecInit(lfb_addr_entry_depd).asUInt).orR
-  lfb_lf_sm_req_refill_way    := (VecInit(lfb_lf_sm_req_addr_ptr).asUInt & VecInit(lfb_addr_entry_refill_way).asUInt).orR
-  lfb_lf_sm_data_dcache_share := (VecInit(lfb_lf_sm_req_addr_ptr).asUInt & VecInit(lfb_data_entry_dcache_share).asUInt).orR
+  val lfb_lf_sm_req_depd       = (lfb_lf_sm_req_addr_ptr & VecInit(lfb_addr_entry_depd).asUInt).orR
+  lfb_lf_sm_req_refill_way    := (lfb_lf_sm_req_addr_ptr & VecInit(lfb_addr_entry_refill_way).asUInt).orR
+  lfb_lf_sm_data_dcache_share := (lfb_lf_sm_req_addr_ptr & VecInit(lfb_data_entry_dcache_share).asUInt).orR
   //------------------refill wakeup req-----------------------
   val lfb_lf_sm_refill_wakeup = lfb_lf_sm_req_depd  &&  lfb_lf_sm_create_vld
   //----------------------settle addr-------------------------
@@ -494,7 +507,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //----------------------pop signal--------------------------
   val lfb_lf_sm_addr_pop_req = lfb_lf_sm_addr_id & Cat(Seq.fill(LFB_ADDR_ENTRY)(lfb_lf_sm_vld &&  lfb_lf_sm_cnt))
   val lfb_lf_sm_data_pop_req = lfb_lf_sm_data_id & Cat(Seq.fill(LFB_DATA_ENTRY)(lfb_lf_sm_vld &&  lfb_lf_sm_cnt))
-  val lfb_data_addr_pop_req = lfb_data_entry_addr_pop_req.reduce(_ || _)
+  val lfb_data_addr_pop_req = lfb_data_entry_addr_pop_req.reduce(_ | _)
   //==========================================================
   //                Maintain wakeup queue
   //==========================================================
@@ -504,12 +517,16 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //+--------------+
   //the queue stores the instructions waiting for wakeup
   //the 12 bit of wakeup_queue is for mcic
-  val lfb_wakeup_queue = RegInit(Valid(0.U(LSIQ_ENTRY.W)))
-  val lfb_wakeup_queue_next = Wire(Valid(UInt(LSIQ_ENTRY.W)))
+  val lfb_wakeup_queue_bits = (RegInit((0.U(LSIQ_ENTRY.W))))
+  val lfb_wakeup_queue_vld  = RegInit(false.B)
+  val lfb_wakeup_queue_next_bits = Wire((UInt(LSIQ_ENTRY.W)))
+  val lfb_wakeup_queue_next_vld  = Wire(Bool())
   when(io.in.rtuFlush){
-    lfb_wakeup_queue := 0.U(LSIQ_ENTRY.W)
+    lfb_wakeup_queue_bits := 0.U(LSIQ_ENTRY.W)
+    lfb_wakeup_queue_vld  := false.B
   }.elsewhen(io.in.ldDaIn.setWakeupQueue || io.out.popDepdFf){
-    lfb_wakeup_queue := lfb_wakeup_queue_next
+    lfb_wakeup_queue_bits := lfb_wakeup_queue_next_bits
+    lfb_wakeup_queue_vld  := lfb_wakeup_queue_next_vld
   }
   //+-------------+
   //| depd_pop_ff |
@@ -528,14 +545,15 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   }
   io.out.popDepdFf := lfb_pop_depd_ff
   //------------------update wakeup queue---------------------
-  val lfb_wakeup_queue_after_pop = Wire(Valid(UInt(LSIQ_ENTRY.W)))
-  lfb_wakeup_queue_after_pop.bits := Mux(lfb_pop_depd_ff ,0.U(LSIQ_ENTRY.W) ,lfb_wakeup_queue.bits)
-  lfb_wakeup_queue_after_pop.valid  := Mux(lfb_pop_depd_ff ,false.B ,lfb_wakeup_queue.valid)
-  lfb_wakeup_queue_next.bits := lfb_wakeup_queue_after_pop.bits | io.in.ldDaIn.wakeupQueueNext.bits & Cat(Seq.fill(LSIQ_ENTRY)(io.in.ldDaIn.setWakeupQueue))
-  lfb_wakeup_queue_next.valid :=  lfb_wakeup_queue_after_pop.valid || io.in.ldDaIn.setWakeupQueue && io.in.ldDaIn.wakeupQueueNext.valid
+  val lfb_wakeup_queue_after_pop_bits = (RegInit((0.U(LSIQ_ENTRY.W))))
+  val lfb_wakeup_queue_after_pop_vld  = RegInit(false.B)
+  lfb_wakeup_queue_after_pop_bits := Mux(lfb_pop_depd_ff ,0.U(LSIQ_ENTRY.W) ,lfb_wakeup_queue_bits)
+  lfb_wakeup_queue_after_pop_vld  := Mux(lfb_pop_depd_ff ,false.B ,lfb_wakeup_queue_vld)
+  lfb_wakeup_queue_next_bits := lfb_wakeup_queue_after_pop_bits | io.in.ldDaIn.wakeupQueueNext.bits & Cat(Seq.fill(LSIQ_ENTRY)(io.in.ldDaIn.setWakeupQueue))
+  lfb_wakeup_queue_next_vld :=  lfb_wakeup_queue_after_pop_vld || io.in.ldDaIn.setWakeupQueue && io.in.ldDaIn.wakeupQueueNext.valid
   //------------------------wakeup----------------------------
-  io.out.lfbDepdWakeup := Mux(lfb_pop_depd_ff,lfb_wakeup_queue.bits , Cat(Seq.fill(LSIQ_ENTRY)(0.U)))
-  io.out.mcicWakeup := Mux(lfb_pop_depd_ff||io.in.rtuFlush,  lfb_wakeup_queue.valid , false.B)
+  io.out.lfbDepdWakeup := Mux(lfb_pop_depd_ff,lfb_wakeup_queue_bits , Cat(Seq.fill(LSIQ_ENTRY)(0.U)))
+  io.out.mcicWakeup := Mux(lfb_pop_depd_ff||io.in.rtuFlush,  lfb_wakeup_queue_vld , false.B)
   //==========================================================
   //                for avoid deadlock with no rready
   //==========================================================
@@ -570,11 +588,95 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //----------------interface to biu--------------------------
   lfb_data_not_full := !(lfb_data_entry_full.reduce(_ || _))
   val lsu_biu_r_linefill_ready = lfb_data_not_full || lfb_addr_all_resp
+  io.out.lsuBiuRLinefillReady := lsu_biu_r_linefill_ready
   //------------------full/empty signal-----------------------
   val lfb_addr_empty = !(lfb_addr_entry_vld.reduce(_ || _))
   val lfb_data_empty = !(lfb_data_entry_vld.reduce(_ || _))
   io.out.lfbEmpty := lfb_addr_empty  &&  lfb_data_empty  &&  !lfb_vb_req_unmask
   io.out.lfbAddrFull := lfb_addr_entry_vld.reduce(_ && _)
   io.out.lfbAddrLess2 := (VecInit(lfb_addr_entry_vld).asUInt | lfb_addr_create_ptr).andR
+  lfb_addr_entry.zipWithIndex.foreach {
+    case (entry, i) =>
+      // ptr signal broadcast to addr entries
+      entry.io.in.lfbIn.dataAddrPopReq_x := lfb_data_addr_pop_req(i)
+      entry.io.in.pfuIn.addr             := io.in.pfuIn.reqAddr
+      entry.io.in.pfuIn.id               := io.in.pfuIn.id
 
+      entry.io.in.rbIn.ldamo             := io.in.rbIn.ldamo
+      entry.io.in.lsuSpecialClk := DontCare
+      entry.io.in.vbIn.dcacheHit := io.in.vbIn.dcacheHit
+      entry.io.in.vbIn.dcacheDirty := io.in.vbIn.dcacheDirty
+      entry.io.in.vbIn.dcacheWay := io.in.vbIn.dcacheWay
+      entry.io.in.vbIn.addrEntryRclDone_x := io.in.vbIn.addrEntryRcldone
+
+      entry.io.in.cp0In.yyClkEn := io.in.cp0In.yyClkEn
+      entry.io.in.cp0In.lsuDcacheEn := io.in.cp0In.lsuDcacheEn
+      entry.io.in.cp0In.lsuIcgEn := io.in.cp0In.lsuIcgEn
+
+      entry.io.in.wmbReq.readAddr := io.in.wmbIn.readAddr
+      entry.io.in.wmbReq.writeAddr := io.in.wmbIn.writeAddr
+
+      entry.io.in.lfbIn.addrEntryRespSet_x := lfb_addr_entry_resp_set(i)
+      entry.io.in.lfbIn.addrEntryVbPeReqGrnt_x := lfb_addr_entry_vb_pe_req_grnt(i)
+      entry.io.in.lfbIn.vbPeReqPermit := lfb_vb_pe_req_permit
+      entry.io.in.lfbIn.vbPeReq       := lfb_vb_pe_req
+      entry.io.in.lfbIn.lfSmAddrPopReq_x := lfb_lf_sm_addr_pop_req(0)
+
+
+
+
+      entry.io.in.rbIn.addrTto4   := io.in.rbIn.addrTto4
+      entry.io.in.rbIn.biuReqAddr := io.in.rbIn.biuReqAddr
+      entry.io.in.rbIn.atomic     := io.in.rbIn.atomic
+      entry.io.in.rbIn.depd       := io.in.rbIn.depd
+
+
+      entry.io.in.snqBypassAddrTto6 := io.in.snqIn.bypassAddrTto6
+
+      entry.io.in.lmAlreadySnoop := io.in.lmIn.alreadySnoop
+
+      entry.io.in.ldDaIn.idx := io.in.ldDaIn.idx
+      entry.io.in.ldDaIn.lfbDiscardGrnt := io.in.ldDaIn.discardGrnt
+
+      entry.io.in.stDaAddr := io.in.stDaAddr
+
+
+
+
+
+
+  }
+  lfb_data_entry.zipWithIndex.foreach {
+    case (entry, i) =>
+      entry.io.in.cp0In.lsuDcacheEn  := io.in.cp0In.lsuDcacheEn
+      entry.io.in.cp0In.lsuIcgEn     := io.in.cp0In.lsuIcgEn
+      entry.io.in.cp0In.yyClkEn      := io.in.cp0In.yyClkEn
+      entry.io.in.rRespShare := lfb_r_resp_share
+      entry.io.in.rRespErr   := lfb_r_resp_err
+      entry.io.in.addrEntryLinefillPermit := VecInit(lfb_addr_entry_linefill_permit).asUInt
+      entry.io.in.addrEntryLinefillAbort  := VecInit(lfb_addr_entry_linefill_abort).asUInt
+
+      entry.io.in.biuAxiR.rData := io.in.biuIn.rData
+      entry.io.in.biuAxiR.rVld  := io.in.biuIn.rVld
+      entry.io.in.biuAxiR.rLast := io.in.biuIn.rLast
+      entry.io.in.biuRIdHit := lfb_biu_r_id_hit
+      entry.io.in.firstPassPtr(0)  := lfb_first_pass_ptr(0)
+      entry.io.in.firstPassPtr(1)  := lfb_first_pass_ptr(1)
+      entry.io.in.firstPassPtr(2)  := lfb_first_pass_ptr(2)
+      entry.io.in.firstPassPtr(3)  := lfb_first_pass_ptr(3)
+
+      entry.io.in.snqIn.bypassInvalid_x := io.in.snqIn.bypassInvalid
+      entry.io.in.snqIn.bypassChgTag_x := io.in.snqIn.bypassChgTag
+
+      entry.io.in.lfSmDataPopReq_x := lfb_lf_sm_data_pop_req(i)
+      entry.io.in.biuId2to0 := lfb_biu_id_2to0
+      entry.io.in.dataEntryCreateDpVld_x := lfb_data_entry_create_dp_vld(i)
+      entry.io.in.lfSmDataGrnt_x := lfb_lf_sm_data_grnt(i)
+      entry.io.in.dataEntryCreateGateclkEn_x := DontCare
+      entry.io.in.dataEntryCreateVld_x := lfb_data_entry_create_vld(i)
+
+  }
+
+  io.out.toSnq := DontCare
+  io.out.ldHitPrefetch := DontCare
 }

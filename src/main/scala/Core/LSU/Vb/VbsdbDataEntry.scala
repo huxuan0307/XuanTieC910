@@ -11,7 +11,7 @@ import chisel3._
 import chisel3.util._
 
 trait DataEntryState {
-  def IDLE            = "b0000".U
+  def IDLE            = 0.U(4.W)
   def GET_VB_DATA     = "b1000".U
   def REQ_WRITE_ADDR  = "b1001".U
   def REQ_WRITE_DATA  = "b1010".U
@@ -135,7 +135,7 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
   //+-------+
   //| state |
   //+-------+
-  val vb_data_entry_state = RegInit(IDLE)
+  val vb_data_entry_state      = RegInit(IDLE)
   val vb_data_entry_vld        = vb_data_entry_state(3)
   val vb_data_entry_biu_req    = vb_data_entry_state === REQ_WRITE_ADDR
   val vb_data_entry_wd_sm_req  = vb_data_entry_state === REQ_WRITE_DATA
@@ -166,9 +166,9 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
   //+------+
   //| data |
   //+------+
-  val vb_data_entry_pass_data_vld = Vec(2, Bool())
-  val vb_data_entry_data_vec  = Vec(2,RegInit(0.U(256.W)))
-  val vb_data_entry_data = vb_data_entry_data_vec.asUInt
+  val vb_data_entry_pass_data_vld = Seq.fill(2)(Wire(Bool()))
+  val vb_data_entry_data_vec  = Seq.fill(2)(RegInit(0.U(256.W)))
+  val vb_data_entry_data = VecInit(vb_data_entry_data_vec).asUInt
   for(i<- 0 until(2)){
     when(vb_data_entry_pass_data_vld(i)){
       vb_data_entry_data_vec(i)  := io.in.ldDaIn.data256
@@ -261,7 +261,11 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
       ptr := io.in.vbIn.wdSm.dataBias(i)
   }
   val data_vec =Seq.fill(4)(Wire(UInt(128.W)))
-  val vb_data_entry_write_data128 = bias_ptr.zip(vb_data_entry_data.asTypeOf(data_vec)).map {
+  data_vec.zipWithIndex.foreach {
+    case (data, i) =>
+      data := vb_data_entry_data((i+1)*128-1,i*128)
+  }
+  val vb_data_entry_write_data128 = bias_ptr.zip(data_vec).map {
     case (ptr, data) =>
       Mux(ptr, data, 0.U((128).W))
   }.reduce(_ | _)
@@ -282,7 +286,7 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
     case (ptr, i) =>
       ptr := sdb_return_order(i)
   }
-  val sdb_entry_data = sdb_bias_ptr.zip(vb_data_entry_data.asTypeOf(data_vec)).map {
+  val sdb_entry_data = sdb_bias_ptr.zip(data_vec).map {
     case (ptr, data) =>
       Mux(ptr, data, 0.U((128).W))
   }.reduce(_ | _)

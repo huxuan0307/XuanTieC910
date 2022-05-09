@@ -145,7 +145,7 @@ class VbAddrEntry extends Module with DCacheConfig with LsuConfig {
   }.elsewhen(vb_addr_entry_wmb_create_dp_vld){
     vb_addr_entry_addr_index := io.in.wmbIn.addrTto6(PA_WIDTH-7,8)
   }.elsewhen(vb_addr_entry_feedback_vld){
-    vb_addr_entry_addr_index := io.in.stDaFeedbackAddrTto14(PA_WIDTH-OFFSET_WIDTH-INDEX_WIDTH,0)
+    vb_addr_entry_addr_index := io.in.stDaFeedbackAddrTto14
   }
   when(vb_addr_entry_icc_create_dp_vld){
     vb_addr_entry_addr_tag := io.in.iccIn.addrTto6(7,0)

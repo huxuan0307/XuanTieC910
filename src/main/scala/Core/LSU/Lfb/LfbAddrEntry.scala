@@ -66,8 +66,7 @@ class LfbAddrEntryIn extends Bundle with LsuConfig {
 //==========================================================
 //                        Output
 //==========================================================
-class LfbAddrEntryOut extends Bundle with LsuConfig {
-  val ldHitPrefetchFirst_x         = Bool()
+class LfbAddrEntryOut extends Bundle with LsuConfig with DCacheConfig {
   val addrEntryAddrTto4_v          = UInt((PA_WIDTH-4).W)
   val addrEntryDcacheHit_x         = Bool()
   val addrEntryDepd_x              = Bool()
@@ -78,8 +77,8 @@ class LfbAddrEntryOut extends Bundle with LsuConfig {
   val addrEntryLinefillPermit_x    = Bool()
   val addrEntryNotResp_x           = Bool()
   val addrEntryPfuBiuReqHitIdx_x   = Bool()
-  val addrEntryPfuDcacheHit_v      = Bool()
-  val addrEntryPfuDcacheMiss_v     = Bool()
+  val addrEntryPfuDcacheHit_v      = UInt(PFU_ENTRY.W)
+  val addrEntryPfuDcacheMiss_v     = UInt(PFU_ENTRY.W)
   val addrEntryPopVld_x            = Bool()
   val addrEntryRbBiuReqHitIdx_x    = Bool()
   val addrEntryRclDone_x           = Bool()
@@ -263,7 +262,7 @@ class LfbAddrEntry extends Module with LsuConfig with DCacheConfig {
   val lfb_addr_entry_pfu_dcache_miss = Wire(Vec(PFU_ENTRY,Bool()))
   for(i<-0 until( PFU_ENTRY)){
     lfb_addr_entry_pfu_dcache_hit(i) := lfb_addr_entry_pfu_dcache_hit_vld && lfb_addr_entry_pfu_id_oh(i)
-    lfb_addr_entry_pfu_dcache_miss := lfb_addr_entry_pfu_dcache_miss_vld && lfb_addr_entry_pfu_id_oh(i)
+    lfb_addr_entry_pfu_dcache_miss(i) := lfb_addr_entry_pfu_dcache_miss_vld && lfb_addr_entry_pfu_id_oh(i)
   }
   //==========================================================
   //                 Generate pop signal
@@ -312,8 +311,8 @@ class LfbAddrEntry extends Module with LsuConfig with DCacheConfig {
   io.out.addrEntryVbPeReq_x       := lfb_addr_entry_vb_pe_req
   io.out.addrEntryPopVld_x        := lfb_addr_entry_pop_vld
   io.out.addrEntryDiscardVld_x    := lfb_addr_entry_discard_vld
-  io.out.addrEntryPfuDcacheHit_v  := lfb_addr_entry_pfu_dcache_hit
-  io.out.addrEntryPfuDcacheMiss_v := lfb_addr_entry_pfu_dcache_miss
+  io.out.addrEntryPfuDcacheHit_v  := lfb_addr_entry_pfu_dcache_hit.asUInt
+  io.out.addrEntryPfuDcacheMiss_v := lfb_addr_entry_pfu_dcache_miss.asUInt
 
   io.out.addrEntryLinefillPermit_x := lfb_addr_entry_linefill_permit
   io.out.addrEntryLinefillAbort_x  := lfb_addr_entry_linefill_abort
@@ -323,7 +322,7 @@ class LfbAddrEntry extends Module with LsuConfig with DCacheConfig {
 
   io.out.addrEntryRbBiuReqHitIdx_x    := lfb_addr_entry_rb_biu_req_hit_idx
   io.out.addrEntryPfuBiuReqHitIdx_x   := lfb_addr_entry_pfu_biu_req_hit_idx
-  io.out.addrEntryWmbWriteReqHitIdx_x := lfb_addr_entry_wmb_read_req_hit_idx
+  io.out.addrEntryWmbReadReqHitIdx_x  := lfb_addr_entry_wmb_read_req_hit_idx
   io.out.addrEntryWmbWriteReqHitIdx_x := lfb_addr_entry_wmb_write_req_hit_idx
   io.out.addrEntrySnqBypassHit_x      := lfb_addr_entry_snq_bypass_hit
 

@@ -11,7 +11,7 @@ import chisel3._
 import chisel3.util._
 
 trait RclStatus {
-  def RCL_IDLE            = "b0000".U
+  def RCL_IDLE            = 0.U(4.W)
   def RCL_R_TAG_DIRTY     = "b1000".U
   def RCL_NOP             = "b1001".U
   def RCL_CMP_TAG         = "b1010".U
@@ -40,7 +40,7 @@ class StDaToVbAll extends StDaToVb with LsuConfig with DCacheConfig {
   val hit = Bool()
 }
 class SdbToVbTop extends Bundle with LsuConfig with DCacheConfig {
-  val addrId          = Vec(3, UInt(2.W))
+  val addrId          = Vec(VB_ADDR_ENTRY, UInt(2.W))
   val biuReq          = UInt(VB_DATA_ENTRY.W)
   val bypassPop       = UInt(VB_DATA_ENTRY.W)
   val dirty           = UInt(VB_DATA_ENTRY.W)
@@ -221,12 +221,12 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //               addr entry output OH bundle
   //==========================================================
   val vb_addr_entry_vld = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
-  val vb_addr_entry_rcl_sm_req =  Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
-  val vb_addr_entry_addr_tto6  = Seq.fill(VB_ADDR_ENTRY)(UInt((PA_WIDTH-6).W))
+  val vb_addr_entry_rcl_sm_req    =  Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
+  val vb_addr_entry_addr_tto6     = Seq.fill(VB_ADDR_ENTRY)(Wire(UInt((PA_WIDTH-6).W)))
   val vb_addr_entry_set_way_mode  = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
   val vb_addr_entry_inv           = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
   val vb_addr_entry_lfb_create    = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
-  val vb_addr_entry_source_id     = Seq.fill(VB_ADDR_ENTRY)(UInt((VB_DATA_ENTRY).W))
+  val vb_addr_entry_source_id     = Seq.fill(VB_ADDR_ENTRY)(Wire(UInt((VB_DATA_ENTRY).W)))
   val vb_addr_entry_wmb_create    = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
   val vb_addr_entry_rb_biu_req_hit_idx    = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
   val vb_addr_entry_pfu_biu_req_hit_idx   = Seq.fill(VB_ADDR_ENTRY)(Wire(Bool()))
@@ -333,6 +333,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
     vb_rcl_sm_dcache_dirty := vb_rcl_sm_reg_set_dcache_dirty
     vb_rcl_sm_dcache_way   := vb_rcl_sm_reg_set_dcache_way
   }
+  io.out.toDcacheArb.data_way := vb_rcl_sm_dcache_way
   //+---------+
   //| data_id |
   //+---------+
@@ -342,6 +343,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   when(vb_rcl_sm_data_entry_req_success){
     vb_rcl_sm_data_id := vb_data_create_ptr
   }
+  io.out.toSdb.rclSmDataId := vb_rcl_sm_data_id
   //------------------state change----------------------------
   val vb_addr_rcl_sm_req = Wire(Bool())
   val vb_data_full = Wire(Bool())
@@ -439,7 +441,9 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //-------------rcl state info from addr entry---------------
   val vb_rcl_sm_set_way_mode = (vb_rcl_sm_addr_id & (VecInit(vb_addr_entry_set_way_mode).asUInt)).orR
   val vb_rcl_sm_inv = (vb_rcl_sm_addr_id & (VecInit(vb_addr_entry_inv).asUInt)).orR
+  io.out.toSdb.rclSmInv := vb_rcl_sm_inv
   val vb_rcl_sm_lfb_create = (vb_rcl_sm_addr_id & (VecInit(vb_addr_entry_lfb_create).asUInt)).orR
+  io.out.toSdb.rclSmLfbCreate := vb_rcl_sm_lfb_create
   val vb_addr_entry_source_id_ptr = Seq.fill(VB_ADDR_ENTRY)(Wire(UInt(8.W)))
   for(i<- 0 until VB_ADDR_ENTRY){
     vb_addr_entry_source_id_ptr(i) := UIntToOH(vb_addr_entry_source_id(i))
@@ -505,6 +509,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //----------------------cache interface---------------------
   val vb_dcache_arb_write =  (vb_rcl_sm_state  ===  RCL_READ_DATA1) || (vb_rcl_sm_state  ===  RCL_INVALID)
   val vb_dcache_arb_serial_req = (vb_rcl_sm_state  ===  RCL_READ_DATA0)
+  io.out.toDcacheArb.serial_req := vb_dcache_arb_serial_req
   val vb_dcache_arb_data_way = vb_rcl_sm_dcache_way
   //---------------tag array--------------
   io.out.toDcacheArb.ld_tag_req        := vb_dcache_arb_write  &&  vb_rcl_sm_inv
@@ -543,6 +548,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   val vb_rcl_sm_addr_pop_vld =  vb_rcl_set_dirty_done  ||  evict_req_cancel ||
     io.out.toSdb.rclSmLfbCreate && vb_rcl_lfb_unnecessary ||
     !io.out.toSdb.rclSmLfbCreate && vb_rcl_iccwmb_unnecessary || vb_rcl_ecc_done
+  vb_rcl_sm_addr_pop_req := Cat(Seq.fill(VB_ADDR_ENTRY)(vb_rcl_sm_addr_pop_vld)) & vb_rcl_sm_addr_id
   //==========================================================
   //                  Create data entry
   //==========================================================
@@ -574,7 +580,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //            arbitrate req biu signal
   //==========================================================
   //-----------------biu aw req ptr---------------------------
-  val vb_data_biu_req_ptr = PriorityEncoder(io.in.vbSdbIn.biuReq)
+  val vb_data_biu_req_ptr = UIntToOH(PriorityEncoder(io.in.vbSdbIn.biuReq))
   //-----------------biu aw req success-----------------------
   io.out.toSdb.biuReqSuccess := Mux(io.in.busArbIn.awGrnt,vb_data_biu_req_ptr , 0.U(VB_DATA_ENTRY))
   //-----------------biu aw req info--------------------------
@@ -642,7 +648,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //| data_id |
   //+---------+
   val vb_data_wd_sm_req_ptr = io.in.vbSdbIn.wdSmReq
-  val vb_wd_sm_data_id = RegInit(Wire(UInt(VB_DATA_ENTRY.W)))
+  val vb_wd_sm_data_id = RegInit(0.U(VB_DATA_ENTRY.W))
   when(vb_wd_sm_start_vld){
     vb_wd_sm_data_id := vb_data_wd_sm_req_ptr
   }
@@ -655,6 +661,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   }.elsewhen(vb_wd_sm_vld  && io.in.busArbIn.wGrnt){
     vb_wd_sm_data_bias := Cat(io.out.wdSmData.bias,0.U(1.W))
   }
+  io.out.wdSmData.bias := vb_wd_sm_data_bias
   //------------------create signal---------------------------
   val vb_wd_sm_vld_permit  = vb_wd_sm_vld  &&  vb_wd_sm_data_bias(3)   &&  io.in.busArbIn.wGrnt
   val vb_wd_sm_permit      = !vb_wd_sm_vld ||  vb_wd_sm_vld_permit
@@ -663,7 +670,6 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   //------------------create info-----------------------------
   //only 1 or 0 entry requests the wd_sm when the state machine is able to permit
   //request, so it doesn't need to arbitrate
-  vb_data_wd_sm_req_ptr := io.in.vbSdbIn.wdSmReq
   io.out.toSdb.wdSmGrnt := Mux(vb_wd_sm_permit,vb_data_wd_sm_req_ptr,0.U)
   //-----------------biu w req info---------------------------
   val wd_sm_data_seq_id = Seq.fill(VB_DATA_ENTRY)(Wire(Bool()))
@@ -706,6 +712,7 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
   io.out.toLfb.vbReqHitIdx        := vb_addr_entry_lfb_vb_req_hit_idx.reduce(_ || _)
   //for snq
   io.out.toSnq := DontCare
+  io.out.snqDataBypassHit := DontCare
   //vb addr pop when bypass
   val bypass_pop_seq_ptr = Seq.fill(VB_DATA_ENTRY)(Wire(Bool()))
   bypass_pop_seq_ptr.zipWithIndex.foreach {
@@ -764,17 +771,13 @@ class Vb extends Module with DCacheConfig with LsuConfig with RclStatus{
       entry.io.in.vbIn.id                 := vb_data_entry_id
       entry.io.in.vbIn.createData_x       := vb_addr_entry_create_data(i)
 
+      entry.io.in.vbIn.feedbackVld_x    := vb_addr_entry_feedback_vld(i)
+      entry.io.in.vbIn.pop_x            := vb_addr_entry_pop(i)
+      entry.io.in.vbIn.dataPop_x        := vb_addr_entry_data_pop(i)
+
+      entry.io.in.vbIn.rcl_sm_done_x    := vb_rcl_sm_done(i)
+
   }
-
-
-
-
-
-
-
-
-
-
 
 
 

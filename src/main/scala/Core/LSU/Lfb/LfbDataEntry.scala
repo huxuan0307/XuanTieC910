@@ -79,11 +79,11 @@ class LfbDataEntry extends Module with LsuConfig with DCacheConfig {
   val lfb_data_entry_clk_en = lfb_data_entry_vld || lfb_data_entry_create_gateclk_en
   //-----------data gateclk---------------
   val lfb_data_entry_pass_data_vld = Wire(Bool())
-  val lfb_data_entry_pass_data2_vld = Wire(Bool())
-  val lfb_data_entry_pass_data3_vld = Wire(Bool())
+//  val lfb_data_entry_pass_data2_vld = Wire(Bool())
+//  val lfb_data_entry_pass_data3_vld = Wire(Bool())
   val lfb_data_entry_data_clk_en  = lfb_data_entry_pass_data_vld
-  val lfb_data_entry_data2_clk_en = lfb_data_entry_pass_data2_vld
-  val lfb_data_entry_data3_clk_en = lfb_data_entry_pass_data3_vld
+//  val lfb_data_entry_data2_clk_en = lfb_data_entry_pass_data2_vld
+//  val lfb_data_entry_data3_clk_en = lfb_data_entry_pass_data3_vld
   //==========================================================
   //                 Registers
   //==========================================================
@@ -99,7 +99,7 @@ class LfbDataEntry extends Module with LsuConfig with DCacheConfig {
   //+--------------------+
   //| addr_entry_id/r_id |
   //+--------------------+
-  val lfb_data_entry_biu_id = RegInit(UInt(3.W))
+  val lfb_data_entry_biu_id = RegInit(0.U(3.W))
   when(lfb_data_entry_create_dp_vld){
     lfb_data_entry_biu_id := io.in.biuId2to0
   }
@@ -146,14 +146,14 @@ class LfbDataEntry extends Module with LsuConfig with DCacheConfig {
   //+------+
   // todo entry data is 512bits, and divid into 4 part,(511,384)(383,256)(255,127)(128,0)
   // 4 parts MAYBE not only has 4 different clk, but also have one clk delay between 4 clk, because it from AXI-R-burst
-  val lfb_data_entry_data_vec = Vec(4,RegInit(0.U((2*XLEN).W)))
-  val lfb_data_entry_pass_data_vld_vec = Vec(4,Wire(Bool()))
+  val lfb_data_entry_data_vec = Seq.fill(4)(RegInit(0.U((2*XLEN).W)))
+  val lfb_data_entry_pass_data_vld_vec =  Seq.fill(4)(Wire(Bool()))
   for(i<- 0 until 4){
     when( lfb_data_entry_pass_data_vld_vec(i) ){
-      lfb_data_entry_data_vec := io.in.biuAxiR.rData
+      lfb_data_entry_data_vec(i) := io.in.biuAxiR.rData
     }
   }
-  val lfb_data_entry_data = Cat(lfb_data_entry_data_vec(3),lfb_data_entry_data_vec(2),lfb_data_entry_data_vec(1),lfb_data_entry_data_vec(0) )
+  val lfb_data_entry_data = VecInit(lfb_data_entry_data_vec).asUInt//Cat(lfb_data_entry_data_vec(3),lfb_data_entry_data_vec(2),lfb_data_entry_data_vec(1),lfb_data_entry_data_vec(0) )
   //+-------------------+
   //| lf_sm_req_success |
   //+-------------------+
