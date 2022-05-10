@@ -56,8 +56,9 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   //val refill_data = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U(CacheCatBits.W))))
 
   val reqreadReg  = RegInit(0.U(128.W))// 4*128bit //临时寄放读取Cache Sram的信号，C910一次读128bit
-  val reqreadPredecReg = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U((ICachePredecBits).W))))//4*32bit
+  val reqreadPredecReg = RegInit((0.U((ICachePredecBits).W)))//4*32bit
 
+  val reqreadPredecWire = WireInit(0.U((ICachePredecBits).W))
   val SRam_read = WireInit(0.U(128.W))//Seq.fill(CacheCatNum)(WireInit(VecInit(Seq.fill(Banks)(0.U(sram_width.W)))))//4次取，bank表数目，每表32bit
   val SRam_write  = WireInit(VecInit(Seq.fill(CacheCatNum)(VecInit(Seq.fill(Banks)(0.U(sram_width.W))))))//4次取，bank表数目，每表32bit
 
@@ -124,21 +125,22 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
     predecd_array(0).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
     predecd_array(1).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
   }
+  reqreadPredecWire := Mux(fifo_read===0.U,predecd_array(0).io.rData,predecd_array(1).io.rData)
+  reqreadPredecReg := reqreadPredecWire
   when(predec_times <= RetTimes.U && state === s_refill_done){
-    reqreadPredecReg(predec_times) := Mux(fifo_read===0.U,predecd_array(0).io.rData,predecd_array(1).io.rData)
     icache_predec.io.din := refillDataReg(predec_times)
 
     predec_dout(predec_times) := icache_predec.io.dout
-    predecd_array(0).io.idx := Mux(predec_write, Drefill_idx, DreadIdx) + RegNext(predec_times)
+    predecd_array(0).io.idx := Mux(predec_write, Drefill_idx, DreadIdx) + predec_times
     predecd_array(0).io.wMask := VecInit(Seq.fill(32)(true.B)).asUInt() //wmask had been done
-    predecd_array(0).io.wData := predec_dout(RegNext(predec_times)).asUInt()
+    predecd_array(0).io.wData := predec_dout(predec_times).asUInt()
     predecd_array(0).io.en := hit_read || predec_write
     predecd_array(0).io.wen := predec_write && (fifo_fill===0.U)
 
-    predec_dout(RegNext(predec_times)) := icache_predec.io.dout
-    predecd_array(1).io.idx := Mux(predec_write, Drefill_idx, DreadIdx)+ RegNext(predec_times)//Cat(Mux(predec_write, Drefill_idx, DreadIdx)(9,2),0.U(2.W)) + RegNext(predec_times<<1)
+    predec_dout(predec_times) := icache_predec.io.dout
+    predecd_array(1).io.idx := Mux(predec_write, Drefill_idx, DreadIdx)+ predec_times//Cat(Mux(predec_write, Drefill_idx, DreadIdx)(9,2),0.U(2.W)) + RegNext(predec_times<<1)
     predecd_array(1).io.wMask := VecInit(Seq.fill(32)(true.B)).asUInt() //wmask had been done
-    predecd_array(1).io.wData := predec_dout(RegNext(predec_times)).asUInt()
+    predecd_array(1).io.wData := predec_dout(predec_times).asUInt()
     predecd_array(1).io.en := hit_read || predec_write
     predecd_array(1).io.wen := predec_write && (fifo_fill===1.U)
 
@@ -248,7 +250,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   req_data := Mux(Cohresp_valid, Cohresp_data, reqsram_data)
   io.cache_resp.bits.inst_data  := req_data.asTypeOf(io.cache_resp.bits.inst_data)//上一拍mmio响应了，这一拍idle，说明其它缓存响应有效，否则从readReg里加偏移量取数据
   //右移动偏移量Dindex(1,0)*128,用左移代替乘，数据自动截断？todo: change Bundle bus
-  val predecode_out = reqreadPredecReg.asUInt()>> (Dindex(1) << 5.U).asUInt()
+  val predecode_out = Mux(state===s_lookUp,reqreadPredecWire,reqreadPredecReg)
   io.cache_resp.bits.predecode := predecode_out.asTypeOf(io.cache_resp.bits.predecode)//移动Dindex*32位
   io.cache_resp.valid := ( Mux(state===s_lookUp,hitReg,hit) &&//直接命中情况，至少需要一拍读sram
     stateReg1) &&//||//predec_done情况 //(stateReg2 && state ===s_refill_done)) &&//coh响应完情况
