@@ -68,19 +68,21 @@ class Alu extends Module with IUConfig{
   val pipe1_en = io.sel.gateSel // TODO add gate_sel
   val ex1_pipe = RegInit(0.U.asTypeOf(io.in))
   val res = RegInit(0.U(XLEN.W))
-  val src1 = RegInit(0.U(XLEN.W))
-  val src2 = RegInit(0.U(XLEN.W))
-  val op = RegInit(0.U(width))
+  val src1 = WireInit(0.U(XLEN.W))
+  val src2 = WireInit(0.U(XLEN.W))
+  val op = WireInit(0.U(width))
+  val opReg = RegInit(0.U(width))
 
   //----------------------------------------------------------
   //                    add && shift TODO misc
   //----------------------------------------------------------
+  op := io.in.func
+  src1 := io.in.src0
+  src2 := io.in.src1
   val shamt = Mux(ALUOpType.isWordOp(op), src2(4, 0), src2(5, 0))
   when(pipe1_en) {
     ex1_pipe := io.in
-    src1 := io.in.src0
-    src2 := io.in.src1
-    op := io.in.func
+    opReg := io.in.func
     res := LookupTree(op, List(
       AluOpcode.ADD -> (src1 + src2),
       ShiftLogicOpcode.SLL -> (src1 << shamt),
@@ -113,8 +115,8 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   io.toRbus.dataVld  := ex1_pipe.dstVld && alu_ex1_inst_vld
   io.toRbus.fwdVld   := alu_ex1_fwd_vld
-  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res) //////ex1 pipe Reg
+  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(opReg), SignExt(res(31,0), 64), res) //////ex1 pipe Reg
   io.toRbus.preg     := ex1_pipe.dstPreg
-  io.toRbus.data     := Mux(ALUOpType.isWordOp(op), SignExt(res(31,0), 64), res) //////todo: check isWordOp
+  io.toRbus.data     := Mux(ALUOpType.isWordOp(opReg), SignExt(res(31,0), 64), res) //////todo: check isWordOp
 }
 

@@ -55,10 +55,10 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   val refill_cnt = RegInit(0.U(log2Up(CacheCatNum+1).W))
   //val refill_data = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U(CacheCatBits.W))))
 
-  val reqreadReg  = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U((LineSize*8/CacheCatNum).W))))// 4*128bit //临时寄放读取Cache Sram的信号，C910一次读128bit
+  val reqreadReg  = RegInit(0.U(128.W))// 4*128bit //临时寄放读取Cache Sram的信号，C910一次读128bit
   val reqreadPredecReg = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U((ICachePredecBits).W))))//4*32bit
 
-  val SRam_read = WireInit(VecInit(Seq.fill(CacheCatNum)(VecInit(Seq.fill(Banks)(0.U(sram_width.W))))))//Seq.fill(CacheCatNum)(WireInit(VecInit(Seq.fill(Banks)(0.U(sram_width.W)))))//4次取，bank表数目，每表32bit
+  val SRam_read = WireInit(0.U(128.W))//Seq.fill(CacheCatNum)(WireInit(VecInit(Seq.fill(Banks)(0.U(sram_width.W)))))//4次取，bank表数目，每表32bit
   val SRam_write  = WireInit(VecInit(Seq.fill(CacheCatNum)(VecInit(Seq.fill(Banks)(0.U(sram_width.W))))))//4次取，bank表数目，每表32bit
 
 
@@ -193,6 +193,8 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
     SRamArray(0).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
     SRamArray(1).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
   }
+  SRam_read := Mux(fifo_read === 0.U,SRamArray(0).io.rData.asTypeOf(SRam_read),SRamArray(1).io.rData.asTypeOf(SRam_read))
+  reqreadReg := SRam_read.asUInt() //读Cache Data寄存器更新，放到寄存器里
   when(axireadMemCnt <= RetTimes.U && state === s_refill){
     SRamArray(0).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(RegNext(axireadMemCnt))//Cat(Mux(refill_write || fw_write, Drefill_idx, Dindex)(9,2),0.U(2.W)) + RegNext(RegNext(axireadMemCnt<<2))
     SRamArray(0).io.wMask := VecInit(Seq.fill(128)(true.B)).asUInt() //wmask had been done
@@ -217,8 +219,6 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   DreadIdx := DindexReg//Mux(state===s_refill_done,DindexReg,Dindex)
 
   for( i<- 0 until  CacheCatNum){//这里先按C910考虑sram一次读写128bit
-    SRam_read(i) := Mux(fifo_read === 0.U,SRamArray(0).io.rData.asTypeOf(SRam_read(i)),SRamArray(1).io.rData.asTypeOf(SRam_read(i)))
-    reqreadReg(i) := SRam_read(i).asUInt() //读Cache Data寄存器更新，放到寄存器里
     mem_wb(i) := Mux(stateReg2,CohReadReg(i).asUInt().asTypeOf(mem_wb(i)),
       refillDataReg(i).asUInt().asTypeOf(mem_wb(i))) //用dcache数据进行refill,这样refill_done时统一预译码。refillDataReg 4*128 bit， 64 byte，一次refill的大小, mem_wb是4*4*32
     SRam_write(i) := mem_wb(i) //通过此连线将readDataReg数据格式转为sram所需
@@ -238,9 +238,17 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   stateReg1 := idle_afterfill || (state=== s_lookUp) //每一拍都侦听是否完成refill，存一拍
   stateReg2 := (state === s_cohresp && io.cohresp.valid && !io.cohresp.bits.needforward)//state === s_mmio_resp  //每一拍都侦听是否mmio响应了//根据是refill_done还是Dcache响应决定输出数据来源
   io.cache_req.ready  := idle_afterfill || lookup_afteridle //这里考虑可以一直读sram，即便在进行refill
-  io.cache_resp.bits.inst_data  := Mux(stateReg2 && state ===s_refill, CohReadReg.asUInt() >> (Dindex(1,0) << 7.U), reqreadReg.asUInt()>> (Dindex(1,0) << 7.U)).asTypeOf(io.cache_resp.bits.inst_data)//上一拍mmio响应了，这一拍idle，说明其它缓存响应有效，否则从readReg里加偏移量取数据
+  val Cohresp_valid = WireInit(false.B)
+  Cohresp_valid := stateReg2 && state ===s_refill
+  val Cohresp_data = CohReadReg.asUInt() >> (Dindex(1) << 7.U)
+  val reqsramReg_data =  reqreadReg.asUInt()
+  val reqsramWire_data = SRam_read.asUInt
+  val reqsram_data = Mux(state===s_lookUp, reqsramWire_data, reqsramReg_data)
+  val req_data = WireInit(0.U(128.W))
+  req_data := Mux(Cohresp_valid, Cohresp_data, reqsram_data)
+  io.cache_resp.bits.inst_data  := req_data.asTypeOf(io.cache_resp.bits.inst_data)//上一拍mmio响应了，这一拍idle，说明其它缓存响应有效，否则从readReg里加偏移量取数据
   //右移动偏移量Dindex(1,0)*128,用左移代替乘，数据自动截断？todo: change Bundle bus
-  val predecode_out = reqreadPredecReg.asUInt()>> (Dindex(1,0) << 5.U).asUInt()
+  val predecode_out = reqreadPredecReg.asUInt()>> (Dindex(1) << 5.U).asUInt()
   io.cache_resp.bits.predecode := predecode_out.asTypeOf(io.cache_resp.bits.predecode)//移动Dindex*32位
   io.cache_resp.valid := ( Mux(state===s_lookUp,hitReg,hit) &&//直接命中情况，至少需要一拍读sram
     stateReg1) &&//||//predec_done情况 //(stateReg2 && state ===s_refill_done)) &&//coh响应完情况
