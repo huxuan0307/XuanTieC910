@@ -262,40 +262,8 @@ trait DCacheConfig {
   def LFB_ID_WIDTH = 3
 
 }
-trait Cp0Config {
-  def APB_BASE_WIDTH = 40
-  def BIU_CP0_RDATA = 128
-  def BIU_CP0_RVBA = 40
-  def FSER_ACC_UPDATE_WITDH = 7
-  def CACHE_READ_DATA_WITDTH = 128
-  def CSR_OPCODE_WIDTH = 32
-  def CSR_ADDR_WIDTH = 12
-  def CSR_UIMM_WIDTH = 5
-  def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
-}
 
 
-object MDUOpType {
-  def mul    = "b0000".U
-  def mulh   = "b0001".U
-  def mulhsu = "b0010".U
-  def mulhu  = "b0011".U
-  def div    = "b0100".U
-  def divu   = "b0101".U
-  def rem    = "b0110".U
-  def remu   = "b0111".U
-
-  def mulw   = "b1000".U
-  def divw   = "b1100".U
-  def divuw  = "b1101".U
-  def remw   = "b1110".U
-  def remuw  = "b1111".U
-
-  def isDiv(op: UInt) = op(2)
-  def isDivSign(op: UInt) = isDiv(op) && !op(0)
-  def isW(op: UInt) = op(3)
-  def isRem(op: UInt) = op(2) && op(1)
-}
 object BiuID {
   def BIU_LFB_ID_T = "b00".U
   def BIU_VB_ID_T = "b000".U

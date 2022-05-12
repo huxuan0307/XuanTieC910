@@ -3,7 +3,7 @@ package Core.IU
 import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
 import Core.{FuncOpType, FuncType, IUConfig}
 import Core.IU.Bju.{Bju, IduFeedbackSignal, IfuChangeFlow, IsuAllowFifo, RtuControl, RtuReadSignal, ifuDataForward}
-import Core.IU.Du.Du
+import Core.IU.MDu.{Du, Mu}
 import Core.IUConfig.{IuPipeNum, PcFifoAddr, PcOffsetWidth}
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import Core.VectorUnitConfig._

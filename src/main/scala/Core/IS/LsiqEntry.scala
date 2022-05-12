@@ -1,6 +1,7 @@
 package Core.IS
 
 import Core.ExceptionConfig._
+import Core.IDU.IS._
 import Core.IntConfig._
 import Core.RTU.RobBreakpointDataBundle
 import Core.VectorUnitConfig._
@@ -44,7 +45,7 @@ class LsiqEntryData extends Bundle with LsiqConfig {
   val srcValid  : Vec[Bool] = Vec(NumSrcLsX, Bool())
   val srcVmValid : Bool = Bool()
   val iid       : UInt = UInt(InstructionIdWidth.W)
-  val opcode    : UInt = UInt(OpcodeBits.W)
+  val opcode    : UInt = UInt(InstBits.W)
 
   // Todo: create DepVregEntry
   val srcVm = new DepRegEntryData

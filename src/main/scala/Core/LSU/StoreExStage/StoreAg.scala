@@ -5,7 +5,8 @@ import Core.LsuAccessSize._
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.RTU.CompareIid
 import Core.{DCacheConfig, LsuConfig, ROBConfig}
-import Utils.{LookupTree, sext}
+import Utils.Bits.sext
+import Utils.LookupTree
 import chisel3._
 import chisel3.util._
 //==========================================================

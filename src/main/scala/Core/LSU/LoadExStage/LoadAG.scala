@@ -1,7 +1,8 @@
 package Core.LSU.LoadExStage
 
 import Core.LsuConfig
-import Utils.sext
+import Utils.Bits.sext
+import Utils._
 import chisel3._
 import chisel3.util._
 

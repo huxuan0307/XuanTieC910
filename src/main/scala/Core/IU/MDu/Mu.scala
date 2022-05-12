@@ -1,5 +1,6 @@
 package Core.IU.MDu
 
+import Core.IU.Du.MDUbit
 import Core.IU.{IduRfPipe1, unitSel}
 import Core.IUConfig
 import Utils.{LookupTree, SignExt}
