@@ -256,7 +256,7 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
   // read Core.csr regs
   private val rdata = MuxLookup(csrAddr, 0.U(MXLEN.W), readOnlyMap++readWriteMap)
   // write Core.csr regs, may need to cover the old value
-  private val wdata = MuxLookup(func, 0.U, Array( // @ct_cp0_iui 1436-1441
+  private val wdata = MuxLookup(func, 0.U, Seq( // @ct_cp0_iui 1436-1441
     CsrOpType.RW  ->  src,                        // read & write
     CsrOpType.RWI ->  uimm,                       // add imm
     CsrOpType.RS  ->  (rdata | src),              // read & set
@@ -264,7 +264,7 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
     CsrOpType.RC  ->  (rdata & (~src).asUInt),    // read & clean
     CsrOpType.RCI ->  (rdata & (~uimm).asUInt)
   ))
-  private val wdata_en = MuxLookup(func, false.B, Array(
+  private val wdata_en = MuxLookup(func, false.B, Seq(
     CsrOpType.RW  ->  true.B,    // read & write
     CsrOpType.RWI ->  true.B,    // add imm
     CsrOpType.RS  ->  true.B,    // read & set
@@ -433,14 +433,14 @@ class CP0 extends Module with Config with CsrRegDefine {// TODO: IO need to defi
       Privilege.Level.M
 
   def real_epc () : UInt = {
-    MuxLookup(currentPriv, 0.U, Array(
+    MuxLookup(currentPriv, 0.U, Seq(
       mode_m -> mepc
       // todo: add mode s&u
     ))
   }
 
   def real_mtvec () : UInt = {
-    MuxLookup(mtvec_mode, 0.U, Array(
+    MuxLookup(mtvec_mode, 0.U, Seq(
       MtvecMode.Direct -> Cat(mtvec_base(61,0), 0.U(2.W)),
       MtvecMode.Vectored -> Cat(mtvec_base + mcause, 0.U(2.W))
     ))
