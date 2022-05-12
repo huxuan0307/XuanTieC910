@@ -1,5 +1,6 @@
-package Core.IU.Du
+package Core.IU.MDu
 
+import Core.IU.Du.MDUbit
 import Core.IU.{IduRfPipe0, unitSel}
 import Core.{IUConfig, MDUOpType}
 import Utils.{HasCircularQueuePtrHelper, LookupTree, SignExt, ZeroExt}
