@@ -37,14 +37,14 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 
   //添加Prefetch Buffer，当refill请求后，判断有无命中，命中则使用，未命中丢弃；cache继续进行refill，prefetch buffer预取下一行
   //  val s_idle :: s_lookUp :: s_mmio :: s_mmio_resp :: s_miss :: s_replace :: s_refill :: s_refill_done :: Nil = Enum(8)
-  val s_idle :: s_lookUp :: s_miss :: s_cohresp :: s_refill :: s_refill_done :: s_predec_done :: Nil = Enum(7)
+  val s_idle :: s_lookUp :: s_miss :: s_cohresp :: s_refill :: s_refill_done :: Nil = Enum(6)
   val state: UInt = RegInit(s_idle)
 
 
   val valid = RegInit(VecInit(Seq.fill(Ways)(VecInit(Seq.fill(Sets)(false.B)))))
   val fifo_array = RegInit(VecInit(Seq.fill(Sets)(0.U(1.W)))) //哪路为首先替换路
-  val fifo_read = WireInit(0.U(1.W))
-  val fifo_fill = RegInit(0.U(1.W))
+  val Way_read = RegInit(0.U(1.W))
+  val Way_fill = RegInit(0.U(1.W))
   val predecd_array = Seq.fill(Ways)(Module(new sram_2048x32))//Seq.fill(Sets)(RegInit(VecInit(Seq.fill(Ways)(0.U(TagBits.W)))))
   val tag_array = RegInit(VecInit(Seq.fill(Ways)(VecInit(Seq.fill(Sets)(0.U(TagBits.W))))))
   val needRefill = RegInit(VecInit(Seq.fill(Ways)(VecInit(Seq.fill(Sets)(false.B)))))
@@ -73,10 +73,13 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   val reqValid    = RegInit(false.B) // Reg(Vec(2, Bool())) //用寄存器记录两条指令内存请求有效
   val paddrReg = RegInit(PcStart.U(PC_WIDTH.W))//RegEnable(paddr,RegNext(storeEn))//
   val vaddrReg = RegInit(PcStart.U(PC_WIDTH.W))//RegEnable(vaddr,RegNext(storeEn))//
+  val addroffsetReg = RegInit(0.U(PC_WIDTH.W))
   val tagReg = ftag(paddrReg)
   val indexReg = findex(vaddrReg)
   val DindexReg = fDindex(vaddrReg)
   val icache_ready = RegInit(true.B)
+  val rvaddrReg = vaddrReg+addroffsetReg //////no offset when refill, but need when read
+  val rDindexReg = fDindex(rvaddrReg)
 
   val tagHitVec = Wire(Vec(Ways,Bool()))
   val hit = Wire(Bool())
@@ -89,13 +92,12 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 
   //val validVec =  Seq.fill(Ways)(Wire(Bool()))
 
-  val refillDataReg = Reg(Vec(CacheCatNum,UInt(axiDataBits.W)))  //用来寄存读取内存的数据, 4*128bit, 64 byte
+  val refillData = WireInit(VecInit(Seq.fill(CacheCatNum)(0.U(axiDataBits.W))))  //用来寄存读取内存的数据, 4*128bit, 64 byte
   //val refillDataReg = WireInit(VecInit(Seq.fill(CacheCatNum)(0.U(axiDataBits.W))))
 
   val mem_wb = Seq.fill(CacheCatNum)(Wire(Vec(Banks, UInt(sram_width.W)))) //一次取4个bank每个bank 32bit, 128bit, 取四次填满
   val DreadIdx = Wire(UInt(DIndexBits.W)) //for data sram only
   val CohReadReg = RegInit(VecInit(Seq.fill(CacheCatNum)(0.U(axiDataBits.W)))) //dcache给出的数据，参与refill，因此给64byte//todo:check it
-  val stateReg1 = WireInit(state === s_predec_done)
   val stateReg2 = RegInit((state === s_cohresp && io.cohresp.valid && !io.cohresp.bits.needforward))
   val hit_read = state===s_refill_done || io.cache_req.valid
   val fw_write = state === s_miss && io.cohresp.valid && io.cohresp.bits.needforward //其它一致性缓存继续写cache
@@ -105,46 +107,41 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 
 //  val wb_paddr = RegInit(0.U(PC_WIDTH.W))
 //  val wb_data = Reg
-  val predec_times = RegInit(0.U(log2Up(RetTimes+1).W))
 
 
   val icache_predec = Module(new icache_predec)
-  val predec_dout = WireInit(VecInit(Seq.fill(4)(0.U(32.W))))
-  val predec_write = state === s_refill_done
-  val idle_afterfill = (RegNext(state===s_predec_done) && (state=== s_idle))
+  val idle_afterfill = (RegNext(state===s_refill_done) && (state=== s_idle))
   val lookup_afteridle = (RegNext(state=== s_lookUp)&& state===s_idle)
 
-  when(idle_afterfill){
-    fifo_array(refill_idx) := fifo_fill
-  }
-  storeEn := (state === s_idle || state === s_lookUp) && (!hit)//流水线请求有效并且处于idle或Cache访问请求寻址状态
+
+
+  storeEn := (state === s_idle || state === s_lookUp)//流水线请求有效并且处于idle或Cache访问请求寻址状态
+
   predecd_array(0).io := DontCare
   predecd_array(1).io := DontCare
   icache_predec.io := DontCare
-  when(state===s_predec_done || state===s_idle || state===s_lookUp){
-    predecd_array(0).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
-    predecd_array(1).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
+  when(state===s_refill_done || state===s_idle || state===s_lookUp){
+    predecd_array(0).io.idx := Mux(state === s_idle || state === s_lookUp, Dindex, rDindexReg)
+    predecd_array(1).io.idx := Mux(state === s_idle || state === s_lookUp, Dindex, rDindexReg)
   }
-  reqreadPredecWire := Mux(fifo_read===0.U,predecd_array(0).io.rData,predecd_array(1).io.rData)
+  reqreadPredecWire := Mux(Way_read===0.U,predecd_array(0).io.rData,predecd_array(1).io.rData)
   reqreadPredecReg := reqreadPredecWire
-  when(predec_times <= RetTimes.U && state === s_refill_done){
-    icache_predec.io.din := refillDataReg(predec_times)
+  when(axireadMemCnt <= RetTimes.U && state === s_refill){
+    icache_predec.io.din := SRam_write(RegNext(axireadMemCnt)).asUInt()
 
-    predec_dout(predec_times) := icache_predec.io.dout
-    predecd_array(0).io.idx := Mux(predec_write, Drefill_idx, DreadIdx) + predec_times
+    predecd_array(0).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex) + RegNext(axireadMemCnt)
     predecd_array(0).io.wMask := VecInit(Seq.fill(32)(true.B)).asUInt() //wmask had been done
-    predecd_array(0).io.wData := predec_dout(predec_times).asUInt()
-    predecd_array(0).io.en := hit_read || predec_write
-    predecd_array(0).io.wen := predec_write && (fifo_fill===0.U)
+    predecd_array(0).io.wData := icache_predec.io.dout
+    predecd_array(0).io.en := (hit_read || refill_write || fw_write)
+    predecd_array(0).io.wen :=  fw_write || refill_write && refill_ready && (Way_fill ===0.U)
 
-    predec_dout(predec_times) := icache_predec.io.dout
-    predecd_array(1).io.idx := Mux(predec_write, Drefill_idx, DreadIdx)+ predec_times//Cat(Mux(predec_write, Drefill_idx, DreadIdx)(9,2),0.U(2.W)) + RegNext(predec_times<<1)
+
+    predecd_array(1).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(axireadMemCnt)
     predecd_array(1).io.wMask := VecInit(Seq.fill(32)(true.B)).asUInt() //wmask had been done
-    predecd_array(1).io.wData := predec_dout(predec_times).asUInt()
-    predecd_array(1).io.en := hit_read || predec_write
-    predecd_array(1).io.wen := predec_write && (fifo_fill===1.U)
+    predecd_array(1).io.wData := icache_predec.io.dout
+    predecd_array(1).io.en := (hit_read || refill_write || fw_write)
+    predecd_array(1).io.wen := fw_write || refill_write && refill_ready && (Way_fill ===1.U)
 
-    predec_times := predec_times + 1.U(log2Up(RetTimes+1).W)
   }
 
 
@@ -156,12 +153,14 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   hitReg := hit
   reqValid := io.cache_req.valid //当流水线请求任一条有效时，更新为refill准备的寄存器里的请求有效
   //fifo_read := Mux(state===s_idle || state===s_lookUp,~fifo_array(index),fifo_array(index))
-  fifo_read := fifo_fill
   when(storeEn) {
-    fifo_fill := ~fifo_array(index)
-    paddrReg := paddr
-    vaddrReg := vaddr
-    needRefill(fifo_fill)(refill_idx) := io.cache_req.valid && !hit
+    paddrReg := Cat(paddr(PAddrBits - 1,4),0.U(4.W))
+    vaddrReg := Cat(vaddr(VAddrBits - 1,4),0.U(4.W))
+    addroffsetReg := vaddr(3,0)
+    Way_read := tagHitVec(1)
+    when(io.cache_req.valid && !hit) {
+
+    }
   }
   //  paddrReg := RegEnable(paddr,RegNext(storeEn))
   //  vaddrReg := RegEnable(vaddr,RegNext(storeEn))
@@ -174,8 +173,8 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   //
   for (i <- 0 until  CacheCatNum) {
     when(state === s_miss && io.cohresp.valid && io.cohresp.bits.needforward){ //cache miss并且响应有效，且响应需要向前
-      tag_array(fifo_fill)(refill_idx) := tagReg
-      valid(fifo_fill)(refill_idx)    := true.B
+      tag_array(Way_fill)(refill_idx) := tagReg
+      valid(Way_fill)(refill_idx)    := true.B
       CohReadReg(i) := io.cohresp.bits.forward(i).asTypeOf(UInt(axiDataBits.W))
       SRam_write(i) := io.cohresp.bits.forward(i).asTypeOf(Vec(Banks,UInt(sram_width.W)))
     }
@@ -191,26 +190,26 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   //侦听axi响应4次,从下级缓存或内存所读取
   SRamArray(0).io := DontCare
   SRamArray(1).io := DontCare
-  when(state===s_predec_done || state===s_idle || state===s_lookUp){
-    SRamArray(0).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
-    SRamArray(1).io.idx := Mux(state===s_predec_done || idle_afterfill,DindexReg,Dindex)
+  when(state===s_refill_done || state===s_idle || state===s_lookUp) {
+    SRamArray(0).io.idx := Mux(state === s_idle || state === s_lookUp, Dindex, rDindexReg)
+    SRamArray(1).io.idx := Mux(state === s_idle || state === s_lookUp, Dindex, rDindexReg)
   }
-  SRam_read := Mux(fifo_read === 0.U,SRamArray(0).io.rData.asTypeOf(SRam_read),SRamArray(1).io.rData.asTypeOf(SRam_read))
+  SRam_read := Mux(Way_read === 0.U,SRamArray(0).io.rData.asTypeOf(SRam_read),SRamArray(1).io.rData.asTypeOf(SRam_read))
   reqreadReg := SRam_read.asUInt() //读Cache Data寄存器更新，放到寄存器里
   when(axireadMemCnt <= RetTimes.U && state === s_refill){
-    SRamArray(0).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(RegNext(axireadMemCnt))//Cat(Mux(refill_write || fw_write, Drefill_idx, Dindex)(9,2),0.U(2.W)) + RegNext(RegNext(axireadMemCnt<<2))
+    SRamArray(0).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(axireadMemCnt)//Cat(Mux(refill_write || fw_write, Drefill_idx, Dindex)(9,2),0.U(2.W)) + RegNext(RegNext(axireadMemCnt<<2))
     SRamArray(0).io.wMask := VecInit(Seq.fill(128)(true.B)).asUInt() //wmask had been done
-    SRamArray(0).io.wData := SRam_write(RegNext(RegNext(axireadMemCnt))).asUInt()
+    SRamArray(0).io.wData := SRam_write(RegNext(axireadMemCnt)).asUInt()
     SRamArray(0).io.en := (hit_read || refill_write || fw_write)
-    SRamArray(0).io.wen := fw_write || refill_write && RegNext(refill_ready) && (fifo_fill===0.U)
-    SRamArray(1).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(RegNext(axireadMemCnt))//Cat(Mux(refill_write || fw_write, Drefill_idx, Dindex)(9,2),0.U(2.W)) + RegNext(RegNext(axireadMemCnt<<2))
+    SRamArray(0).io.wen := fw_write || refill_write && refill_ready && (Way_fill===0.U)
+    SRamArray(1).io.idx := Mux(refill_write || fw_write, Drefill_idx, Dindex)+ RegNext(axireadMemCnt)//Cat(Mux(refill_write || fw_write, Drefill_idx, Dindex)(9,2),0.U(2.W)) + RegNext(RegNext(axireadMemCnt<<2))
     SRamArray(1).io.wMask := VecInit(Seq.fill(128)(true.B)).asUInt() //wmask had been done
-    SRamArray(1).io.wData := SRam_write(RegNext(RegNext(axireadMemCnt))).asUInt()
+    SRamArray(1).io.wData := SRam_write(RegNext(axireadMemCnt)).asUInt()
     SRamArray(1).io.en := (hit_read || refill_write || fw_write)
-    SRamArray(1).io.wen := fw_write || refill_write && RegNext(refill_ready) && (fifo_fill ===1.U)
+    SRamArray(1).io.wen := fw_write || refill_write && refill_ready && (Way_fill ===1.U)
 
-    when(needRefill(fifo_fill)(indexReg) && refill_ready){
-      refillDataReg(axireadMemCnt) := icache_refill.io.resp.rdata
+    when(needRefill(Way_fill)(indexReg) && refill_ready){
+      refillData(axireadMemCnt) := icache_refill.io.resp.rdata
     }
     when(refill_ready){//每收到一次回应，axi读次数＋1
       axireadMemCnt := axireadMemCnt + 1.U(log2Up(RetTimes).W)
@@ -222,7 +221,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 
   for( i<- 0 until  CacheCatNum){//这里先按C910考虑sram一次读写128bit
     mem_wb(i) := Mux(stateReg2,CohReadReg(i).asUInt().asTypeOf(mem_wb(i)),
-      refillDataReg(i).asUInt().asTypeOf(mem_wb(i))) //用dcache数据进行refill,这样refill_done时统一预译码。refillDataReg 4*128 bit， 64 byte，一次refill的大小, mem_wb是4*4*32
+      refillData(i).asUInt().asTypeOf(mem_wb(i))) //用dcache数据进行refill,这样refill_done时统一预译码。refillDataReg 4*128 bit， 64 byte，一次refill的大小, mem_wb是4*4*32
     SRam_write(i) := mem_wb(i) //通过此连线将readDataReg数据格式转为sram所需
 //    when(state === s_refill && axireadMemCnt === RetTimes.U){
 //      tag_array(fifo_fill)(refill_idx) := tagReg
@@ -232,87 +231,78 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 //    }
   }
   when(state === s_refill && axireadMemCnt === RetTimes.U){
-      tag_array(fifo_fill)(refill_idx) := tagReg
-      valid(fifo_fill)(refill_idx) := true.B
+      tag_array(Way_fill)(refill_idx) := tagReg
+      valid(Way_fill)(refill_idx) := true.B
   }
 
 
-  stateReg1 := idle_afterfill || (state=== s_lookUp) //每一拍都侦听是否完成refill，存一拍
   stateReg2 := (state === s_cohresp && io.cohresp.valid && !io.cohresp.bits.needforward)//state === s_mmio_resp  //每一拍都侦听是否mmio响应了//根据是refill_done还是Dcache响应决定输出数据来源
-  io.cache_req.ready  := idle_afterfill || lookup_afteridle //这里考虑可以一直读sram，即便在进行refill
+  io.cache_req.ready  :=  (state===s_idle) || (state===s_lookUp)//这里考虑可以一直读sram，即便在进行refill
   val Cohresp_valid = WireInit(false.B)
   Cohresp_valid := stateReg2 && state ===s_refill
   val Cohresp_data = CohReadReg.asUInt() >> (Dindex(1) << 7.U)
   val reqsramReg_data =  reqreadReg.asUInt()
   val reqsramWire_data = SRam_read.asUInt
-  val reqsram_data = Mux(state===s_lookUp, reqsramWire_data, reqsramReg_data)
+  val reqsram_data = Mux(state===s_lookUp || idle_afterfill, reqsramWire_data, reqsramReg_data) //todo: check it
   val req_data = WireInit(0.U(128.W))
   req_data := Mux(Cohresp_valid, Cohresp_data, reqsram_data)
   io.cache_resp.bits.inst_data  := req_data.asTypeOf(io.cache_resp.bits.inst_data)//上一拍mmio响应了，这一拍idle，说明其它缓存响应有效，否则从readReg里加偏移量取数据
   //右移动偏移量Dindex(1,0)*128,用左移代替乘，数据自动截断？todo: change Bundle bus
-  val predecode_out = Mux(state===s_lookUp,reqreadPredecWire,reqreadPredecReg)
+  val predecode_out = Mux(state===s_lookUp || idle_afterfill,reqreadPredecWire,reqreadPredecReg)
   io.cache_resp.bits.predecode := predecode_out.asTypeOf(io.cache_resp.bits.predecode)//移动Dindex*32位
-  io.cache_resp.valid := ( Mux(state===s_lookUp,hitReg,hit) &&//直接命中情况，至少需要一拍读sram
-    stateReg1) &&//||//predec_done情况 //(stateReg2 && state ===s_refill_done)) &&//coh响应完情况
-    reqValid//添加了lookUp的时候需要hit
+  io.cache_resp.valid := (state===s_lookUp) || idle_afterfill
 
 
   //-------------------------------------状态机------------------------------------------------
   switch(state) {
     is(s_idle) {
-      when(io.cache_req.valid && paddr.asUInt() < 0x80000000L.U) {
+      when(!hit && io.cache_req.valid){
+        Way_fill := fifo_array(index)
+        needRefill(fifo_array(index))(index) := io.cache_req.valid && !hit
         state := s_miss
-      //      }.elsewhen(!hit && io.cache_req.valid){
-      //        state := s_miss
-      }.elsewhen(io.cache_req.valid && !idle_afterfill) {
+      }.elsewhen(io.cache_req.valid) {
         state := s_lookUp
       }
     }
     is(s_lookUp) {
-      when(io.cache_req.valid && paddr.asUInt() < 0x80000000L.U) {
-        state := s_miss
-      }.elsewhen(!hit && io.cache_req.valid ){
+      when(!hit && io.cache_req.valid ){
+        Way_fill := fifo_array(index)
+        needRefill(fifo_array(index))(index) := io.cache_req.valid && !hit
         state := s_miss
       }.elsewhen(!io.cache_req.valid){
-        state := s_idle
-      }.elsewhen(hit && io.cache_req.valid) {
         state := s_idle
       }
     }
     is(s_miss) {
+      Way_read := Way_fill
       when(io.cohresp.valid || io.cohresp.bits.needforward){//todo:假定needforward保持为false,一进dcache若所需存在dcache立即置为true
         state := s_cohresp
       }.otherwise{
         state := s_refill
-        valid(fifo_fill)(refill_idx) := false.B
+        valid(Way_fill)(refill_idx) := false.B
       }
     }
     is(s_cohresp){
       when(io.cohresp.valid) {
-        when(io.cohresp.bits.needforward && needRefill(fifo_fill)(refill_idx)) {
+        when(io.cohresp.bits.needforward && needRefill(Way_fill)(refill_idx)) {
           state := s_cohresp
-          needRefill(fifo_fill)(refill_idx) := false.B //其它缓存响应了不需要refill了
-        }.elsewhen(!io.cohresp.bits.needforward && needRefill(fifo_fill)(refill_idx)) {
-          needRefill(fifo_fill)(refill_idx) := false.B //其它缓存响应了不需要refill了
+          needRefill(Way_fill)(refill_idx) := false.B //其它缓存响应了不需要refill了
+        }.elsewhen(!io.cohresp.bits.needforward && needRefill(Way_fill)(refill_idx)) {
+          needRefill(Way_fill)(refill_idx) := false.B //其它缓存响应了不需要refill了
           state := s_refill_done
         }
       }
     }
     is(s_refill) {
-      when((axireadMemCnt === RetTimes.U) && needRefill(fifo_fill)(refill_idx)){
+      when((axireadMemCnt === RetTimes.U) && needRefill(Way_fill)(refill_idx)){
         state := s_refill_done
-        needRefill(fifo_fill)(refill_idx) := false.B
-        predec_times := 0.U
+        needRefill(Way_fill)(refill_idx) := false.B
+        fifo_array(refill_idx) := ~Way_fill
         //fifo_array(refill_idx) := ~fifo
+        //fifo_array(refill_idx) := fifo_fill
       }
     }
     is(s_refill_done){
-      when(predec_times === RetTimes.U){
-        state := s_predec_done
-        predec_times := 0.U
-      }
-    }
-    is(s_predec_done){
       state := s_idle
     }
   }

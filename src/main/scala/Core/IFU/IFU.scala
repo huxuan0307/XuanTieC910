@@ -18,10 +18,10 @@ class IFU extends Module with Config {
 
 
 
-  val ifu_continue     = RegInit(true.B)
-  ifu_continue := !io.tlb.tlb_miss && icache.io.cache_resp.valid && ibuf.io.allowEnq
+
   val backend_redirect = io.bru_redirect.valid
-  val reg_update       = ifu_continue || backend_redirect
+  val reg_update       = ibuf.io.allowEnq && ((!io.tlb.tlb_miss && icache.io.cache_req.ready) ||
+    backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid)
 
   //pc select
   val pc_gen = Module(new PCGen)
@@ -36,7 +36,8 @@ class IFU extends Module with Config {
   pc_gen.io.redirect(1) := ipstage.io.ip_redirect
   pc_gen.io.redirect(2) := ibstage.io.ib_redirect
   pc_gen.io.redirect(3) := io.bru_redirect
-  pc_gen.io.continue := !io.tlb.tlb_miss && icache.io.cache_resp.valid && ibuf.io.allowEnq
+  pc_gen.io.continue := !io.tlb.tlb_miss && icache.io.cache_req.ready && ibuf.io.allowEnq
+  pc_gen.io.IbufAllowEnq := ibuf.io.allowEnq
 
   //IF stage
   val if_pc = pc_gen.io.pc
@@ -46,7 +47,7 @@ class IFU extends Module with Config {
   //    if_pc := pc_gen.io.pc
   //  }
   io.pc := if_pc
-  val if_data_valid = !pc_gen.io.redirect(1).valid || !pc_gen.io.redirect(2).valid || !pc_gen.io.redirect(3).valid
+  val if_data_valid = !(pc_gen.io.redirect(1).valid || pc_gen.io.redirect(2).valid || pc_gen.io.redirect(3).valid)
 
 
   ubtb.io.pc := if_pc
@@ -75,7 +76,7 @@ class IFU extends Module with Config {
 
   //IP stage
   val if_vld  = RegEnable(if_data_valid, reg_update)
-  val ip_pc   = RegNext(RegEnable(pc_gen.io.pc, reg_update))
+  val ip_pc   = RegEnable(pc_gen.io.pc, reg_update)
   val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, reg_update)
 //  val if_vld  = RegNext(if_data_valid)
 //  val ip_pc   = RegNext(if_pc)
@@ -87,22 +88,22 @@ class IFU extends Module with Config {
   ipstage.io.ubtb_resp   := ip_ubtb
   ipstage.io.btb_resp    := btb.io.btb_target
   ipstage.io.bht_resp    := bht.io.bht_resp //TODO:封装bht输出
-  ipstage.io.icache_resp := RegEnable(icache.io.cache_resp,true.B)
+  ipstage.io.icache_resp := icache.io.cache_resp
   //ipstage.io.icache_resp := RegNext(io.cache_resp)
 
   bht.io.ip_bht_con_br_vld   := ipstage.io.ip_bht_con_br_vld
   bht.io.ip_bht_con_br_taken := ipstage.io.ip_bht_con_br_taken
 
   //IB stage
-  val ip_vld = RegNext(ipstage.io.out.valid)
+  val ip_vld = RegEnable(ipstage.io.out.valid, reg_update)
   val ip_out = RegEnable(ipstage.io.out.bits, reg_update) //ubtb,btb,bht
-//  val ib_pc  = ip_out.pc
+  val ib_pc  = ip_out.pc
   val ib_vld = ip_vld && !pc_gen.io.redirect(3).valid
 
 
 
   ibstage.io.ip2ib.valid := ib_vld
-  ibstage.io.ip2ib.bits  := RegNext(ipstage.io.out.bits)
+  ibstage.io.ip2ib.bits  := RegEnable(ipstage.io.out.bits, reg_update)
 
   //ras
   ras.io.ifu_update.target := ip_out.push_pc
@@ -149,12 +150,12 @@ class IFU extends Module with Config {
     ibuf.io.in(i+1).bits.pc := Cat(ibstage.io.ip2ib.bits.pc(38,4), 0.U(4.W)) + (i.U << 1.U)
     ibuf.io.in(i+1).bits.data := ip_out.icache_resp.inst_data(i)
     ibuf.io.in(i+1).bits.is_inst32 := ip_out.inst_32_9(i+1)
-    ibuf.io.in(i+1).valid := ip_out.chgflw_vld_mask(i+1) && ib_vld
+    ibuf.io.in(i+1).valid := ip_out.chgflw_vld_mask(i+1) && ib_vld && reg_update
   }
   ibuf.io.in(0).bits.pc := Cat(ibstage.io.ip2ib.bits.pc(38,4), 0.U(4.W)) - 2.U
   ibuf.io.in(0).bits.data := ip_out.h0_data
   ibuf.io.in(0).bits.is_inst32 := ip_out.inst_32_9(0)
-  ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld//ip_out.bits.chgflw_vld_mask(0)
+  ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld && reg_update//ip_out.bits.chgflw_vld_mask(0)
 
   for(i <- 0 to 2){
     io.instData(i).vl_pred      := false.B

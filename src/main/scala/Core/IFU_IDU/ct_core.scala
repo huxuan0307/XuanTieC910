@@ -46,7 +46,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.bpu_update.bht_update := DontCare //from BJU??
   ifu.io.ifuForward := DontCare // from BJU??
   ifu.io.bru_redirect.valid := false.B //from BJU
-  ifu.io.bru_redirect.bits := DontCare
+  ifu.io.bru_redirect.bits := PcStart.U
   ifu.io.tlb.tlb_miss := false.B
   ifu.io.tlb.paddr := ifu.io.tlb.vaddr // todo: add TLB, Now, suppose that paddr===vaddr
   //ifu.io.instVld := Seq(true.B,true.B,true.B).map(_) //todo: ???
