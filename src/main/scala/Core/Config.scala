@@ -90,7 +90,55 @@ trait VectorUnitConfig {
   def VregNum = 64
   def VregNumBits : Int = log2Up(VregNum)
 }
+trait Cp0Config {
+  def APB_BASE_WIDTH = 40
+  def BIU_CP0_RDATA = 128
+  def BIU_CP0_RVBA = 40
+  def FSER_ACC_UPDATE_WITDH = 7
+  def CACHE_READ_DATA_WITDTH = 128
+  def CSR_OPCODE_WIDTH = 32
+  def CSR_ADDR_WIDTH = 12
+  def CSR_UIMM_WIDTH = 5
+  def CSR_OTHERS_WIDTH: Int = CSR_OPCODE_WIDTH-CSR_ADDR_WIDTH-CSR_UIMM_WIDTH
+}
 
+
+object MDUOpType {
+  def mul    = "b0000".U
+  def mulh   = "b0001".U
+  def mulhsu = "b0010".U
+  def mulhu  = "b0011".U
+  def div    = "b0100".U
+  def divu   = "b0101".U
+  def rem    = "b0110".U
+  def remu   = "b0111".U
+
+  def mulw   = "b1000".U
+  def divw   = "b1100".U
+  def divuw  = "b1101".U
+  def remw   = "b1110".U
+  def remuw  = "b1111".U
+
+  def isDiv(op: UInt) = op(2)
+  def isDivSign(op: UInt) = isDiv(op) && !op(0)
+  def isW(op: UInt) = op(3)
+  def isRem(op: UInt) = op(2) && op(1)
+}
+
+
+
+trait FuTypeConfig {
+  def ALU      = "b0000000001"
+  def BJU      = "b0000000010"
+  def MULT     = "b0000000100"
+  def DIV      = "b0000001000"
+  def LSU_P5   = "b0000110000"
+  def LSU      = "b0000010000"
+  def PIPE67   = "b0001000000"
+  def PIPE6    = "b0010000000"
+  def PIPE7    = "b0100000000"
+  def SPECIAL  = "b1000000000"
+}
 trait IUConfig {
   def XLEN = 64
   def MPPWidth = 2
@@ -100,15 +148,58 @@ trait IUConfig {
   def IuPipeNum = 3
 }
 
+trait BIUConfig {
+  def BIU_R_NORM_ID_T     = 1.U(2.W)
+  def BIU_R_CTC_ID        = 28.U(5.W)
+  def BIU_B_NC_ID         = 24.U(5.W)
+  def BIU_B_SO_ID         = 29.U(5.W)
+  def BIU_B_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_B_SYNC_FENCE_ID = 31.U(5.W)
+
+  def BIU_R_NC_ID         = 24.U(5.W)
+  def BIU_R_SO_ID         = 29.U(5.W)
+  def BIU_R_NC_ATOM_ID    = 30.U(5.W)
+  def BIU_R_SYNC_FENCE_ID = 31.U(5.W)
+
+  def OKAY   = 0.U(2.W)
+  def EXOKAY = 1.U(2.W)
+  def SLVERR = 2.U(2.W)
+  def DECERR = 3.U(2.W)
+
+  def pa_widthBits = 40
+  def barBits = 2
+  def burstBits = 2
+  def cacheBits = 4
+  def domainBits = 2
+  def idBits = 5
+  def lenBits = 2
+  def protBits = 3
+  def sizeBits = 3
+  def ar_snoopBits = 4
+  def aw_snoopBits = 3
+  def ar_userBits = 3
+
+  def dataBits = 128
+  def strbBits = dataBits/8
+
+
+  def qosBits = 4
+  def respBits = 2
+  def regionBits = 4
+}
+
 trait LsuConfig{
   def PA_WIDTH = 40
+  def VPN_WIDTH = 28
+  def PPN_WIDTH = 28
   def FENCE_MODE_WIDTH = 4
   def INST_CODE_WIDTH = 32
   def INST_MODE_WIDTH = 2
   def INST_SIZE_WIDTH = 2
   def INST_TYPE_WIDTH = 2
+
   def LSU_PC_WIDTH = 15 //@ ct_lst_st_ag.v  534  parameter PC_LEN = 15;
-  def SDIQ_ENYTY_ADDR = 12
+
   def SHITF_WIDTH = 4
 
   def ADDR_PA_WIDTH = 28
@@ -118,12 +209,19 @@ trait LsuConfig{
   def BYTES_ACCESS_WIDTH = 16
   def ROT_SEL_WIDTH = 4
   def ROT_SEL_WIDTH_8 = 8
-  def LSIQ_ENTRY = 12
-  def VPN_WIDTH = 28
+
+  def LSIQ_ENTRY  = 12
+  def LQ_ENTRY    = 16
+  def SQ_ENTRY    = 12
+  def VB_DATA_ENTRY = 3
+  def VB_ADDR_ENTRY = 2
+  def WMB_ENTRY     = 8
+  def VMB_ENTRY     = 8
+  def RB_ENTRY = 8
+  def SNQ_ENTRY     = 6
 
   def SNOOP_ID_WIDTH = 6
-
-  def SDID_WIDTH = log2Up(LSIQ_ENTRY)
+  def SDID_WIDTH = log2Up(SQ_ENTRY)
 
   //def DCACHE_DIRTY_ARRAY_WITDH = 7
   //def DCACHE_TAG_ARRAY_WITDH   = 52
@@ -131,7 +229,14 @@ trait LsuConfig{
   def PREG_SIGN_SEL = 4
   def VREG_SIGN_SEL = 2
   def DATA_UPDATE_PATH_WIDTH = 5
-  def VMB_ENTRY = 8
+
+  def BYTE        = "b00"
+  def HALF        = "b01"
+  def WORD        = "b10"
+  def DWORD       = "b11"
+
+  def CACHE_DIST_SELECT_ADDR = 4
+  def CACHE_DIST_SELECT = log2Up(CACHE_DIST_SELECT_ADDR)
 }
 object LsuAccessSize extends LsuConfig{
   def byte:  UInt = 0.U(ACCESS_SIZE_CHOOSE.W)
@@ -148,6 +253,14 @@ trait DCacheConfig {
   def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
   def INDEX_WIDTH: Int = log2Up(SET) // 9
   def TAG_WIDTH: Int = LsuConfig.PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
+
+  def PFU_ENTRY = 9
+  def PFU_IDX = log2Up(PFU_ENTRY)
+
+  def LFB_ADDR_ENTRY = 8
+  def LFB_DATA_ENTRY = 2
+  def LFB_ID_WIDTH = 3
+
 }
 trait Cp0Config {
   def APB_BASE_WIDTH = 40
@@ -183,6 +296,10 @@ object MDUOpType {
   def isW(op: UInt) = op(3)
   def isRem(op: UInt) = op(2) && op(1)
 }
+object BiuID {
+  def BIU_LFB_ID_T = "b00".U
+  def BIU_VB_ID_T = "b000".U
+}
 object IntConfig extends IntConfig
 object ROBConfig extends ROBConfig
 object PipelineConfig extends PipelineConfig
@@ -192,23 +309,7 @@ object VectorUnitConfig extends VectorUnitConfig
 object IUConfig extends IUConfig
 object LsuConfig extends LsuConfig
 object DCacheConfig extends DCacheConfig
-
-
-trait FuTypeConfig {
-  def ALU      = "b0000000001"
-  def BJU      = "b0000000010"
-  def MULT     = "b0000000100"
-  def DIV      = "b0000001000"
-  def LSU_P5   = "b0000110000"
-  def LSU      = "b0000010000"
-  def PIPE67   = "b0001000000"
-  def PIPE6    = "b0010000000"
-  def PIPE7    = "b0100000000"
-  def SPECIAL  = "b1000000000"
-}
-
 object FuTypeConfig extends FuTypeConfig
-
 
 abstract class CoreBundle extends Bundle with Config {}
 

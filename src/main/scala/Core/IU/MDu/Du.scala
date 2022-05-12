@@ -1,4 +1,4 @@
-package Core.IU.Du
+package Core.IU.MDu
 
 import Core.IU.{IduRfPipe0, unitSel}
 import Core.{IUConfig, MDUOpType}
