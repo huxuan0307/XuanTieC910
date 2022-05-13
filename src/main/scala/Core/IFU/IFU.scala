@@ -160,7 +160,7 @@ class IFU extends Module with Config {
   for(i <- 0 to 2){
     io.instData(i).vl_pred      := false.B
     io.instData(i).vl           := 0.U
-    io.instData(i).pc           := ibuf.io.out(i).bits.pc(14,0)
+    io.instData(i).pc           := ibuf.io.out(i).bits.pc(15,1)
     io.instData(i).vsew         := 0.U
     io.instData(i).vlmul        := 0.U
     io.instData(i).no_spec      := false.B

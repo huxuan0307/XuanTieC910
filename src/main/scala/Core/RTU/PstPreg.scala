@@ -240,7 +240,7 @@ class PstPreg extends Module {
   private val dealloc0OH = PriorityEncoderOH(deallocOH)
   //one-hot dealloc preg 1,
   //search priority is from p95 to p0
-  private val dealloc1OH = PriorityEncoderOH(deallocOH.reverse)
+  private val dealloc1OH = PriorityEncoderOH(deallocOH.reverse).reverse
   //one-hot dealloc preg 2,
   //remove dealloc preg 0, and then search priority is from p0 to p95
   private val deallocNo0OH = deallocOH.zip(dealloc0OH).map {
@@ -299,7 +299,7 @@ class PstPreg extends Module {
   private val allocPreg3DeallocValid = Wire(Bool())
   //preg3 reuse preg0~preg2 if any of them does not need dealloc
   allocPreg3DeallocValid := allocPregInvalidVec(3) &&
-    (!allocPregInvalidVec(0) && allocPregInvalidVec(1))
+    !(allocPregInvalidVec(0) && allocPregInvalidVec(1))
 
   when(!allocPregInvalidVec(0)) {
     dealloc3Vec := dealloc0Vec

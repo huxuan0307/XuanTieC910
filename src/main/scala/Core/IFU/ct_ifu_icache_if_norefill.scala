@@ -183,7 +183,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
     axireadMemCnt := 0.U(log2Up(RetTimes).W)  //还未进行refill，所以axi读内存的计数置为0.U
   }
 
-  icache_refill.io.req.valid := (state === s_refill) //|| (state === s_mmio)//
+  icache_refill.io.req.valid := RegNext(state===s_miss) && (state === s_refill) //|| (state === s_mmio)//
   icache_refill.io.req.bits.paddr := Cat(paddrReg(39,4),0.U(4.W))//C910里一次读128bit数据，PC+1对应8bit，+16对应128，因而PC低4位在读128bit块时不需要考虑
   refill_ready := icache_refill.io.resp.rvalid
 
