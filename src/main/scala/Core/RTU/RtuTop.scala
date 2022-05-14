@@ -487,7 +487,7 @@ class RtuTop extends Module {
     instrCommit.io.valid := rob.io.out.toRetire.commitValidVec(i)
     instrCommit.io.pc    := rob.io.out.toRetire.instVec(i).pc
 
-    instrCommit.io.instr := 0.U
+    instrCommit.io.instr := rob.io.out.toRetire.instVec(i).instr
 
     instrCommit.io.wen   := rob.io.out.toRetire.instVec(i).pstPregValid
     instrCommit.io.wdata := diffcommitwdata(i)

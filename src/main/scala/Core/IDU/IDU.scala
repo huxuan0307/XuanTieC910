@@ -327,6 +327,7 @@ class IDU extends Module with Config {
   val rt = Module(new RenameTable)
   val isstage = Module(new ISStage)
   val aiq0 = Module(new ArithInstQueue)
+  val aiq1 = Module(new ArithInstQueue1)
   val biq = Module(new Biq)
   val lsiq = Module(new Lsiq)
   val rfstage = Module(new RFStage)
@@ -342,13 +343,18 @@ class IDU extends Module with Config {
   iq_cnt_info(0).empty := aiq0.io.out.ctrl.empty
   iq_cnt_info(0).full_updt := aiq0.io.out.ctrl.fullUpdate
   iq_cnt_info(0).full_updt_clk_en := aiq0.io.out.ctrl.fullUpdateClkEn
+  iq_cnt_info(1).left_1_updt := aiq1.io.out.ctrl.oneLeftUpdate
+  iq_cnt_info(1).full := aiq1.io.out.ctrl.full
+  iq_cnt_info(1).empty := aiq1.io.out.ctrl.empty
+  iq_cnt_info(1).full_updt := aiq1.io.out.ctrl.fullUpdate
+  iq_cnt_info(1).full_updt_clk_en := aiq1.io.out.ctrl.fullUpdateClkEn
   //  iq_cnt_info(0)(0) := aiq0.io.out.ctrl.oneLeftUpdate
   //  iq_cnt_info(0)(1) := aiq0.io.out.ctrl.full
   //  iq_cnt_info(0)(2) := aiq0.io.out.ctrl.empty
   //  iq_cnt_info(0)(3) := aiq0.io.out.ctrl.fullUpdate
   //  iq_cnt_info(0)(4) := aiq0.io.out.ctrl.fullUpdateClkEn
   //  iq_cnt_info(0) := Seq(aiq0.io.out.ctrl.oneLeftUpdate,aiq0.io.out.ctrl.full,aiq0.io.out.ctrl.empty,aiq0.io.out.ctrl.fullUpdate,aiq0.io.out.ctrl.fullUpdateClkEn)
-  iq_cnt_info(1) := DontCare
+  //iq_cnt_info(1) := DontCare
   iq_cnt_info(2).left_1_updt := biq.io.out.ctrl.oneLeftUpdate
   iq_cnt_info(2).full := biq.io.out.ctrl.full
   iq_cnt_info(2).empty:= biq.io.out.ctrl.empty
@@ -376,7 +382,7 @@ class IDU extends Module with Config {
 
   val iq_create_entry = WireInit(0.U.asTypeOf((new ISStageInput).iq_create_entry))
   iq_create_entry.aiq0_aiq := aiq0.io.out.entryEnqOHVec //////todo: check it
-  iq_create_entry.aiq1_aiq := DontCare
+  iq_create_entry.aiq1_aiq := aiq1.io.out.entryEnqOHVec
   iq_create_entry.biq_aiq := biq.io.out.entryEnqOHVec
   iq_create_entry.lsiq_aiq := lsiq.io.out.entryEnqOHVec
   iq_create_entry.sdiq_aiq := DontCare
@@ -513,7 +519,7 @@ class IDU extends Module with Config {
         cbundle.createDpEn(j) := isstage.io.out.iqCreateEn(i)(j).dp_en
         cbundle.createGateClkEn(j) := isstage.io.out.iqCreateEn(i)(j).gateclk_en
       }
-      cbundle.createSel := isstage.io.out.iqCreateEn(i)(0).sel //////todo: is something wrong???
+      cbundle.createSel := Cat(isstage.io.out.iqCreateEn(i)(0).sel.asUInt,isstage.io.out.iqCreateEn(i)(1).sel.asUInt)
       cbundle.stall := rfstage.io.ctrl.out.toIq(i).stall
       cbundle.rfLaunchFailValid := rfstage.io.ctrl.out.toIq(i).launchFailValid
       cbundle.rfAluRegFwdValid := DontCare //////todo: complete rf
@@ -618,6 +624,100 @@ class IDU extends Module with Config {
   // &ConnRule(s/_dupx/_dup3/); @56
   // &Instance("ct_idu_is_aiq1", "x_ct_idu_is_aiq1"); @57
   //todo: add aiq1
+  aiq1.io.in.ctrl.createVec.zipWithIndex.foreach {
+    case (cbundle, i) =>
+      for(j<- 0 to NumAiqCreatePort-1){
+        cbundle.createEn(j) := isstage.io.out.iqCreateEn(i)(j).en
+        cbundle.createDpEn(j) := isstage.io.out.iqCreateEn(i)(j).dp_en
+        cbundle.createGateClkEn(j) := isstage.io.out.iqCreateEn(i)(j).gateclk_en
+      }
+      cbundle.createSel := Cat(isstage.io.out.iqCreateEn(i)(0).sel.asUInt,isstage.io.out.iqCreateEn(i)(1).sel.asUInt) //////todo: is something wrong???
+      cbundle.stall := rfstage.io.ctrl.out.toIq(i).stall
+      cbundle.rfLaunchFailValid := rfstage.io.ctrl.out.toIq(i).launchFailValid
+      cbundle.rfAluRegFwdValid := DontCare //////todo: complete rf
+      cbundle.rfPopDlbValid := rfstage.io.ctrl.out.toIq(i).popDlbValid
+      cbundle.rfPopValid := rfstage.io.ctrl.out.toIq(i).popValid
+  }
+  aiq1.io.in.ctrl.xxRfPipe0PregLaunchValidDupx := DontCare//////todo: complete rf
+  aiq1.io.in.ctrl.xxRfPipe1PregLaunchValidDupx := DontCare//////todo: complete rf
+  aiq1.io.in.data.createData.zipWithIndex.foreach {
+    case (cbundle, i) =>
+      cbundle.div := DontCare //////not use
+      cbundle.iid := isstage.io.out.toAiq1.create_data(i).IID
+      cbundle.aluShort := isstage.io.out.toAiq1.create_data(i).ALU_SHORT
+      cbundle.dstPreg := isstage.io.out.toAiq1.create_data(i).DST_PREG
+      cbundle.dstValid := isstage.io.out.toAiq1.create_data(i).DST_VLD
+      cbundle.dstVreg := isstage.io.out.toAiq1.create_data(i).DST_VREG
+      cbundle.dstVValid := isstage.io.out.toAiq1.create_data(i).DSTV_VLD
+      cbundle.exceptVec.valid := DontCare //////todo: check it
+      cbundle.exceptVec.bits := DontCare //////todo: check it
+      cbundle.highHwExcept := DontCare //////todo: check it
+      cbundle.launchPreg := isstage.io.out.toAiq1.create_data(i).LCH_PREG
+      cbundle.mtvr := isstage.io.out.toAiq1.create_data(i).MTVR
+      cbundle.pcFifo := DontCare //////todo: check it
+      cbundle.pid := DontCare //////todo: check it
+      cbundle.special := DontCare //////todo: check it
+      cbundle.srcValid := isstage.io.out.toAiq1.create_data(i).src_vld
+      for (j <- 0 to 1) {//////aiq1 src_info(j) only limit to 0,1
+        cbundle.srcVec(j).preg := isstage.io.out.toAiq1.create_data(i).src_info(j).src_data.preg
+        cbundle.srcVec(j).wb := isstage.io.out.toAiq1.create_data(i).src_info(j).src_data.wb
+        cbundle.srcVec(j).ready := isstage.io.out.toAiq1.create_data(i).src_info(j).src_data.rdy
+        cbundle.srcVec(j).lsuMatch := isstage.io.out.toAiq1.create_data(i).src_info(j).lsu_match
+      }
+      cbundle.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+      cbundle.vl := isstage.io.out.toAiq1.create_data(i).VL
+      cbundle.vlmul := isstage.io.out.toAiq1.create_data(i).VLMUL
+      cbundle.vsew := isstage.io.out.toAiq1.create_data(i).VSEW
+      cbundle.inst := isstage.io.out.toAiq1.create_data(i).OPCODE //todo: check it
+    //todo: find isstage.io.out.toAiq0.create_data(i).LCH_RDY_AIQ0... to where
+  } //:= isstage.io.out.toAiq0.create_data //////todo: make it same
+  //todo: find isstage.io.out.toAiq0.bypass_data.LCH_RDY_AIQ0... to where
+  aiq1.io.in.data.bypassData.inst := isstage.io.out.toAiq1.bypass_data.OPCODE//isstage.io.out.toAiq0.bypass_data //////todo: make it same
+  aiq1.io.in.data.bypassData.div := DontCare //////not use
+  aiq1.io.in.data.bypassData.iid := isstage.io.out.toAiq1.bypass_data.IID
+  aiq1.io.in.data.bypassData.aluShort := isstage.io.out.toAiq1.bypass_data.ALU_SHORT
+  aiq1.io.in.data.bypassData.dstPreg := isstage.io.out.toAiq1.bypass_data.DST_PREG
+  aiq1.io.in.data.bypassData.dstValid := isstage.io.out.toAiq1.bypass_data.DST_VLD
+  aiq1.io.in.data.bypassData.dstVreg := isstage.io.out.toAiq1.bypass_data.DST_VREG
+  aiq1.io.in.data.bypassData.dstVValid := isstage.io.out.toAiq1.bypass_data.DSTV_VLD
+  aiq1.io.in.data.bypassData.exceptVec.valid := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.exceptVec.bits := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.highHwExcept := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.launchPreg := isstage.io.out.toAiq1.bypass_data.LCH_PREG
+  aiq1.io.in.data.bypassData.mtvr := isstage.io.out.toAiq1.bypass_data.MTVR
+  aiq1.io.in.data.bypassData.pcFifo := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.pid := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.special := DontCare //////todo: check it
+  aiq1.io.in.data.bypassData.srcValid := isstage.io.out.toAiq1.bypass_data.src_vld
+  for (j <- 0 to 1) {//////aiq1 src_info(j) only limit to 0,1
+    aiq1.io.in.data.bypassData.srcVec(j).preg := isstage.io.out.toAiq1.bypass_data.src_info(j).src_data.preg
+    aiq1.io.in.data.bypassData.srcVec(j).wb := isstage.io.out.toAiq1.bypass_data.src_info(j).src_data.wb
+    aiq1.io.in.data.bypassData.srcVec(j).ready := isstage.io.out.toAiq1.bypass_data.src_info(j).src_data.rdy
+    aiq1.io.in.data.bypassData.srcVec(j).lsuMatch := isstage.io.out.toAiq1.bypass_data.src_info(j).lsu_match
+  }
+  aiq1.io.in.data.bypassData.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+  aiq1.io.in.data.bypassData.vl := isstage.io.out.toAiq1.bypass_data.VL
+  aiq1.io.in.data.bypassData.vlmul := isstage.io.out.toAiq1.bypass_data.VLMUL
+  aiq1.io.in.data.bypassData.vsew := isstage.io.out.toAiq1.bypass_data.VSEW
+  aiq1.io.in.data.createDiv := isstage.io.out.toAiq1.create_alu
+  aiq1.io.in.data.srcReadyForBypass := isstage.io.out.toAiq1.src_rdy_for_bypass
+  aiq1.io.in.data.rfReadyClr := rfstage.io.data.out.toAiq1.readyClr.asTypeOf(aiq1.io.in.data.rfReadyClr)
+  aiq1.io.in.data.rfLaunchEntry := rfstage.io.data.out.toAiq1.launchEntryOH.asTypeOf(aiq1.io.in.data.rfLaunchEntry)
+  aiq1.io.in.data.dispatchInstSrcPregVec := isstage.io.out.toAiq.inst_src_preg
+  aiq1.io.in.data.sdiqCreateSrcSelVec := isstage.io.out.toAiq.sdiq_create_src_sel
+  aiq1.io.in.fromLsu := io.in.fromLSU.IQfromLSU //////same with aiq0
+  aiq1.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
+  aiq1.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
+  aiq1.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
+  aiq1.io.in.fromIu := DontCare //////not use
+  aiq1.io.in.aiqEntryCreateVec := DontCare //////todo: add aiq1
+  aiq1.io.in.biqEntryCreateVec := biq.io.out.entryEnqOHVec
+  aiq1.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
+  aiq1.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
+  aiq1.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  aiq1.io.in.fuResultDstPreg := DontCare ////todo: complete rf: rf.io.data.out.dp_xx_rf_pipe0_dst_preg_dup0
+  aiq1.io.in.wbPreg := io.in.IQfromIUsub.wbPreg//iu_idu_ex2_pipe0_wb_preg_vld_dupx
+  aiq1.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg //////same with aiq0
 
   // &ConnRule(s/_dupx/_dup4/); @58
   // &Instance("ct_idu_is_biq", "x_ct_idu_is_biq"); @59

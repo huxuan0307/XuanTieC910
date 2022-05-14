@@ -15,7 +15,7 @@ class IBStage extends Module with Config {
 
   val ubtb_ras_pc_hit = io.ras_target_pc === io.ip2ib.bits.ubtb_resp.target_pc
   val ubtb_ras_mistaken = io.ip2ib.bits.ubtb_valid && io.ip2ib.bits.ubtb_resp.is_ret && !io.ip2ib.bits.pret   //is not return,but ubtb predict it is return,redirect in ip stage
-  val ubtb_ras_miss     = !io.ip2ib.bits.ubtb_valid || !io.ip2ib.bits.ubtb_resp.is_ret && io.ip2ib.bits.pret
+  val ubtb_ras_miss     = (!io.ip2ib.bits.ubtb_valid || !io.ip2ib.bits.ubtb_resp.is_ret) && io.ip2ib.bits.pret
   val ubtb_ras_mispred  = io.ip2ib.bits.ubtb_valid && io.ip2ib.bits.ubtb_resp.is_ret && io.ip2ib.bits.pret && !ubtb_ras_pc_hit //is return,ubtb is return
   val ubtb_ras_hit      = io.ip2ib.bits.ubtb_valid && io.ip2ib.bits.ubtb_resp.is_ret && io.ip2ib.bits.pret && ubtb_ras_pc_hit
 

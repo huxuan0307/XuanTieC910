@@ -181,11 +181,18 @@ class IPStage extends Module with Config {
   ))
 
   val br_offset = WireInit(0.U(21.W))
-  for(i <- 0 until 8){
-    when(br_position === i.U) {
-      br_offset := ipdecode.io.decode_info.offset(i)
-    }
-  }
+
+  br_offset := PriorityMux(Seq(
+    br_mask(0) -> Mux(h0_br,ipdecode.io.decode_info.offset(0),ipdecode.io.decode_info.offset(1)),
+    br_mask(1) -> ipdecode.io.decode_info.offset(2),
+    br_mask(2) -> ipdecode.io.decode_info.offset(3),
+    br_mask(3) -> ipdecode.io.decode_info.offset(4),
+    br_mask(4) -> ipdecode.io.decode_info.offset(5),
+    br_mask(5) -> ipdecode.io.decode_info.offset(6),
+    br_mask(6) -> ipdecode.io.decode_info.offset(7),
+    br_mask(7) -> ipdecode.io.decode_info.offset(8)
+  ))
+
 //  // offset
 //  val branch_mask = Cat(br_mask.asUInt(),br_mask(0).asUInt()) & chgflw_vld_mask
 //  val branch_base = PriorityMux(Seq(

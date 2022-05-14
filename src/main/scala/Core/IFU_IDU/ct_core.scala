@@ -46,7 +46,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.bpu_update.bht_update := DontCare //from BJU??
   ifu.io.ifuForward := DontCare // from BJU??
   ifu.io.bru_redirect.valid := false.B //from BJU
-  ifu.io.bru_redirect.bits := DontCare
+  ifu.io.bru_redirect.bits := PcStart.U
   ifu.io.tlb.tlb_miss := false.B
   ifu.io.tlb.paddr := ifu.io.tlb.vaddr // todo: add TLB, Now, suppose that paddr===vaddr
   //ifu.io.instVld := Seq(true.B,true.B,true.B).map(_) //todo: ???
@@ -95,12 +95,21 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.aiq0fromIU.div := DontCare //////todo: iu add signal
   idu.io.in.biqfromIU.div := DontCare //////todo: iu add signal
   idu.io.in.RTfromIU := DontCare //////todo: iu add signal
+  idu.io.in.RTfromIU.ex2_pipe0_wb_preg_dupx := iu.io.iuToRtu.rbusRslt(0).wbPreg //////todo: check it, and compare with PRFfromIU
+  idu.io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.RTfromIU.ex2_pipe1_wb_preg_dupx := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.IDfromHad := DontCare
   idu.io.in.IDfromFence := DontCare
   idu.io.in.IRfromCp0Sub := DontCare
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
-  idu.io.in.IQfromIUsub.wbPreg := DontCare //////todo: find out
+  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg//DontCare //////todo: check it, and compare with PRFfromIU
+  idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.IQfromIUsub.wbPreg(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
+  idu.io.in.IQfromIUsub.wbPreg(2).valid := DontCare //////todo: check it, from lsu?
   idu.io.in.RFfromHad := DontCare
   idu.io.in.RFfromVFPU := DontCare
   idu.io.in.RFfromCp0sub := DontCare
@@ -167,7 +176,7 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe0.src1 := idu.io.out.RFData.src1
   iu.io.pipe0.src2 := idu.io.out.RFData.src2
   iu.io.pipe0.src1NoImm := idu.io.out.RFData.src1NoImm
-  iu.io.pipe0.func := DontCare //////todo: find it
+  iu.io.pipe0.func := idu.io.out.RFData.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
   iu.io.pipe1 := DontCare //////todo: from rf?
   iu.io.pipe2 := DontCare //////todo: from rf
   iu.io.cp0In := DontCare
@@ -217,6 +226,7 @@ class SimTop extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.robCreate(i).data.ctrl.cmpltValid := idu.io.out.IStoRTU.rob_create(i).data.CMPLT //////todo: check it
     rtu.io.in.fromIdu.robCreate(i).dpEn := idu.io.out.IStoRTU.rob_create(i).dp_en
     rtu.io.in.fromIdu.robCreate(i).gateClkEn := idu.io.out.IStoRTU.rob_create(i).gateclk_en
+    rtu.io.in.fromIdu.robCreate(i).data.data.instr := idu.io.out.IStoRTU.rob_create(i).data.INSTR
   }
   for(i <- 0 to (NumCreateEntry-1)) {
     //////todo:check it

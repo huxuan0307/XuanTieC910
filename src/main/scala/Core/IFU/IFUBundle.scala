@@ -29,6 +29,7 @@ class PCGenIO extends CoreBundle{
   val redirect = Vec(4,Flipped(Valid(UInt(VAddrBits.W))))
   val pc = Output(UInt(VAddrBits.W))
   val continue = Input(Bool())
+  val IbufAllowEnq = Input(Bool())
   val had_ifu_pc = Input(UInt(VAddrBits.W))
   val had_ifu_pcload = Input(Bool())
   val vector_pcgen_pc = Input(UInt(VAddrBits.W))

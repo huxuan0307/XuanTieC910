@@ -9,6 +9,7 @@ import Core.ExceptionConfig._
 import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
 import Utils.Bits.RingShiftLeft
+import difftest.DifftestInstrCommit
 
 
 class RobInput extends Bundle {
@@ -811,4 +812,5 @@ class Rob extends Module {
   io.out.toIu               := retireOut.toIu
   io.out.toPad              := retireOut.toPad
   io.out.yyXx               := retireOut.yyXx
+
 }

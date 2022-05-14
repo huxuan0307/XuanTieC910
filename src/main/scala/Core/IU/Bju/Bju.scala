@@ -130,8 +130,12 @@ class Bju extends Module{
   val ex1_pipe_en          = io.in.sel.gateSel // in XT910 is gatesel, should add this pipe enable?
   val ex1_pipe_inst_vld    = RegInit(false.B)
   ex1_pipe_inst_vld        := Mux(flush, false.B, io.in.sel.sel)
-  val ex1_pipe_rf          = RegEnable(io.in.rfPipe2, ex1_pipe_en)
-  val ex1_pipe_pcfifo_read = RegEnable(pc_fifo.io.bjuRw.readPcfifo,ex1_pipe_en)
+  val ex1_pipe_rf          = RegInit(0.U.asTypeOf(io.in.rfPipe2))
+  val ex1_pipe_pcfifo_read = RegInit(0.U.asTypeOf(pc_fifo.io.bjuRw.readPcfifo))
+  when(ex1_pipe_en){
+    ex1_pipe_rf := io.in.rfPipe2
+    ex1_pipe_pcfifo_read := pc_fifo.io.bjuRw.readPcfifo
+  }
   val (src1, src2, op) = (ex1_pipe_rf.src0, ex1_pipe_rf.src1, ex1_pipe_rf.func)
   //----------------------------------------------------------
   //               Branch direction determination
