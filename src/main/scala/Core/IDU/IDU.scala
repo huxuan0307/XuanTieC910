@@ -860,5 +860,5 @@ class IDU extends Module with Config {
   //////io.out.RFtoCp0 := rfstage.io.ctrl.out.toCp0
   //////io.out.RFtoHpcp := rfstage.io.ctrl.out.toHpcp
   io.out.RFCtrl := rfstage.io.ctrl.out
-  io.out.RFData := rfstage.io.data.out.toIu
+  io.out.RFData := rfstage.io.data.out.toIu0
 }
