@@ -249,7 +249,7 @@ class IDUOutput extends Bundle{
   //////val RFtoCp0 = new RFStageToCp0Bundle
   //////val RFtoHpcp = new RFStageToHpcpBundle
   val RFCtrl = new RFStageCtrlOutput
-  val RFData = (new RFStageDataOutput).toIu
+  val RFData = (new RFStageDataOutput).toIu0
   /**
   val RFtoIU = new RFStageToExuGateClkBundle
   val RFtoIU_pipe = new RFtoIU_pipeBundle
