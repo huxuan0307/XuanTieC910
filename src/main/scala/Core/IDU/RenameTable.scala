@@ -746,4 +746,4 @@ class RenameTable extends Module{
     io.out.instInfo(3).rel_preg := inst_dst_read_data(3).preg
   }
 
-}//01 02 03 12 13 23
+}
