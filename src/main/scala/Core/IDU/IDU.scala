@@ -249,7 +249,13 @@ class IDUOutput extends Bundle{
   //////val RFtoCp0 = new RFStageToCp0Bundle
   //////val RFtoHpcp = new RFStageToHpcpBundle
   val RFCtrl = new RFStageCtrlOutput
-  val RFData = (new RFStageDataOutput).toIu0
+  val RFData = new Bundle {
+    val toIu0 = (new RFStageDataOutput).toIu0
+    val toIu1 = (new RFStageDataOutput).toIu1
+    val toBju = (new RFStageDataOutput).toBju
+    val aluDstPregs = (new RFStageDataOutput).aluDstPregs //////todo: seem that same with toIux.dstPreg
+    val vfpuDstVregs = (new RFStageDataOutput).vfpuDstVregs
+  }
   /**
   val RFtoIU = new RFStageToExuGateClkBundle
   val RFtoIU_pipe = new RFtoIU_pipeBundle
@@ -526,22 +532,6 @@ class IDU extends Module with Config {
       cbundle.rfPopDlbValid := rfstage.io.ctrl.out.toIq(i).popDlbValid
       cbundle.rfPopValid := rfstage.io.ctrl.out.toIq(i).popValid
   }
-  //  aiq0.io.in.ctrl.createVec(0).createEn(0) := isstage.io.out.iqCreateEn(0)(0).en //////todo: check it
-  //  aiq0.io.in.ctrl.createVec(0).createEn(1) := isstage.io.out.iqCreateEn(0)(1).en
-  //  aiq0.io.in.ctrl.createVec(0).createDpEn(0) := isstage.io.out.iqCreateEn(0)(0).dp_en
-  //  aiq0.io.in.ctrl.createVec(0).createDpEn(1) := isstage.io.out.iqCreateEn(0)(1).dp_en
-  //  aiq0.io.in.ctrl.createVec(0).createGateClkEn(0) := isstage.io.out.iqCreateEn(0)(0).gateclk_en
-  //  aiq0.io.in.ctrl.createVec(0).createGateClkEn(1) := isstage.io.out.iqCreateEn(0)(1).gateclk_en
-  //  aiq0.io.in.ctrl.createVec(0).createSel := isstage.io.out.iqCreateEn(0)(0).sel //////todo: is something wrong???
-  //  aiq0.io.in.ctrl.createVec(0).stall := rfstage.io.ctrl.out.toIq(0).stall
-  //  aiq0.io.in.ctrl.createVec(0).rfLaunchFailValid := rfstage.io.ctrl.out.toIq(0).launchFailValid
-  //  aiq0.io.in.ctrl.createVec(0).rfAluRegFwdValid := DontCare //////todo: complete rf
-  //  aiq0.io.in.ctrl.createVec(0).rfPopDlbValid := rfstage.io.ctrl.out.toIq(0).popDlbValid
-  //  aiq0.io.in.ctrl.createVec(0).rfPopValid := rfstage.io.ctrl.out.toIq(0).popValid
-  //  aiq0.io.in.ctrl.createVec(1) := DontCare
-  //  aiq0.io.in.ctrl.createVec(2) := DontCare
-  //  aiq0.io.in.ctrl.createVec(3) := DontCare
-  //  aiq0.io.in.ctrl.createVec(4) := DontCare
   aiq0.io.in.ctrl.xxRfPipe0PregLaunchValidDupx := DontCare//////todo: complete rf
   aiq0.io.in.ctrl.xxRfPipe1PregLaunchValidDupx := DontCare//////todo: complete rf
   aiq0.io.in.data.createData.zipWithIndex.foreach {
@@ -784,7 +774,8 @@ class IDU extends Module with Config {
   rfstage.io.ctrl.in.fromCp0.lsuFenceRwBroadDis := io.in.RFfromCp0sub.lsuFenceRwBroadDis
   rfstage.io.ctrl.in.issueEnVec(0).gateClkIssueEn := aiq0.io.out.xxGateClkIssueEn
   rfstage.io.ctrl.in.issueEnVec(0).issueEn := aiq0.io.out.xxIssueEn
-  rfstage.io.ctrl.in.issueEnVec(1) := DontCare //////todo: add aiq1
+  rfstage.io.ctrl.in.issueEnVec(1).gateClkIssueEn := aiq1.io.out.xxGateClkIssueEn
+  rfstage.io.ctrl.in.issueEnVec(1).issueEn := aiq1.io.out.xxIssueEn
   rfstage.io.ctrl.in.issueEnVec(2).gateClkIssueEn := biq.io.out.xxGateClkIssueEn
   rfstage.io.ctrl.in.issueEnVec(2).issueEn := biq.io.out.xxIssueEn
   rfstage.io.ctrl.in.issueEnVec(3).gateClkIssueEn := lsiq.io.out.gateClkIssueEn
@@ -801,7 +792,10 @@ class IDU extends Module with Config {
   rfstage.io.data.in.aiq0.issueGateClkEn := aiq0.io.out.xxGateClkIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueReadData := aiq0.io.out.data.issueData
   rfstage.io.data.in.aiq0.issueEntryOH := aiq0.io.out.data.issueEntryVec.asUInt//.asTypeOf(rfstage.io.data.in.aiq0.issueEntryOH)
-  rfstage.io.data.in.aiq1 := DontCare
+  rfstage.io.data.in.aiq1.issueEn := aiq1.io.out.xxIssueEn
+  rfstage.io.data.in.aiq1.issueGateClkEn := aiq1.io.out.xxGateClkIssueEn
+  rfstage.io.data.in.aiq1.issueReadData := aiq1.io.out.data.issueData
+  rfstage.io.data.in.aiq1.issueEntryOH := aiq1.io.out.data.issueEntryVec.asUInt
   rfstage.io.data.in.biq.issueEn := biq.io.out.xxIssueEn
   rfstage.io.data.in.biq.issueGateClkEn := biq.io.out.xxGateClkIssueEn
   rfstage.io.data.in.biq.issueReadData := biq.io.out.data.issueReadData
@@ -860,5 +854,9 @@ class IDU extends Module with Config {
   //////io.out.RFtoCp0 := rfstage.io.ctrl.out.toCp0
   //////io.out.RFtoHpcp := rfstage.io.ctrl.out.toHpcp
   io.out.RFCtrl := rfstage.io.ctrl.out
-  io.out.RFData := rfstage.io.data.out.toIu0
+  io.out.RFData.toIu0 := rfstage.io.data.out.toIu0
+  io.out.RFData.toIu1 := rfstage.io.data.out.toIu1
+  io.out.RFData.toBju := rfstage.io.data.out.toBju
+  io.out.RFData.aluDstPregs := rfstage.io.data.out.aluDstPregs
+  io.out.RFData.vfpuDstVregs := rfstage.io.data.out.vfpuDstVregs
 }
