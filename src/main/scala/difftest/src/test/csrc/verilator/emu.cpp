@@ -18,19 +18,32 @@
 #include "device.h"
 #include "sdcard.h"
 #include "difftest.h"
-#include "nemuproxy.h"
+#include "runahead.h"
+#include "refproxy.h"
 #include "goldenmem.h"
-#include "device.h"
+#include "flash.h"
+#include "runahead.h"
 #include <getopt.h>
 #include <signal.h>
-#include <unistd.h>
+#ifdef  DEBUG_TILELINK
+#include "tllogger.h"
+#endif
 #include "ram.h"
 #include "zlib.h"
 #include "compress.h"
-#include <list>
+#include "lightsss.h"
 #include "remote_bitbang.h"
 
 extern remote_bitbang_t * jtag;
+
+
+static inline long long int atoll_strict(const char *str, const char *arg) {
+  if (strspn(str, " +-0123456789") != strlen(str)) {
+    printf("[ERROR] --%s=NUM only accept numeric argument\n", arg);
+    exit(EINVAL);
+  }
+  return atoll(str);
+}
 
 static inline void print_help(const char *file) {
   printf("Usage: %s [OPTION...]\n", file);
@@ -43,11 +56,20 @@ static inline void print_help(const char *file) {
   printf("  -i, --image=FILE           run with this image file\n");
   printf("  -b, --log-begin=NUM        display log from NUM th cycle\n");
   printf("  -e, --log-end=NUM          stop display log at NUM th cycle\n");
+#ifdef DEBUG_REFILL
+  printf("  -T, --track-instr=ADDR     track refill action concerning ADDR\n");
+#endif
   printf("      --force-dump-result    force dump performance counter result in the end\n");
   printf("      --load-snapshot=PATH   load snapshot from PATH\n");
   printf("      --no-snapshot          disable saving snapshots\n");
   printf("      --dump-wave            dump waveform when log is enabled\n");
+#ifdef DEBUG_TILELINK
+  printf("      --dump-tl              dump tilelink transactions\n");
+  printf("      --flash                the flash bin file for simulation\n");
+#endif
+  printf("      --sim-run-ahead        let a fork of simulator run ahead of commit for perf analysis\n");
   printf("      --wave-path=FILE       dump waveform to a specified PATH\n");
+  printf("      --ram-size=SIZE        simulation memory size, for example 8GB / 128MB\n");
   printf("      --enable-fork          enable folking child processes to debug\n");
   printf("      --no-diff              disable differential testing\n");
   printf("      --diff=PATH            set the path of REF for differential testing\n");
@@ -70,21 +92,30 @@ inline EmuArgs parse_args(int argc, const char *argv[]) {
     { "enable-fork",       0, NULL,  0  },
     { "enable-jtag",       0, NULL,  0  },
     { "wave-path",         1, NULL,  0  },
+    { "ram-size",          1, NULL,  0  },
+    { "sim-run-ahead",     0, NULL,  0  },
+#ifdef DEBUG_TILELINK
+    { "dump-tl",           0, NULL,  0  },
+#endif
     { "seed",              1, NULL, 's' },
     { "max-cycles",        1, NULL, 'C' },
     { "max-instr",         1, NULL, 'I' },
+#ifdef DEBUG_REFILL
+    { "track-instr",       1, NULL, 'T' },
+#endif
     { "warmup-instr",      1, NULL, 'W' },
     { "stat-cycles",       1, NULL, 'D' },
     { "image",             1, NULL, 'i' },
     { "log-begin",         1, NULL, 'b' },
     { "log-end",           1, NULL, 'e' },
+    { "flash",             1, NULL, 'F' },
     { "help",              0, NULL, 'h' },
     { 0,                   0, NULL,  0  }
   };
 
   int o;
   while ( (o = getopt_long(argc, const_cast<char *const*>(argv),
-          "-s:C:I:W:hi:m:b:e:", long_options, &long_index)) != -1) {
+          "-s:C:I:T:W:hi:m:b:e:F:", long_options, &long_index)) != -1) {
     switch (o) {
       case 0:
         switch (long_index) {
@@ -97,6 +128,21 @@ inline EmuArgs parse_args(int argc, const char *argv[]) {
           case 6: args.enable_fork = true; continue;
           case 7: args.enable_jtag = true; continue;
           case 8: args.wave_path = optarg; continue;
+          case 9: args.ram_size = optarg; continue;
+          case 10:
+#ifdef ENABLE_RUNHEAD
+            args.enable_runahead = true;
+#else
+            printf("[WARN] runahead is not enabled at compile time, ignore --sim-run-ahead\n");
+#endif
+            continue;
+          case 11:
+#ifdef DEBUG_TILELINK
+            args.dump_tl = true;
+#else
+            printf("[WARN] debug tilelink is not enabled at compile time, ignore --dump-tl\n");
+#endif
+            continue;
         }
         // fall through
       default:
@@ -104,18 +150,39 @@ inline EmuArgs parse_args(int argc, const char *argv[]) {
         exit(0);
       case 's':
         if(std::string(optarg) != "NO_SEED") {
-          args.seed = atoll(optarg);
+          args.seed = atoll_strict(optarg, "seed");
           printf("Using seed = %d\n", args.seed);
         }
         break;
-      case 'C': args.max_cycles = atoll(optarg);  break;
-      case 'I': args.max_instr = atoll(optarg);  break;
-      case 'W': args.warmup_instr = atoll(optarg);  break;
-      case 'D': args.stat_cycles = atoll(optarg);  break;
+      case 'C': args.max_cycles = atoll_strict(optarg, "max-cycles");  break;
+      case 'I': args.max_instr = atoll_strict(optarg, "max-instr");  break;
+#ifdef DEBUG_REFILL
+      case 'T':
+        args.track_instr = std::strtoll(optarg, NULL, 0);
+        printf("Tracking addr 0x%lx\n", args.track_instr);
+        if(args.track_instr == 0) {
+          printf("Invalid track addr\n");
+          exit(1);
+        }
+        break;
+#endif
+      case 'W': args.warmup_instr = atoll_strict(optarg, "warmup-instr");  break;
+      case 'D': args.stat_cycles = atoll_strict(optarg, "stat-cycles");  break;
       case 'i': args.image = optarg; break;
-      case 'b': args.log_begin = atoll(optarg);  break;
-      case 'e': args.log_end = atoll(optarg); break;
+      case 'b': args.log_begin = atoll_strict(optarg, "log-begin");  break;
+      case 'e': args.log_end = atoll_strict(optarg, "log-end"); break;
+      case 'F': args.flash_bin = optarg; break;
     }
+  }
+
+  if(args.image == NULL) {
+    print_help(argv[0]);
+    printf("Hint: --image=IMAGE_FILE must be given\n");
+    exit(0);
+  }
+
+  if(args.ram_size){
+    parse_and_update_ramsize(args.ram_size);
   }
 
   Verilated::commandArgs(argc, argv); // Prepare extra args for TLMonitor
@@ -136,14 +203,23 @@ Emulator::Emulator(int argc, const char *argv[]):
   assert_init();
 
   // init remote-bitbang
-  if (args.enable_jtag) { 
+  enable_simjtag = args.enable_jtag;
+  if (args.enable_jtag) {
     jtag = new remote_bitbang_t(23334);
   }
+  // init flash
+  init_flash(args.flash_bin);
+
   // init core
   reset_ncycles(10);
 
   // init ram
   init_ram(args.image);
+
+#ifdef DEBUG_TILELINK
+  // init logger
+  init_logger(args.dump_tl);
+#endif
 
 #if VM_TRACE == 1
   enable_waveform = args.enable_waveform && !args.enable_fork;
@@ -187,6 +263,13 @@ Emulator::~Emulator() {
     printf("Please remove unused snapshots manually\n");
   }
 #endif
+
+#ifdef DEBUG_TILELINK
+  if(args.dump_tl){
+    time_t now = time(NULL);
+    save_db(logdb_filename(now));
+  }
+#endif
 }
 
 inline void Emulator::reset_ncycles(size_t cycles) {
@@ -207,13 +290,10 @@ inline void Emulator::single_cycle() {
 #ifdef WITH_DRAMSIM3
   axi_channel axi;
   axi_copy_from_dut_ptr(dut_ptr, axi);
-  axi.aw.addr -= 0x80000000UL;
-  axi.ar.addr -= 0x80000000UL;
+  axi.aw.addr -= PMEM_BASE;
+  axi.ar.addr -= PMEM_BASE;
   dramsim3_helper_rising(axi);
 #endif
-
-  dut_ptr->clock = 1;
-  dut_ptr->eval();
 
 #if VM_TRACE == 1
   if (enable_waveform) {
@@ -222,14 +302,17 @@ inline void Emulator::single_cycle() {
     uint64_t begin = dut_ptr->io_logCtrl_log_begin;
     uint64_t end   = dut_ptr->io_logCtrl_log_end;
     bool in_range  = (begin <= cycle) && (cycle <= end);
-    if (in_range) { tfp->dump(cycle); }
+    if (in_range || force_dump_wave) { tfp->dump(cycle); }
   }
 #endif
 
+  dut_ptr->clock = 1;
+  dut_ptr->eval();
+
 #ifdef WITH_DRAMSIM3
   axi_copy_from_dut_ptr(dut_ptr, axi);
-  axi.aw.addr -= 0x80000000UL;
-  axi.ar.addr -= 0x80000000UL;
+  axi.aw.addr -= PMEM_BASE;
+  axi.ar.addr -= PMEM_BASE;
   dramsim3_helper_falling(axi);
   axi_set_dut_ptr(dut_ptr, axi);
 #endif
@@ -251,8 +334,16 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
   init_device();
   if (args.enable_diff) {
     init_goldenmem();
-    init_nemuproxy();
+    size_t ref_ramsize = args.ram_size ? EMU_RAM_SIZE : 0;
+    init_nemuproxy(ref_ramsize);
   }
+  if(args.enable_runahead){
+    runahead_init();
+  }
+
+#ifdef DEBUG_REFILL
+  difftest[0]->save_track_instr(args.track_instr);
+#endif
 
   uint32_t lasttime_poll = 0;
   uint32_t lasttime_snapshot = 0;
@@ -267,31 +358,12 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
     lasttime_poll = t;
   }
 
-  if(args.enable_fork){
-#ifndef EMU_THREAD
-      printf("[ERROR] please enable --threads option in verilator...(You may forget EMU_THREADS when compiling.)\n");
-      FAIT_EXIT
-#endif
-
-#ifndef VM_TRACE
-      printf("[ERROR] please enable --trace option in verilator...(You may forget EMU_TRACE when compiling.)\n");
-      FAIT_EXIT
-#endif
-
-#if EMU_THREAD <= 1
-      printf("[ERROR] please use more than 1 threads in EMU_THREADS option\n");
-      FAIT_EXIT
-#endif 
-    printf("[INFO] enable fork debugging...\n");
+  //check compiling options for lightSSS
+  if (args.enable_fork) {
+    // Currently, runahead does not work well with fork based snapshot
+    assert(!args.enable_runahead);
+    FORK_PRINTF("enable fork debugging...\n")
   }
-
-  pid_t pid =-1;
-  pid_t originPID = getpid();
-  int status = -1;
-  int slotCnt = 0;
-  int waitProcess = 0;
-  uint32_t timer = 0;
-  std::list<pid_t> pidSlot = {};
 
 #if VM_COVERAGE == 1
   // we dump coverage into files at the end
@@ -301,10 +373,12 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
 #endif
 
   while (!Verilated::gotFinish() && trapCode == STATE_RUNNING) {
-    // cycle limitation
-    if(waitProcess && cycles != 0 && cycles == forkshm.info->endCycles){
+    if (is_fork_child() && cycles != 0 && cycles == lightsss.get_end_cycles()) {
+      FORK_PRINTF("checkpoint has reached the main process abort point: %lu\n", cycles)
+    }
+    if (is_fork_child() && cycles != 0 && cycles == lightsss.get_end_cycles() + STEP_FORWARD_CYCLES) {
       trapCode = STATE_ABORT;
-      break;    
+      break;
     }
 
     if (!max_cycle) {
@@ -329,6 +403,7 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
     if (signal_num != 0) {
       trapCode = STATE_SIG;
     }
+
     if (trapCode != STATE_RUNNING) {
       break;
     }
@@ -352,13 +427,20 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
     dut_ptr->io_perfInfo_clean = 0;
     dut_ptr->io_perfInfo_dump = 0;
 
-    if (args.enable_diff && !waitProcess) {
-      trapCode = difftest_state();
-      if (trapCode != STATE_RUNNING) break;
+    trapCode = difftest_state();
+    if (trapCode != STATE_RUNNING) {
+      break;
+    } 
+
+    if (args.enable_diff) {
       if (difftest_step()) {
         trapCode = STATE_ABORT;
         break;
       }
+    }
+
+    if (args.enable_runahead) {
+      runahead_step();
     }
 
 #ifdef VM_SAVABLE
@@ -377,49 +459,23 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
     }
 #endif
 
-    if(args.enable_fork){
-      timer = uptime();
+    if (args.enable_fork) {
+      static bool have_initial_fork = false;
+      uint32_t timer = uptime();
       //check if it's time to fork a checkpoint process
-      if (timer - lasttime_snapshot > 1000 * FORK_INTERVAL && !waitProcess) {   // time out need to fork
+      if (((timer - lasttime_snapshot > 1000 * FORK_INTERVAL) || !have_initial_fork) && !is_fork_child()) {
+        have_initial_fork = true;
         lasttime_snapshot = timer;
-        //kill the oldest blocked checkpoint process
-        if (slotCnt == SLOT_SIZE) {   
-          pid_t temp = pidSlot.back();
-          pidSlot.pop_back();
-          kill(temp, SIGKILL);
-          slotCnt--;
-        }
-        //fork a new checkpoint process and block it 
-        if ((pid = fork()) < 0) {
-          eprintf("[%d]Error: could not fork process!\n",getpid());
-          return -1;
-        } else if (pid != 0) {      
-          slotCnt++;
-          pidSlot.insert(pidSlot.begin(), pid);
-        } else {     
-          waitProcess = 1;
-          uint64_t startCycle = cycles;
-          forkshm.shwait();
-          //checkpoint process wakes up
-#ifdef EMU_THREAD 
-          dut_ptr->__Vm_threadPoolp = new VlThreadPool(dut_ptr->contextp(), EMU_THREAD - 1, 0);
-#endif
-          //start wave dumping
-          enable_waveform = true;
-#if VM_TRACE == 1
-          Verilated::traceEverOn(true);	
-          tfp = new VerilatedVcdC;
-          dut_ptr->trace(tfp, 99);
-          time_t now = time(NULL);
-          tfp->open(cycle_wavefile(startCycle, now));	
-#endif
+        switch (lightsss.do_fork()) {
+          case FORK_ERROR: return -1;
+          case WAIT_EXIT: exit(0);
+          case WAIT_LAST: fork_child_init();
+          default: break;
         }
       }
     }
-
-
-}
-
+  }
+  // Simulation ends here, do clean up & display jobs
 #if VM_TRACE == 1
   if (enable_waveform) tfp->close();
 #endif
@@ -428,19 +484,22 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
   save_coverage(coverage_start_time);
 #endif
 
-  if(args.enable_fork){
-    if(waitProcess) {
-      printf("[%d] checkpoint process: dump wave complete, exit...\n",getpid());
-      return cycles;
+  if(args.enable_runahead){
+    runahead_cleanup(); // remove all checkpoints
+  }
+
+  if (args.enable_fork) {
+    bool need_wakeup = trapCode != STATE_GOODTRAP && trapCode != STATE_LIMIT_EXCEEDED && trapCode != STATE_SIG;
+    if (need_wakeup) {
+      lightsss.wakeup_child(cycles);
     }
-    else if(trapCode != STATE_GOODTRAP){
-      forkshm.info->flag = true;
-      forkshm.info->notgood = true;
-      forkshm.info->endCycles = cycles;
-      waitpid(pidSlot.back(),&status,0);
-      display_trapinfo();
-      return cycles;
-    } 
+    printf("*************** ");
+    printf("%s", is_fork_child() ? "CHECHPOINT" : "MAIN");
+    printf(" INFO START (PID %d) ***************\n", getpid());
+    //when reach maximum instruction, clear the checkpoint process
+    if (!is_fork_child()) {
+      lightsss.do_clear();
+    }
   }
 
   display_trapinfo();
@@ -448,6 +507,23 @@ uint64_t Emulator::execute(uint64_t max_cycle, uint64_t max_instr) {
   return cycles;
 }
 
+void parse_and_update_ramsize(const char* arg_ramsize_str) {
+  unsigned long ram_size_value = 0;
+  char ram_size_unit[64];
+  sscanf(arg_ramsize_str, "%ld%s", &ram_size_value, (char*) &ram_size_unit);
+  assert(ram_size_value > 0);
+  
+  if(!strcmp(ram_size_unit, "GB") || !strcmp(ram_size_unit, "gb")){
+    EMU_RAM_SIZE = ram_size_value * 1024 * 1024 * 1024;
+    return;
+  }
+  if(!strcmp(ram_size_unit, "MB") || !strcmp(ram_size_unit, "mb")){
+    EMU_RAM_SIZE = ram_size_value * 1024 * 1024;
+    return;
+  }
+  printf("Invalid ram size %s\n", ram_size_unit);
+  assert(0);
+}
 
 inline char* Emulator::timestamp_filename(time_t t, char *buf) {
   char buf_time[64];
@@ -467,6 +543,12 @@ inline char* Emulator::snapshot_filename(time_t t) {
 }
 #endif
 
+inline char* Emulator::logdb_filename(time_t t) {
+  static char buf[1024];
+  char *p = timestamp_filename(t, buf);
+  strcpy(p, ".db");
+  return buf;
+}
 
 inline char* Emulator::waveform_filename(time_t t) {
   static char buf[1024];
@@ -484,7 +566,7 @@ inline char* Emulator::cycle_wavefile(uint64_t cycles, time_t t) {
   assert(noop_home != NULL);
   int len = snprintf(buf, 1024, "%s/build/%s_%ld", noop_home, buf_time, cycles);
   strcpy(buf + len, ".vcd");
-  printf("dump wave to %s...\n", buf);
+  FORK_PRINTF("dump wave to %s...\n", buf);
   return buf;
 }
 
@@ -543,52 +625,14 @@ void Emulator::display_trapinfo() {
     eprintf(ANSI_COLOR_MAGENTA "total guest instructions = %'" PRIu64 "\n" ANSI_COLOR_RESET, instrCnt);
     eprintf(ANSI_COLOR_MAGENTA "instrCnt = %'" PRIu64 ", cycleCnt = %'" PRIu64 ", IPC = %lf\n" ANSI_COLOR_RESET,
         instrCnt, cycleCnt, ipc);
+  #ifdef TRACE_INFLIGHT_MEM_INST
+    runahead[i]->memdep_watcher->print_pred_matrix();
+  #endif
+
   }
 
   if (trapCode != STATE_ABORT) {
     trigger_stat_dump();
-  }
-}
-
-ForkShareMemory::ForkShareMemory() {
-  if ((key_n = ftok(".", 's') < 0)) {
-    perror("Fail to ftok\n");
-    FAIT_EXIT
-  }
-  printf("key num:%d\n", key_n);
-
-  if ((shm_id = shmget(key_n, 1024, 0666 | IPC_CREAT))==-1) {
-    perror("shmget failed...\n");
-    FAIT_EXIT
-  }
-  printf("share memory id:%d\n", shm_id);
-
-  if ((info = (shinfo*)(shmat(shm_id, NULL, 0))) == NULL ) {
-    perror("shmat failed...\n");
-    FAIT_EXIT
-  }
-
-  info->flag      = false;
-  info->notgood   = false;           //STATE_RUNNING
-  info->endCycles = 0;
-}
-
-ForkShareMemory::~ForkShareMemory() {
-  if (shmdt(info) == -1) {
-    perror("detach error\n");
-  }
-  shmctl(shm_id, IPC_RMID, NULL);
-}
-
-void ForkShareMemory::shwait() {
-  while (true) {
-    if (info->flag ) {
-      if(info->notgood) break;
-      else exit(0);
-    }
-    else {
-      sleep(WAIT_INTERVAL);
-    }
   }
 }
 
@@ -617,7 +661,7 @@ void Emulator::snapshot_save(const char *filename) {
   stream.unbuf_write(ref_r, sizeof(ref_r));
 
   char *buf = (char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-  proxy->memcpy(0x80000000, buf, size, DIFFTEST_TO_DUT);
+  proxy->memcpy(PMEM_BASE, buf, size, DIFFTEST_TO_DUT);
   stream.unbuf_write(buf, size);
   munmap(buf, size);
 
@@ -661,7 +705,7 @@ void Emulator::snapshot_load(const char *filename) {
 
   char *buf = (char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
   stream.read(buf, size);
-  proxy->memcpy(0x80000000, buf, size, DIFFTEST_TO_REF);
+  proxy->memcpy(PMEM_BASE, buf, size, DIFFTEST_TO_REF);
   munmap(buf, size);
 
   struct SyncState sync_mastate;
@@ -674,6 +718,7 @@ void Emulator::snapshot_load(const char *filename) {
 
   long sdcard_offset = 0;
   stream.read(&sdcard_offset, sizeof(sdcard_offset));
+
   if(fp)
     fseek(fp, sdcard_offset, SEEK_SET);
 
@@ -681,3 +726,33 @@ void Emulator::snapshot_load(const char *filename) {
   diff->has_commit = 1;
 }
 #endif
+
+void Emulator::fork_child_init() {
+#if EMU_THREAD > 1
+#ifdef VERILATOR_4_210
+  dut_ptr->vlSymsp->__Vm_threadPoolp = new VlThreadPool(dut_ptr->contextp(), EMU_THREAD - 1, 0);
+#else
+  dut_ptr->__Vm_threadPoolp = new VlThreadPool(dut_ptr->contextp(), EMU_THREAD - 1, 0);
+#endif
+#endif
+  FORK_PRINTF("the oldest checkpoint start to dump wave and dump nemu log...\n")
+#if VM_TRACE == 1
+  //dump wave
+  Verilated::traceEverOn(true);
+  tfp = new VerilatedVcdC;
+  dut_ptr->trace(tfp, 99);
+  time_t now = time(NULL);
+  tfp->open(cycle_wavefile(cycles, now));
+  // override output range config, force dump wave
+  force_dump_wave = true;
+  enable_waveform = true;
+#endif
+#ifdef ENABLE_SIMULATOR_DEBUG_INFO
+  // let simulator print debug info
+  DynamicSimulatorConfig nemu_config;
+  nemu_config.debug_difftest = true;
+  for (int i = 0; i < NUM_CORES; i++) {
+    difftest[i]->proxy->update_config(&nemu_config);
+  }
+#endif
+}
