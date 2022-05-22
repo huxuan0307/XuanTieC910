@@ -609,7 +609,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 0
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel0 === 0.U){//inst0
+  when(dis_info.rob_create.sel0 === 0.U){//inst0
     rob_create_data(0).VEC_DIRTY  := dis_inst_vec_dirty(0)
     rob_create_data(0).FP_DIRTY   := dis_inst_fp_dirty(0)
     rob_create_data(0).INST_NUM   := 1.U
@@ -618,7 +618,7 @@ class ISStage extends Module{
     rob_create_data(0).RAS        := dis_inst_ras(0)
     rob_create_data(0).PC_OFFSET  := dis_inst_pc_offset(0)
     rob_create_data(0).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel0 === 1.U){//inst0 and inst1
+  }.elsewhen(dis_info.rob_create.sel0 === 1.U){//inst0 and inst1
     rob_create_data(0).VEC_DIRTY  := dis_inst01_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst01_fp_dirty
     rob_create_data(0).INST_NUM   := 2.U
@@ -627,7 +627,7 @@ class ISStage extends Module{
     rob_create_data(0).RAS        := dis_inst_ras(0)
     rob_create_data(0).PC_OFFSET  := dis_inst01_pc_offset
     rob_create_data(0).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel0 === 2.U){//inst0, inst1 and inst2
+  }.elsewhen(dis_info.rob_create.sel0 === 2.U){//inst0, inst1 and inst2
     rob_create_data(0).VEC_DIRTY  := dis_inst012_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst012_fp_dirty
     rob_create_data(0).INST_NUM   := 3.U
@@ -641,7 +641,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 1
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel1 === 0.U){//inst1
+  when(dis_info.rob_create.sel1 === 0.U){//inst1
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(1)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(1)
     rob_create_data(1).INST_NUM   := 1.U
@@ -650,7 +650,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(1)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(1)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 1.U){//inst1 and inst2
+  }.elsewhen(dis_info.rob_create.sel1 === 1.U){//inst1 and inst2
     rob_create_data(1).VEC_DIRTY  := dis_inst12_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst12_fp_dirty
     rob_create_data(1).INST_NUM   := 2.U
@@ -659,7 +659,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(1)
     rob_create_data(1).PC_OFFSET  := dis_inst12_pc_offset
     rob_create_data(1).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 2.U){//inst2
+  }.elsewhen(dis_info.rob_create.sel1 === 2.U){//inst2
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(1).INST_NUM   := 1.U
@@ -668,7 +668,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(2)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 3.U){//inst3
+  }.elsewhen(dis_info.rob_create.sel1 === 3.U){//inst3
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(1).INST_NUM   := 1.U
@@ -677,7 +677,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(3)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(3)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 4.U){//inst1, inst2 and inst3
+  }.elsewhen(dis_info.rob_create.sel1 === 4.U){//inst1, inst2 and inst3
     rob_create_data(1).VEC_DIRTY  := dis_inst123_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst123_fp_dirty
     rob_create_data(1).INST_NUM   := 3.U
@@ -691,7 +691,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 2
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel2 === 0.U){//inst2
+  when(dis_info.rob_create.sel2 === 0.U){//inst2
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(2).INST_NUM   := 1.U
@@ -700,7 +700,7 @@ class ISStage extends Module{
     rob_create_data(2).RAS        := dis_inst_ras(2)
     rob_create_data(2).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(2).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel2 === 2.U){//inst2 and inst3
+  }.elsewhen(dis_info.rob_create.sel2 === 2.U){//inst2 and inst3
     rob_create_data(2).VEC_DIRTY  := dis_inst23_vec_dirty
     rob_create_data(2).FP_DIRTY   := dis_inst23_fp_dirty
     rob_create_data(2).INST_NUM   := 2.U
@@ -709,7 +709,7 @@ class ISStage extends Module{
     rob_create_data(2).RAS        := dis_inst_ras(2)
     rob_create_data(2).PC_OFFSET  := dis_inst23_pc_offset
     rob_create_data(2).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel2 === 3.U){//inst3
+  }.elsewhen(dis_info.rob_create.sel2 === 3.U){//inst3
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(2).INST_NUM   := 1.U
