@@ -15,7 +15,9 @@
 ***************************************************************************************/
 
 #include <sys/time.h>
+#ifdef SHOW_SCREEN
 #include <SDL2/SDL.h>
+#endif
 
 #include "device.h"
 
@@ -29,14 +31,16 @@ extern "C" void init_flash(void);
 static struct timeval boot = {};
 
 void init_device(void) {
+#ifdef SHOW_SCREEN
   init_sdl();
+#endif
   init_uart();
   init_sd();
-  // init_flash();
   gettimeofday(&boot, NULL);
 }
 
 void poll_event() {
+#ifdef SHOW_SCREEN
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
     switch (event.type) {
@@ -53,6 +57,7 @@ void poll_event() {
       default: break;
     }
   }
+#endif
 }
 
 uint32_t uptime(void) {

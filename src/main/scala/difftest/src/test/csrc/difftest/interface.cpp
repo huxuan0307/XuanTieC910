@@ -35,6 +35,16 @@ INTERFACE_TRAP_EVENT {
   packet->pc       = pc;
   packet->cycleCnt = cycleCnt;
   packet->instrCnt = instrCnt;
+  packet->hasWFI   = hasWFI;
+}
+
+INTERFACE_BASIC_TRAP_EVENT {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_trap_event();
+  packet->valid    = valid;
+  packet->cycleCnt = cycleCnt;
+  packet->instrCnt = instrCnt;
+  packet->hasWFI   = hasWFI;
 }
 
 INTERFACE_ARCH_EVENT {
@@ -46,6 +56,21 @@ INTERFACE_ARCH_EVENT {
   packet->exceptionInst = exceptionInst;
 }
 
+INTERFACE_BASIC_INSTR_COMMIT {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_instr_commit(index);
+  packet->valid    = valid;
+  if (packet->valid) {
+    packet->skip     = skip;
+    packet->isRVC    = isRVC;
+    packet->fused    = special;
+    packet->rfwen    = rfwen;
+    packet->fpwen    = fpwen;
+    packet->wpdest   = wpdest;
+    packet->wdest    = wdest;
+  }
+}
+
 INTERFACE_INSTR_COMMIT {
   RETURN_NO_NULL
   auto packet = difftest[coreid]->get_instr_commit(index);
@@ -55,10 +80,11 @@ INTERFACE_INSTR_COMMIT {
     packet->inst     = instr;
     packet->skip     = skip;
     packet->isRVC    = isRVC;
-    packet->scFailed = scFailed;
-    packet->wen      = wen;
+    packet->fused    = special;
+    packet->rfwen    = rfwen;
+    packet->fpwen    = fpwen;
+    packet->wpdest   = wpdest;
     packet->wdest    = wdest;
-    packet->wdata    = wdata;
   }
 }
 
@@ -83,6 +109,24 @@ INTERFACE_CSR_STATE {
   packet->sscratch = sscratch;
   packet->mideleg = mideleg;
   packet->medeleg = medeleg;
+}
+
+INTERFACE_DM_STATE {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_debug_state();
+  packet->debugMode = dMode;
+  packet->dcsr = dcsr;
+  packet->dpc = dpc;
+  packet->dscratch0 = dscratch0;
+  packet->dscratch1 = dscratch1;
+}
+
+INTERFACE_INT_WRITEBACK {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_physical_reg_state();
+  if (valid) {
+    packet->gpr[dest] = data;
+  }
 }
 
 INTERFACE_INT_REG_STATE {
@@ -120,6 +164,14 @@ INTERFACE_INT_REG_STATE {
   packet->gpr[29] = gpr_29;
   packet->gpr[30] = gpr_30;
   packet->gpr[31] = gpr_31;
+}
+
+INTERFACE_FP_WRITEBACK {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_physical_reg_state();
+  if (valid) {
+    packet->fpr[dest] = data;
+  }
 }
 
 INTERFACE_FP_REG_STATE {
@@ -161,7 +213,7 @@ INTERFACE_FP_REG_STATE {
 
 INTERFACE_SBUFFER_EVENT {
   RETURN_NO_NULL
-  auto packet = difftest[coreid]->get_sbuffer_state();
+  auto packet = difftest[coreid]->get_sbuffer_state(index);
   packet->resp = sbufferResp;
   if (packet->resp) {
     packet->addr = sbufferAddr;
@@ -281,3 +333,73 @@ INTERFACE_PTW_EVENT {
   }
 }
 
+INTERFACE_REFILL_EVENT {
+  RETURN_NO_NULL
+  // 0 for icache and 1 for dcache
+  auto packet = difftest[coreid]->get_refill_event(cacheid);
+  packet->valid = valid;
+  if (packet->valid) {
+   packet->addr = addr;
+   packet->data[0] = data_0;
+   packet->data[1] = data_1;
+   packet->data[2] = data_2;
+   packet->data[3] = data_3;
+   packet->data[4] = data_4;
+   packet->data[5] = data_5;
+   packet->data[6] = data_6;
+   packet->data[7] = data_7;
+  }
+}
+
+INTERFACE_LR_SC_EVENT {
+  RETURN_NO_NULL
+  auto packet = difftest[coreid]->get_lr_sc_event();
+  if (!packet->valid && valid) {
+    packet->valid = valid;
+    packet->success = success;
+  }
+}
+
+INTERFACE_RUNAHEAD_EVENT {
+  if (runahead == NULL) return;
+  auto packet = difftest[coreid]->get_runahead_event(index);
+  packet->valid = valid;
+  if (packet->valid) {
+    packet->branch = branch;
+    packet->may_replay = may_replay;
+    packet->checkpoint_id = checkpoint_id; // a unique branch id
+    packet->pc = pc;
+  }
+}
+
+INTERFACE_RUNAHEAD_COMMIT_EVENT {
+  if (runahead == NULL) return;
+  auto packet = difftest[coreid]->get_runahead_commit_event(index);
+  packet->valid = valid;
+  if (packet->valid) {
+    packet->pc = pc; // for debug only
+  }
+}
+
+INTERFACE_RUNAHEAD_REDIRECT_EVENT {
+  if (runahead == NULL) return;
+  auto packet = difftest[coreid]->get_runahead_redirect_event();
+  packet->valid = valid;
+  if (packet->valid) {
+    packet->pc = pc;
+    packet->target_pc = target_pc;
+    packet->checkpoint_id = checkpoint_id;
+  }
+}
+
+INTERFACE_RUNAHEAD_MEMDEP_PRED {
+  if (runahead == NULL) return;
+  auto packet = difftest[coreid]->get_runahead_memdep_pred(index);
+  packet->valid = valid;
+  if (packet->valid) {
+    packet->is_load = is_load;
+    packet->need_wait = need_wait;
+    packet->pc = pc;
+  }
+  *oracle_vaddr = packet->oracle_vaddr;
+}

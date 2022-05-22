@@ -22,24 +22,11 @@
 #include <string.h>
 #include <stdio.h>
 #include "ram.h"
+#include "common.h"
 
 typedef uint64_t paddr_t;
 typedef uint64_t word_t;
 
-#define Assert(cond, ...) \
-  do { \
-    if (!(cond)) { \
-      fflush(stdout); \
-      fprintf(stderr, "\33[1;31m"); \
-      fprintf(stderr, __VA_ARGS__); \
-      fprintf(stderr, "\33[0m\n"); \
-      assert(cond); \
-    } \
-  } while (0)
-
-#define panic(...) Assert(0, __VA_ARGS__)
-
-#define PMEM_BASE 0x80000000
 #define PMEM_SIZE EMU_RAM_SIZE
 
 extern uint8_t* pmem;
@@ -56,5 +43,6 @@ paddr_t host_to_guest(void *addr);
 word_t paddr_read(paddr_t addr, int len);
 void paddr_write(paddr_t addr, word_t data, int len);
 bool is_sfence_safe(paddr_t addr, int len);
+bool in_pmem(paddr_t addr);
 
 #endif

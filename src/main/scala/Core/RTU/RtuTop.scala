@@ -482,17 +482,20 @@ class RtuTop extends Module {
     instrCommit.io.index := i.U
     instrCommit.io.skip := false.B
     instrCommit.io.isRVC := false.B
-    instrCommit.io.scFailed := false.B
+//    instrCommit.io.scFailed := false.B
 
     instrCommit.io.valid := rob.io.out.toRetire.commitValidVec(i)
     instrCommit.io.pc    := rob.io.out.toRetire.instVec(i).pc
 
     instrCommit.io.instr := rob.io.out.toRetire.instVec(i).instr
 
-    instrCommit.io.wen   := rob.io.out.toRetire.instVec(i).pstPregValid
-    instrCommit.io.wdata := diffcommitwdata(i)
+    instrCommit.io.rfwen   := rob.io.out.toRetire.instVec(i).pstPregValid
+//    instrCommit.io.wdata := diffcommitwdata(i)
     //////todo: 3 retire valid, dst 5bits, rel preg 7bits, toIDU read Preg file
     instrCommit.io.wdest := diffcommitdestReg(i)
+    instrCommit.io.fpwen := false.B
+    instrCommit.io.wpdest := 0.U
+    instrCommit.io.special := 0.U
   }
   val cycleCnt = RegInit(0.U(64.W))
   cycleCnt := cycleCnt + 1.U
@@ -509,4 +512,5 @@ class RtuTop extends Module {
   trap.io.pc       := 0.U
   trap.io.cycleCnt := cycleCnt
   trap.io.instrCnt := instrCnt
+  trap.io.hasWFI := false.B
 }
