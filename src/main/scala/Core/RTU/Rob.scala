@@ -127,15 +127,15 @@ class Rob extends Module {
   private val debugInfoRobEntryNum = RegInit(0.U(NumRobEntry.W))
   private val debugInfoRobFull = RegInit(false.B)
 
-  private val robCreatePtr = RegInit(0.U(RobPtrWidth.W))
-  private val robCreateIidVec = RegInit(VecInit(Seq.fill(NumCreateEntry)(0.U(InstructionIdWidth.W))))
+  private val robCreatePtr = RegInit(1.U(RobPtrWidth.W))
+  private val robCreateIidVec = RegInit(VecInit((0 until  NumCreateEntry).map(_.U(InstructionIdWidth.W))))
 
   private val robEntryNum = RegInit(0.U(NumRobEntry.W))
   private val robFull = RegInit(false.B)
   private val robPopIidVec = RegInit(VecInit(Seq.fill(NumPopEntry)(0.U(InstructionIdWidth.W))))
 
   private val robReadPtr = RegInit(1.U(NumRobEntry.W))
-  private val robReadIidVec = RegInit(VecInit((0 to RobReadPtrNum).map(_.U(InstructionIdWidth.W))))
+  private val robReadIidVec = RegInit(VecInit((0 until  RobReadPtrNum).map(_.U(InstructionIdWidth.W))))
 
   /**
    * Wires

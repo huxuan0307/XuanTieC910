@@ -144,7 +144,7 @@ class RtuTopInput extends Bundle {
   val fromIdu = new RtuFromIduBundle
   val fromIfu = new RtuFromIfuBundle
   val fromIu = new RtuFromIuBundle
-  val fromLsu = new RtuFromLsuBundle
+  val fromLsu = Output(new RtuFromLsuBundle)
   val fromMmu = new RetireFromMmuBundle
   val fromPad = new RtuFromPadBundle
   val fromVfpu = new RtuFromVfpuBundle
