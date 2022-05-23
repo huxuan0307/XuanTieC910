@@ -369,7 +369,11 @@ class SimTop extends Module with Config with ROBConfig {
 //  rtu.io.in.fromLsu.allCommitDataValid := 0.U.asTypeOf(rtu.io.in.fromLsu.allCommitDataValid)
 //  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
-  rtu.io.in.fromCp0 := 0.U.asTypeOf(rtu.io.in.fromCp0)
+  rtu.io.in.fromCp0.xxIntB := true.B //////_b
+  rtu.io.in.fromCp0.xxVec := 0.U.asTypeOf(rtu.io.in.fromCp0.xxVec)
+  rtu.io.in.fromCp0.icgEn := false.B
+  rtu.io.in.fromCp0.yyClkEn := false.B
+  rtu.io.in.fromCp0.srtEn := false.B
   rtu.io.in.fromPad := 0.U.asTypeOf(rtu.io.in.fromPad)
   rtu.io.in.fromHad := 0.U.asTypeOf(rtu.io.in.fromHad)
   rtu.io.in.fromHpcp := 0.U.asTypeOf(rtu.io.in.fromHpcp)

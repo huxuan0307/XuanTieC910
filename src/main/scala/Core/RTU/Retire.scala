@@ -844,7 +844,7 @@ class Retire extends Module {
   io.out.toIu.flushFe   := flushStateCur === FlushState.fe
 
   io.out.yyXx.flush     := flushStateCur === FlushState.be
-  io.out.toRob.flush    := inst0flush || inst0mispred
+  io.out.toRob.flush    := inst0flush || inst0mispred ||
     flushStateCur === FlushState.is ||
     flushStateCur === FlushState.fe
 

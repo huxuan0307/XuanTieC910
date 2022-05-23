@@ -743,13 +743,13 @@ class ISStage extends Module{
   val inst_iid = Wire(Vec(4, UInt(7.W)))
 
   inst_iid(0) := io.in.fromRTU.rob_inst_idd(0)
-  inst_iid(1) := Mux(io.in.pre_dispatch.pst_create_iid_sel(0)(0), io.in.fromRTU.rob_inst_idd(0), io.in.fromRTU.rob_inst_idd(1))
-  inst_iid(2) := MuxLookup(io.in.pre_dispatch.pst_create_iid_sel(1), 0.U(7.W), Seq(
+  inst_iid(1) := Mux(dis_info.pst_create_iid_sel(0)(0), io.in.fromRTU.rob_inst_idd(0), io.in.fromRTU.rob_inst_idd(1))
+  inst_iid(2) := MuxLookup(dis_info.pst_create_iid_sel(1), 0.U(7.W), Seq(
     "b001".U -> io.in.fromRTU.rob_inst_idd(0),
     "b010".U -> io.in.fromRTU.rob_inst_idd(1),
     "b100".U -> io.in.fromRTU.rob_inst_idd(2)
   ))
-  inst_iid(3) := MuxLookup(io.in.pre_dispatch.pst_create_iid_sel(2), 0.U(7.W), Seq(
+  inst_iid(3) := MuxLookup(dis_info.pst_create_iid_sel(2), 0.U(7.W), Seq(
     "b001".U -> io.in.fromRTU.rob_inst_idd(1),
     "b010".U -> io.in.fromRTU.rob_inst_idd(2),
     "b100".U -> io.in.fromRTU.rob_inst_idd(3)
