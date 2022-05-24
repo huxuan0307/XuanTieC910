@@ -356,18 +356,29 @@ class SimTop extends Module with Config with ROBConfig {
 
 
   //RTU ignore other signals
-  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.fenceIdle := DontCare //////todo: find out
-  rtu.io.in.fromLsu := DontCare
+  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.pregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.fregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
+  rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
+//  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
+//  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
+//  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
+//  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
+//  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
+//  rtu.io.in.fromLsu.allCommitDataValid := 0.U.asTypeOf(rtu.io.in.fromLsu.allCommitDataValid)
+//  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
-  rtu.io.in.fromCp0 := DontCare
-  rtu.io.in.fromPad := DontCare
-  rtu.io.in.fromHad := DontCare
-  rtu.io.in.fromHpcp := DontCare
-  rtu.io.in.fromMmu := DontCare
-  rtu.io.in.fromVfpu := DontCare
+  rtu.io.in.fromCp0.xxIntB := true.B //////_b
+  rtu.io.in.fromCp0.xxVec := 0.U.asTypeOf(rtu.io.in.fromCp0.xxVec)
+  rtu.io.in.fromCp0.icgEn := false.B
+  rtu.io.in.fromCp0.yyClkEn := false.B
+  rtu.io.in.fromCp0.srtEn := false.B
+  rtu.io.in.fromPad := 0.U.asTypeOf(rtu.io.in.fromPad)
+  rtu.io.in.fromHad := 0.U.asTypeOf(rtu.io.in.fromHad)
+  rtu.io.in.fromHpcp := 0.U.asTypeOf(rtu.io.in.fromHpcp)
+  rtu.io.in.fromMmu := 0.U.asTypeOf(rtu.io.in.fromMmu)
+  rtu.io.in.fromVfpu := 0.U.asTypeOf(rtu.io.in.fromVfpu)
 
 
   dontTouch(ifu.io)

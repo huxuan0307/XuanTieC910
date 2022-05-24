@@ -92,18 +92,18 @@ class Cbus extends Module with IUConfig{
   val cbus_pipe0_src_efpc = Cat(Fill(PcWidth, cp0_in.instVld)) & cp0_in.efpc
 
 
-  val cbus_pipe0_expt_vld      = RegEnable( cbus_pipe0_src_expt_vld,     cbus_pipe0_cmplt)
-  val cbus_pipe0_expt_vec      = RegEnable( cbus_pipe0_src_expt_vec,     cbus_pipe0_cmplt)
-  val cbus_pipe0_high_hw_expt  = RegEnable( cbus_pipe0_src_high_hw_expt, cbus_pipe0_cmplt)
-  val cbus_pipe0_bkpt          = RegEnable( cbus_pipe0_src_bkpt,         cbus_pipe0_cmplt)
-  val cbus_pipe0_mtval         = RegEnable( cbus_pipe0_src_mtval,        cbus_pipe0_cmplt)
-  val cbus_pipe0_flush         = RegEnable( cbus_pipe0_src_flush,        cbus_pipe0_cmplt)
-  val cbus_pipe0_efpc_vld      = RegEnable( cbus_pipe0_src_efpc_vld,     cbus_pipe0_cmplt)
-  val cbus_pipe0_efpc          = RegEnable( cbus_pipe0_src_efpc,         cbus_pipe0_cmplt)
-  val cbus_pipe0_iid           = RegEnable( cbus_pipe0_src_iid,          cbus_pipe0_cmplt) // TODO CLK is different  @ct_iu_cbus @439
-  val cbus_pipe0_abnormal      = RegEnable( cbus_pipe0_src_abnormal,     cbus_pipe0_cmplt)
+  val cbus_pipe0_expt_vld      = RegEnable( cbus_pipe0_src_expt_vld, cbus_pipe0_src_expt_vld,     cbus_pipe0_cmplt)
+  val cbus_pipe0_expt_vec      = RegEnable( cbus_pipe0_src_expt_vec, cbus_pipe0_src_expt_vec,     cbus_pipe0_cmplt)
+  val cbus_pipe0_high_hw_expt  = RegEnable( cbus_pipe0_src_high_hw_expt, cbus_pipe0_src_high_hw_expt, cbus_pipe0_cmplt)
+  val cbus_pipe0_bkpt          = RegEnable( cbus_pipe0_src_bkpt,  cbus_pipe0_src_bkpt,        cbus_pipe0_cmplt)
+  val cbus_pipe0_mtval         = RegEnable( cbus_pipe0_src_mtval, cbus_pipe0_src_mtval,       cbus_pipe0_cmplt)
+  val cbus_pipe0_flush         = RegEnable( cbus_pipe0_src_flush, cbus_pipe0_src_flush,      cbus_pipe0_cmplt)
+  val cbus_pipe0_efpc_vld      = RegEnable( cbus_pipe0_src_efpc_vld, cbus_pipe0_src_efpc_vld,     cbus_pipe0_cmplt)
+  val cbus_pipe0_efpc          = RegEnable( cbus_pipe0_src_efpc, cbus_pipe0_src_efpc,         cbus_pipe0_cmplt)
+  val cbus_pipe0_iid           = RegEnable( cbus_pipe0_src_iid, cbus_pipe0_src_iid,         cbus_pipe0_cmplt) // TODO CLK is different  @ct_iu_cbus @439
+  val cbus_pipe0_abnormal      = RegEnable( cbus_pipe0_src_abnormal, cbus_pipe0_src_abnormal,     cbus_pipe0_cmplt)
   // out put
-  io.out.pipe0Cmplt         := cbus_pipe0_cmplt
+  io.out.pipe0Cmplt         := cbus_pipe0_inst_vld
   io.out.pipe0Iid           := cbus_pipe0_iid
   io.out.pipe0Abnormal      := cbus_pipe0_abnormal
   io.out.pipe0ExptVld       := cbus_pipe0_expt_vld
@@ -115,8 +115,8 @@ class Cbus extends Module with IUConfig{
   io.out.pipe0EfpcVld       := cbus_pipe0_efpc_vld
   io.out.pipe0Efpc          := cbus_pipe0_efpc
   // pipe 1
-  val cbus_pipe1_iid      = RegEnable(norm_in.pipe1Iid,cbus_pipe1_cmplt)
-  io.out.pipe1Cmplt       := cbus_pipe1_cmplt
+  val cbus_pipe1_iid      = RegEnable(norm_in.pipe1Iid, norm_in.pipe1Iid, cbus_pipe1_cmplt)
+  io.out.pipe1Cmplt       := cbus_pipe1_inst_vld
   io.out.pipe1Iid         := cbus_pipe1_iid
   // pipe 2
   io.out.pipe2Abnormal    := bju_in.sel
