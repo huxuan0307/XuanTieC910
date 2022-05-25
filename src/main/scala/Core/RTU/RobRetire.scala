@@ -279,7 +279,7 @@ class RobRetire extends Module {
   for (i <- 0 until NumRobReadEntry) {
     for (j <- 0 until NumPipeline) {
       // pipe(j) read(i) complete
-      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(i) && robReadIidVec(i) === pipeIidVec(i)
+      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(i)(j) && robReadIidVec(i) === pipeIidVec(j)
     }
     robReadExceptEntryValidVec(i):= io.in.fromExptEntry.valid && robReadIidVec(i) === io.in.fromExptEntry.iid
   }
@@ -343,10 +343,10 @@ class RobRetire extends Module {
     foldReadPipeCmpltVec(i)(2) := robReadPipeCmpltVec(i)(5)
     foldReadPipeCmpltVec(i)(3) := robReadPipeCmpltVec(i)(6)
   }
-
+  //dontTouch(foldReadPipeCmpltVec)
   private val foldReadPipeCmpltCntVec = Wire(Vec(NumRobReadEntry, UInt(log2Up(NumRobReadEntry).W)))
   for (i <- 0 until NumRobReadEntry) {
-    foldReadPipeCmpltCntVec(i) := foldReadPipeCmpltVec(i).count(item=>item)
+    foldReadPipeCmpltCntVec(i) := PopCount(foldReadPipeCmpltVec(i))
   }
 
   //----------------------------------------------------------

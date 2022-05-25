@@ -231,15 +231,15 @@ class Bju extends Module{
   //----------------------------------------------------------
   //               Pipe2 EX2 Instruction Data
   //----------------------------------------------------------
-  val ex2_pipe_pcfifo_read = RegEnable(ex1_pipe_pcfifo_read,ex1_pipe_pcfifo_read,ex2_pipe_inst_vld)
-  val ex2_pipe_abnormal    = RegEnable(bju_bht_mispred || bju_jmp_mispred,false.B,ex2_pipe_inst_vld)
-  val ex2_pipe_bht_mispred = RegEnable(bju_bht_mispred,false.B,ex2_pipe_inst_vld)
-  val ex2_pipe_jmp_mispred = RegEnable(bju_jmp_mispred,false.B,ex2_pipe_inst_vld)
-  val ex2_pipe_tar_pc      = RegEnable(bju_jump_pc,bju_jump_pc,ex2_pipe_inst_vld)
-  val ex2_pipe_is_br       = RegEnable(is_br,false.B,ex2_pipe_inst_vld)
-  val ex2_pipe_is_jmp      = RegEnable(is_jmp,false.B,ex2_pipe_inst_vld)
-  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex1_pipe_rf.iid,ex2_pipe_inst_vld) // rtu ptr
-  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex1_pipe_rf.pid,ex2_pipe_inst_vld) // pid pc fifo ptr
+  val ex2_pipe_pcfifo_read = RegEnable(ex1_pipe_pcfifo_read,ex1_pipe_pcfifo_read,ex1_pipe_inst_vld)
+  val ex2_pipe_abnormal    = RegEnable(bju_bht_mispred || bju_jmp_mispred,false.B,ex1_pipe_inst_vld)
+  val ex2_pipe_bht_mispred = RegEnable(bju_bht_mispred,false.B,ex1_pipe_inst_vld)
+  val ex2_pipe_jmp_mispred = RegEnable(bju_jmp_mispred,false.B,ex1_pipe_inst_vld)
+  val ex2_pipe_tar_pc      = RegEnable(bju_jump_pc,bju_jump_pc,ex1_pipe_inst_vld)
+  val ex2_pipe_is_br       = RegEnable(is_br,false.B,ex1_pipe_inst_vld)
+  val ex2_pipe_is_jmp      = RegEnable(is_jmp,false.B,ex1_pipe_inst_vld)
+  val ex2_pipe_iid          = RegEnable(ex1_pipe_rf.iid,ex1_pipe_rf.iid,ex1_pipe_inst_vld) // rtu ptr
+  val ex2_pipe_pid          = RegEnable(ex1_pipe_rf.pid,ex1_pipe_rf.pid,ex1_pipe_inst_vld) // pid pc fifo ptr
   //----------------------------------------------------------
   //                 Write Result to PCFIFO
   //----------------------------------------------------------

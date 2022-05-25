@@ -723,7 +723,7 @@ class RFStage extends Module with RFStageConfig {
   private val bjuDecodeTable = BjuDecodeTable.table
   // Todo: lsuDecodeTable
 
-  private val aiq0Inst = io.data.in.aiq0.issueReadData.inst
+  private val aiq0Inst = Wire(UInt(32.W))
   private val aiq0FU :: aiq0Op :: aiq0RdVld :: aiq0Rs1Vld :: aiq0Rs2Vld :: Nil = ListLookup(aiq0Inst, DefaultInst.inst, aluDecodeTable)
 
   // Todo: Add imm sel in decode table
@@ -738,13 +738,13 @@ class RFStage extends Module with RFStageConfig {
 
   private val iu0_imm : UInt = MuxCase(0.U, Seq(
     iu0_imm_sel(0) -> zext(XLEN, aiq0Inst(31, 12)),
-    iu0_imm_sel(1) -> sext(XLEN, aiq0Inst(31, 22)),
+    iu0_imm_sel(1) -> sext(XLEN, aiq0Inst(31, 20)),
   ))
 
-  private val biqInst = io.data.in.biq.issueReadData.inst
+  private val biqInst = Wire(UInt(32.W))
   private val biqFu :: biqOp :: biqRd :: biqRs1 :: biqRs2 :: Nil = ListLookup(biqInst, DefaultInst.inst, bjuDecodeTable)
 
-  private val aiq1Inst = io.data.in.aiq0.issueReadData.inst
+  private val aiq1Inst = Wire(UInt(32.W))
   private val aiq1FU :: aiq1Op :: aiq1RdVld :: aiq1Rs1Vld :: aiq1Rs2Vld :: Nil = ListLookup(aiq1Inst, DefaultInst.inst, aluDecodeTable)
 
   // Todo: Add imm sel in decode table
@@ -759,7 +759,7 @@ class RFStage extends Module with RFStageConfig {
 
   private val iu1_imm : UInt = MuxCase(0.U, Seq(
     iu1_imm_sel(0) -> zext(XLEN, aiq1Inst(31, 12)),
-    iu1_imm_sel(1) -> sext(XLEN, aiq1Inst(31, 22)),
+    iu1_imm_sel(1) -> sext(XLEN, aiq1Inst(31, 20)),
   ))
 
 
@@ -785,6 +785,10 @@ class RFStage extends Module with RFStageConfig {
   private val lsiq0ReadData = RegEnable(io.data.in.lsiq0.issueReadData, io.data.in.lsiq0.issueEn)
   private val lsiq1ReadData = RegEnable(io.data.in.lsiq1.issueReadData, io.data.in.lsiq1.issueEn)
   private val sdiqReadData  = RegEnable(io.data.in.sdiq.issueReadData, io.data.in.sdiq.issueEn)
+
+  aiq0Inst := aiq0ReadData.inst
+  aiq1Inst := aiq1ReadData.inst
+  biqInst  := biqReadData.inst
 
   io.data.out.aluDstPregs(0) := RegEnable(aiq0_data.issueReadData.dstPreg, aiq0_data.issueEn)
   io.data.out.aluDstPregs(1) := RegEnable(aiq1_data.issueReadData.dstPreg, aiq1_data.issueEn)
