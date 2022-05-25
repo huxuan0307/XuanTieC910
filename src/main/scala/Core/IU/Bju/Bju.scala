@@ -8,19 +8,8 @@ import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.InstructionIdWidth
 import Core.ROBConfig.NumRobReadEntry
 import Utils.LookupTree
+import Core.IDU.Opcode.BjuOpcode
 
-object BRUOpType {
-  def jal  = "b1011000".U
-  def jalr = "b1011010".U
-  def beq  = "b0010000".U
-  def bne  = "b0010001".U
-  def blt  = "b0010100".U
-  def bge  = "b0010101".U
-  def bltu = "b0010110".U
-  def bgeu = "b0010111".U
-  def isJmp(func: UInt): Bool = func(6)
-  def isBr(func: UInt): Bool = func(6,4) === "b001".U
-}
 class BjuCmpltSignal extends Bundle{
   val abnormal = Bool()
   val bhtMispred = Bool()
@@ -149,21 +138,21 @@ class Bju extends Module{
   // 6  |     BGEU     |          !(src0 < src1)
   //----------------------------------------------------------
   val bj_taken = LookupTree(op, List(
-    BRUOpType.jal   ->  (true.B),
-    BRUOpType.jalr  ->  (true.B),
-    BRUOpType.beq   ->  (src1 === src2),
-    BRUOpType.bne   ->  (src1 =/= src2),
-    BRUOpType.blt   ->  (src1.asSInt < src2.asSInt),
-    BRUOpType.bge   ->  (src1.asSInt >= src2.asSInt),
-    BRUOpType.bltu  ->  (src1 < src2),
-    BRUOpType.bgeu  ->  (src1 >= src2)
+    BjuOpcode.JAL   ->  (true.B),
+    BjuOpcode.JALR  ->  (true.B),
+    BjuOpcode.BEQ   ->  (src1 === src2),
+    BjuOpcode.BNE   ->  (src1 =/= src2),
+    BjuOpcode.BLT   ->  (src1.asSInt < src2.asSInt),
+    BjuOpcode.BGE   ->  (src1.asSInt >= src2.asSInt),
+    BjuOpcode.BLTU  ->  (src1 < src2),
+    BjuOpcode.BGEU  ->  (src1 >= src2)
   ))
-  val is_jmp = BRUOpType.isJmp(op)
-  val is_br  = BRUOpType.isBr(op)
+  val is_jmp = BjuOpcode.isJmp(op)
+  val is_br  = BjuOpcode.isBr(op)
   //----------------------------------------------------------
   //                BJU jump address calculation
   //---------------------------------------------------------
-  val jump_pc_64 = Mux(op === BRUOpType.jalr,
+  val jump_pc_64 = Mux(op === BjuOpcode.JALR,
     Cat(ex1_pipe_rf.src0(63,1), 0.U(1.W)) + ex1_pipe_rf.offset, ex1_pipe_pcfifo_read.pc + ex1_pipe_rf.offset)
   val jump_pc = jump_pc_64(39,1)
   val brunch_pc = Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc + ex1_pipe_rf.offset ,ex1_pipe_pcfifo_read.pc + 4.U) // otherwise PC+4 TODO pc + pclengh
