@@ -154,7 +154,7 @@ class RobEntry extends Module {
     io.in.x.cmpltValidVec(5),
     io.in.x.cmpltValidVec(6),
   )
-  private val cmpltFoldValidCnt = cmpltFoldValid.count(b => b)
+  private val cmpltFoldValidCnt = PopCount(cmpltFoldValid)
   // Todo: imm
   private val cmpltFoldValidCntOH = Wire(Vec(4, Bool()))
   for (i <- 0 until 4) {

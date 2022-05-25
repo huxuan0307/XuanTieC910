@@ -138,7 +138,7 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).en := true.B //////todo: add signal
   }
   iu.io.rtuIn.flushFe := rtu.io.out.toIu.flushFe
-  iu.io.rtuIn.flush := DontCare //////todo: find out
+  iu.io.rtuIn.flush := false.B //////todo: find out
   iu.io.rtuIn.flushChgflwMask := rtu.io.out.toIu.flushChangeFlowMask
   iu.io.rtuIn.robReadPcfifovld := rtu.io.out.toIu.robReadPcFifoValid
   iu.io.rtuIn.robReadPcfifovldGateEn := rtu.io.out.toIu.robReadPcFifoGateClkValid
@@ -151,8 +151,8 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.alu0Sel.gateSel := idu.io.out.RFCtrl.toAlu0.gateClkSel
   iu.io.alu1Sel.sel := idu.io.out.RFCtrl.toAlu1.sel
   iu.io.alu1Sel.gateSel := idu.io.out.RFCtrl.toAlu1.gateClkSel
-  iu.io.isIn.issue := DontCare //////todo: ISStage add idu_iu_is_div_issue
-  iu.io.isIn.gateClkIssue := DontCare //////todo: idu_iu_is_div_gateclk_issue ???
+  iu.io.isIn.issue := false.B //////todo: ISStage add idu_iu_is_div_issue
+  iu.io.isIn.gateClkIssue := false.B //////todo: idu_iu_is_div_gateclk_issue ???
   iu.io.specialPid := DontCare //////todo: check idu_iu_rf_pipe0_pid and idu_iu_rf_pipe1_pid ???
   iu.io.bjuSel.sel := idu.io.out.RFCtrl.toBju.sel
   iu.io.bjuSel.gateSel := idu.io.out.RFCtrl.toBju.gateClkSel
@@ -281,11 +281,11 @@ class SimTop extends Module with Config with ROBConfig {
       in1.iid := iu.io.iuToRtu.cbusRslt.pipe1Iid
       in2.iid := iu.io.iuToRtu.cbusRslt.pipe2Iid
       in0.flush := iu.io.iuToRtu.cbusRslt.pipe0Flush
-      in1.flush := DontCare //////todo: find it
-      in2.flush := DontCare //////todo: find it
-      in0.noSpec := DontCare //////todo: find it
-      in1.noSpec := DontCare //////todo: find it
-      in2.noSpec := DontCare //////todo: find it
+      in1.flush := false.B //////todo: find it
+      in2.flush := false.B //////todo: find it
+      in0.noSpec := 0.U.asTypeOf(in0.noSpec) //////todo: find it
+      in1.noSpec := 0.U.asTypeOf(in1.noSpec) //////todo: find it
+      in2.noSpec := 0.U.asTypeOf(in2.noSpec) //////todo: find it
       in0.mtval := iu.io.iuToRtu.cbusRslt.pipe0Mtval
       in1.mtval := DontCare //////todo: find it
       in2.mtval := DontCare //////todo: find it
@@ -341,7 +341,7 @@ class SimTop extends Module with Config with ROBConfig {
       wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
-      pcFifoPop0.length := DontCare //////todo: find it
+      pcFifoPop0.length := false.B //////todo: find it
       pcFifoPop0.bhtPred := iu.io.bjuToRtu.bhtPred //////todo: popNum = 3
       pcFifoPop0.bhtMispred := iu.io.bjuToRtu.bhtMispred
       pcFifoPop0.jmp := iu.io.bjuToRtu.jmp
@@ -349,9 +349,9 @@ class SimTop extends Module with Config with ROBConfig {
       pcFifoPop0.pcall := iu.io.bjuToRtu.pCall
       pcFifoPop0.condBranch := iu.io.bjuToRtu.condBr
       pcFifoPop0.pcNext := iu.io.bjuToRtu.pc
-      pcFifoPop0.lsb := DontCare //////todo: add it
-      pcFifoPop1 := DontCare
-      pcFifoPop2 := DontCare
+      pcFifoPop0.lsb := false.B //////todo: add it
+      pcFifoPop1 := 0.U.asTypeOf(pcFifoPop1)
+      pcFifoPop2 := 0.U.asTypeOf(pcFifoPop2)
   }
 
 
