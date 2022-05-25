@@ -5,7 +5,6 @@ import chisel3._
 import chisel3.util.BitPat
 import ISA.RV64I._
 import Core.IDU.Opcode.AluOpcode._
-import Core.IDU.Opcode.ShiftLogicOpcode._
 import Core.IDU.FuncUnit._
 
 object AluDecodeTable {
