@@ -279,7 +279,7 @@ class RobRetire extends Module {
   for (i <- 0 until NumRobReadEntry) {
     for (j <- 0 until NumPipeline) {
       // pipe(j) read(i) complete
-      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(i)(j) && robReadIidVec(i) === pipeIidVec(j)
+      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(j) && robReadIidVec(i) === pipeIidVec(j)
     }
     robReadExceptEntryValidVec(i):= io.in.fromExptEntry.valid && robReadIidVec(i) === io.in.fromExptEntry.iid
   }
