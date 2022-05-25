@@ -6,30 +6,7 @@ import Core.IntConfig.NumPhysicRegsBits
 import Utils.{LookupTree, SignExt}
 import chisel3._
 import chisel3.util._
-import Core.IDU.Opcode._
-import Core.IDU.Opcode.AluOpcode._
-
-
-object ALUOpType {
-  //  def add  = "b1000000".U
-  //  def sll  = "b0000001".U
-  //  def slt  = "b0000010".U
-  //  def sltu = "b0000011".U
-  //  def xor  = "b0000100".U
-  //  def srl  = "b0000101".U
-  //  def or   = "b0000110".U
-  //  def and  = "b0000111".U
-  //  def sub  = "b0001000".U
-  //  def sra  = "b0001101".U
-  //  def lui  = "b0001111".U
-  //
-  //  def addw = "b1100000".U
-  //  def subw = "b0101000".U
-  //  def sllw = "b0100001".U
-  //  def srlw = "b0100101".U
-  //  def sraw = "b0101101".U
-  def isWordOp(func: UInt) = func(5)  //if 32bit
-}
+import Core.IDU.Opcode.AluOpcode
 
 class AluRegData extends Bundle with IUConfig {
   val data    = UInt(XLEN.W)
@@ -79,27 +56,27 @@ class Alu extends Module with IUConfig{
   op := io.in.func
   src1 := io.in.src0
   src2 := io.in.src1
-  val shamt = Mux(ALUOpType.isWordOp(op), src2(4, 0), src2(5, 0))
+  val shamt = Mux(AluOpcode.isWordOp(op), src2(4, 0), src2(5, 0))
   when(pipe1_en) {
     ex1_pipe := io.in
     opReg := io.in.func
     res := LookupTree(op, List(
-      AluOpcode.ADD -> (src1 + src2),
-      ShiftLogicOpcode.SLL -> (src1 << shamt),
-      AluOpcode.SLT -> Cat(0.U((XLEN - 1).W), src1.asSInt < src2.asSInt),
-      AluOpcode.SLTU -> (src1 < src2),
-      ShiftLogicOpcode.XOR -> (src1 ^ src2),
-      ShiftLogicOpcode.SRL -> (src1 >> shamt),
-      ShiftLogicOpcode.OR -> (src1 | src2),
-      ShiftLogicOpcode.AND -> (src1 & src2),
-      AluOpcode.SUB -> (src1 - src2),
-      ShiftLogicOpcode.SRA -> (src1.asSInt >> shamt).asUInt,
-      AluOpcode.ADDW -> (src1 + src2),
-      AluOpcode.SUBW -> (src1 - src2),
-      ShiftLogicOpcode.SLLW -> (src1 << shamt),
-      ShiftLogicOpcode.SRLW -> (src1(31, 0) >> shamt),
-      ShiftLogicOpcode.SRAW -> (src1(31, 0).asSInt >> shamt).asUInt,
-      AluOpcode.LUI -> src2
+      AluOpcode.ADD   -> (src1 + src2),
+      AluOpcode.SLL   -> (src1 << shamt),
+      AluOpcode.SLT   -> Cat(0.U((XLEN - 1).W), src1.asSInt < src2.asSInt),
+      AluOpcode.SLTU  -> (src1 < src2),
+      AluOpcode.XOR   -> (src1 ^ src2),
+      AluOpcode.SRL   -> (src1 >> shamt),
+      AluOpcode.OR    -> (src1 | src2),
+      AluOpcode.AND   -> (src1 & src2),
+      AluOpcode.SUB   -> (src1 - src2),
+      AluOpcode.SRA   -> (src1.asSInt >> shamt).asUInt,
+      AluOpcode.ADDW  -> (src1 + src2),
+      AluOpcode.SUBW  -> (src1 - src2),
+      AluOpcode.SLLW  -> (src1 << shamt),
+      AluOpcode.SRLW  -> (src1(31, 0) >> shamt),
+      AluOpcode.SRAW  -> (src1(31, 0).asSInt >> shamt).asUInt,
+      AluOpcode.LUI   -> src2
     ))
   }
   //==========================================================
@@ -115,8 +92,8 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   io.toRbus.dataVld  := ex1_pipe.dstVld && alu_ex1_inst_vld
   io.toRbus.fwdVld   := alu_ex1_fwd_vld
-  io.toRbus.fwdData  := Mux(ALUOpType.isWordOp(opReg), SignExt(res(31,0), 64), res) //////ex1 pipe Reg
+  io.toRbus.fwdData  := Mux(AluOpcode.isWordOp(opReg), SignExt(res(31,0), 64), res) //////ex1 pipe Reg
   io.toRbus.preg     := ex1_pipe.dstPreg
-  io.toRbus.data     := Mux(ALUOpType.isWordOp(opReg), SignExt(res(31,0), 64), res) //////todo: check isWordOp
+  io.toRbus.data     := Mux(AluOpcode.isWordOp(opReg), SignExt(res(31,0), 64), res) //////todo: check isWordOp
 }
 
