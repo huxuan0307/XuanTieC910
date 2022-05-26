@@ -7,6 +7,10 @@ import chisel3.util._
 class IBStage extends Module with Config {
   val io = IO(new IBStageIO)
 
+  val ind_btb_rd_state = RegInit(false.B)
+
+  val ib_cancel = io.pcgen_ibctrl_cancel
+
   val ib_data_valid = io.ip2ib.valid
 
   //check ubtb btb
@@ -51,5 +55,132 @@ class IBStage extends Module with Config {
   io.ubtb_update_idx.bits    := io.ip2ib.bits.ubtb_resp.hit_index
 
   io.ind_jmp_valid := ib_data_valid && io.ip2ib.bits.ind_vld   //todo
+
+  //////todo: ib_expt_vld comes from ip/if, concerning refill and mmu
+  val ib_expt_vld = false.B
+
+  //ib_chgflw_self_stall
+  //  1.ibuf full or lbuf special state stall
+  //  2.more than 2 pc_oper/load inst stall
+  //  3.pcfifo full stall
+  //  4.iu mispredict valid & ifu fetch indbr/ras inst stall
+  //  5.ind_btb result not valid will satll one cycle
+  //For 2, fifo_stall & 5, ind_btb_rd_stall:
+  //if it not caccel ib_chgflw
+  //next cycle pipeline will stall until ib chgflw happen
+  //ib change flow will cancel previous ib chgflw
+  //Thus we need not use fifo stall cancel ib chgflw
+  //  val ibctrl_ibdp_mispred_stall    = mispred_stall
+  //  val ibctrl_ibdp_fifo_stall       = fifo_stall
+  //  val ibctrl_ibdp_buf_stall        = buf_stall
+  //  val ibctrl_ibdp_fifo_full_stall  = fifo_full_stall
+  //  val ibctrl_ibdp_ind_btb_rd_stall = ind_btb_rd_stall
+  //==========================================================
+  //                   IB Stage Stall
+  //==========================================================
+  //---------------------Take Notice--------------------------
+  //idu_ifu_id_bypass_stall > idu_stall > iu_ifu_mispred_stall
+  //Which can be used to simplify logic
+
+  //ibctrl_ipctrl_stall
+
+  //-----------------------buf_stall--------------------------
+  //buf_stall valid when
+  //  1.ibuf full or lbuf special state/full
+  //  2.ip_ib_vld
+  val buf_stall  = ib_data_valid && io.ibuf_ibctrl_stall //ibuf_full
+   //|| lbuf_ibctrl_stall //lbuf front_branch/cache state todo: add lubf
+
+  //--------------------fifo_full_stall----------------------
+  //lbuf active state, pcfifo will also be full
+  //Thus lbuf active should be treated as ib_data_vld
+  val fifo_full_stall  = io.iu_ifu_pcfifo_full &&
+    (ib_data_valid) //todo: add lbuf
+  //----------------------mispred_stall----------------------
+  //mispred_stall valid when
+  //  1.iu mispred stall valid(from next cycle of mispred)
+  //  2.ifu ib stage fetch ras/ind_br inst
+  //  3.in case of IND_BTB or RAS predict Mistake
+  //mispred stall used for maintain ras & ind_btb right
+  //if iu_ifu_mispred_stall signal need ifu generate
+  //when iu_mispred, mispred_state_reg <= 1
+  //when rtu_retire_mispred, mispred_state_reg <= 0
+  val hn_pcall = io.ip2ib.bits.hn_pcall & Cat(Seq.fill(8)(~ib_expt_vld))
+  val hn_preturn = io.ip2ib.bits.hn_pret & Cat(Seq.fill(8)(~ib_expt_vld))
+  val hn_ind_br = io.ip2ib.bits.hn_ind_br & Cat(Seq.fill(8)(~ib_expt_vld))
+  val mispred_stall   = io.iu_ifu_mispred_stall &&
+    ib_data_valid &&
+    !ib_expt_vld &&
+    (
+      (
+        hn_pcall.orR ||
+  hn_preturn.orR ||
+  hn_ind_br.orR
+  )
+  )
+
+  val ib_chgflw_self_stall = buf_stall ||
+    fifo_full_stall ||
+    mispred_stall
+  //-----------------------idu_stall--------------------------
+  //idu_stall means idu_ifu_id_stall
+  //which stop inst trans from ifu to idu
+  val idu_stall       = io.idu_ifu_id_stall
+
+  //----------------------fifo_stall--------------------------
+  //fifo_stall get may use 7-8 Gate,
+  //which will make ib_chgflw_vld timing worse
+  //Considering ib chgflw not use fifo_stall
+  //And correct it by cancel IF stage
+  //fifo_stall valid when
+  //  1.pcfifo more than two inst
+  //  2.ip_ib_valid
+  val pcfifo_stall    = io.pcfifo_if_ibctrl_more_than_two && !ib_expt_vld
+  val fifo_stall      = ib_data_valid && pcfifo_stall
+
+  //------------------ind_btb_rd_stall-----------------------
+  //ind_btb_rd_stall happens at the moment
+  //ib stage fetch ind_btb inst && ind_btb jmp state = 0
+  //Because ind_btb is rd in IB Stage,
+  //whose result will not be got cur cycle
+  //Thus we use ind_btb_rd_stall to stall one cycle
+  //and wait ind_btb result
+  val ind_btb_rd_stall = !ind_btb_rd_state &&
+    ib_data_valid &&
+    !ib_expt_vld &&
+    (hn_ind_br.orR)
+
+  val ind_jmp_success = ind_btb_rd_state && io.ib_redirect.valid && !fifo_stall && !fifo_full_stall ////todo:replace ib_redirect.valid with chgflw_vld
+  ind_btb_rd_state := PriorityMux(Seq(
+    ib_cancel -> false.B,
+    ind_btb_rd_stall -> true.B,
+    ind_jmp_success -> false.B,
+    true.B -> ind_btb_rd_state
+  ))
+
+  //==========================================================
+  //                   IB Stage Cancel
+  //==========================================================
+  //----------------------ib_cancel---------------------------
+  //ib_cancel means higher priority unit chgflw
+  //which should cancel ib stage operation:
+  //  1.cancel ibuf/lbuf write in
+  //  2.cancel pcfifo/ldfifo write in
+  //  3.cancel ibuf inst send to idu
+  //  4.cancel lbuf inst send to idu
+  //  5.cancel bypass inst send to idu
+  //==========================================================
+  //                  pcfifo control signal
+  //==========================================================
+  //pcfifo full will be maintained by iu
+
+  val pcfifo_create_vld = ib_data_valid &&
+    !ib_cancel &&
+    !ib_expt_vld &&
+    //!ib_addr_cancel && todo
+    !mispred_stall &&
+    !ind_btb_rd_stall &&
+    !buf_stall
+  io.fifo_create_vld := pcfifo_create_vld
 
 }
