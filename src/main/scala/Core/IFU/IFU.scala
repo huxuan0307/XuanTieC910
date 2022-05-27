@@ -30,6 +30,8 @@ class IFU extends Module with Config {
   pc_gen.io.had_ifu_pc := DontCare
   pc_gen.io.vector_pcgen_pcload := false.B
   pc_gen.io.vector_pcgen_pc := DontCare
+  pc_gen.io.rtu_ifu_chgflw_vld := io.rtu_ifu_chgflw_vld
+  pc_gen.io.rtu_ifu_chgflw_pc := io.rtu_ifu_chgflw_pc
   //
   pc_gen.io.redirect(0).valid := ubtb.io.ubtb_resp.valid
   pc_gen.io.redirect(0).bits  := ubtb.io.ubtb_resp.bits.target_pc
@@ -102,6 +104,12 @@ class IFU extends Module with Config {
 
 
 
+  ibstage.io.pcgen_ibctrl_cancel := pc_gen.io.ibctrl_cancel
+  ibstage.io.iu_ifu_mispred_stall := io.iu_ifu_mispred_stall
+  ibstage.io.ibuf_ibctrl_stall := !ibuf.io.allowEnq
+  ibstage.io.pcfifo_if_ibctrl_more_than_two := pcfifo.io.pcfifo_if_ibctrl_more_than_two
+  ibstage.io.iu_ifu_pcfifo_full := io.iu_ifu_pcfifo_full
+  ibstage.io.idu_ifu_id_stall := io.idu_ifu_id_stall
   ibstage.io.ip2ib.valid := ib_vld
   ibstage.io.ip2ib.bits  := RegEnable(ipstage.io.out.bits, reg_update)
 
@@ -182,6 +190,7 @@ class IFU extends Module with Config {
   io.toROB.curPc := pc_gen.io.ifu_rtu_cur_pc//0.U    //from had???
   ibuf.io.flush := backend_redirect
 
+  pcfifo.io.fifo_create_vld := ibstage.io.fifo_create_vld
   pcfifo.io.in.target_pc := ibstage.io.ib_redirect.bits
   pcfifo.io.in.h0_vld    := ipstage.io.out.bits.h0_vld
   pcfifo.io.in.cur_pc(0) := ipstage.io.out.bits.h0_pc

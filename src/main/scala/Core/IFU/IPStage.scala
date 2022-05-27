@@ -25,7 +25,7 @@ class IPStage extends Module with Config {
   val pc      = Wire(Vec(8,UInt(VAddrBits.W)))
   for(i <- 0 until 8){
     inst_32(i) := io.icache_resp.bits.inst_data(i)(1,0) === "b11".U
-    pc(i)      := Cat(io.pc(VAddrBits-1,4),i.U)
+    pc(i)      := Cat(io.pc(VAddrBits-1,4),i.U(3.W),0.U(1.W))
   }
 
   //last half inst
@@ -258,6 +258,9 @@ class IPStage extends Module with Config {
   io.out.bits.chgflw_vld_mask := chgflw_vld_mask
   io.out.bits.h0_pc         := h0_pc
   io.out.bits.cur_pc        := pc
+  io.out.bits.hn_pcall := pcall_vld(7,0)
+  io.out.bits.hn_pret := preturn_vld(7,0)
+  io.out.bits.hn_ind_br := ind_vld(7,0)
 
   io.out.bits.jal  := jal_vld(7,0)
   io.out.bits.jalr := jal_vld(7,0)

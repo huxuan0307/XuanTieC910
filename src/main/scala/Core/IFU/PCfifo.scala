@@ -133,6 +133,16 @@ class PCfifo extends Module with Config {
 
   val ind_btb_miss = io.in.ind_btb_miss
 
+  //Inst 0
+  //Inst 0 may from lbuf whenlbuf ACTIVE state
+  //Otherwise it from IB data path
+  io.out(0).en := io.fifo_create_vld && vld_0
+  //Inst 1
+  //Inst 1 can only from IB data path
+  io.out(1).en := io.fifo_create_vld && vld_1
+
+  io.pcfifo_if_ibctrl_more_than_two := PopCount(pcoper) > 2.U
+
   io.out(0).curPc  := cur_pc_0
   io.out(0).tarPc  := inst_0_targetpc
   io.out(0).dstVld := dst_vld_0
