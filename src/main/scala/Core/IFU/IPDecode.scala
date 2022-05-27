@@ -16,6 +16,7 @@ class IPDecodeOutput extends CoreBundle {
   val call    = Output(Vec(8+1,Bool()))
   val ret     = Output(Vec(8+1,Bool()))
   val offset  = Output(Vec(8+1,UInt(21.W)))
+  val pc_oper = Output(Vec(8+1,Bool()))
 }
 
 class IPDecodeIO extends CoreBundle {
@@ -52,6 +53,7 @@ class IPDecode extends Module with Config {
     io.decode_info.call(i)    := ifu_decode(i).io.is_call
     io.decode_info.ret(i)     := ifu_decode(i).io.is_return
     io.decode_info.offset(i)  := ifu_decode(i).io.offset
+    io.decode_info.pc_oper(i) := ifu_decode(i).io.is_pc_oper
   }
   // pc mask   &&  changeflow mask
 
