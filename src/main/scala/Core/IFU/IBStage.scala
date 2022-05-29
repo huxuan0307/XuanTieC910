@@ -8,6 +8,11 @@ class IBStage extends Module with Config {
   val io = IO(new IBStageIO)
 
   val ind_btb_rd_state = RegInit(false.B)
+  val pc_oper_updt_vldReg = RegInit(false.B)
+  val hn_pc_oper_updt_valReg = RegInit(0.U(8.W))
+  val ibdp_pcfifo_if_hn_pc_oper = WireInit(0.U(8.W))
+  val ibctrl_ibdp_cancel = WireInit(false.B)
+  val pc_oper_updt_vld_pre = WireInit(false.B)
 
   val ib_cancel = io.pcgen_ibctrl_cancel
 
@@ -32,10 +37,12 @@ class IBStage extends Module with Config {
 
 
   //redirect         icache predecode   ip predecode  ip predecode      ip predecode      ip predecode
-  io.ib_redirect.valid := ib_data_valid && (btb_miss || btb_mispred || ubtb_ras_mispred || ubtb_ras_miss || io.ip2ib.bits.ind_vld)
+  val chgflw_vld = ib_data_valid && (btb_miss || btb_mispred || ubtb_ras_mispred || ubtb_ras_miss || io.ip2ib.bits.ind_vld)
+  io.ib_redirect.valid := chgflw_vld
   val ind_btb_pc = Cat(io.ip2ib.bits.pc(VAddrBits-1,21),io.ind_btb_target,0.U(1.W))
   //val br_target  = Cat(io.ip2ib.bits.pc(VAddrBits-1,21),io.ip2ib.bits.br_offset)
   io.ib_redirect.bits  := Mux(io.ip2ib.bits.ind_vld, ind_btb_pc, Mux(ubtb_ras_mispred || ubtb_ras_miss, io.ras_target_pc, br_target))
+  //io.ib_redirect_pcload_vld := chgflw_vld && !ib_chgflw_self_stall todo: pcgen_l0_btb_chgflw_vld
 
   //btb update
   io.btb_update.valid := (btb_miss || btb_mispred) && ib_data_valid
@@ -58,6 +65,8 @@ class IBStage extends Module with Config {
 
   //////todo: ib_expt_vld comes from ip/if, concerning refill and mmu
   val ib_expt_vld = false.B
+  //////todo: addrgen cancel signal
+  val ib_addr_cancel = false.B
 
   //ib_chgflw_self_stall
   //  1.ibuf full or lbuf special state stall
@@ -119,6 +128,10 @@ class IBStage extends Module with Config {
   )
   )
 
+  //if RAS not valid
+  //take next 128 PC as predict PC
+  val ras_chgflw_vld  = ib_data_valid && (hn_preturn.orR)
+  //////todo: add signals
   val ib_chgflw_self_stall = buf_stall ||
     fifo_full_stall ||
     mispred_stall
@@ -158,6 +171,11 @@ class IBStage extends Module with Config {
     true.B -> ind_btb_rd_state
   ))
 
+  io.ibctrl_ipctrl_stall := mispred_stall ||
+    buf_stall ||
+    fifo_full_stall ||
+    fifo_stall ||
+    ind_btb_rd_stall
   //==========================================================
   //                   IB Stage Cancel
   //==========================================================
@@ -182,5 +200,31 @@ class IBStage extends Module with Config {
     !ind_btb_rd_stall &&
     !buf_stall
   io.fifo_create_vld := pcfifo_create_vld
+  io.ibctrl_pcfifo_if_ras_vld := ras_chgflw_vld
+  io.ibctrl_pcfifo_if_ras_target_pc := io.ras_target_pc
+  io.ibctrl_pcfifo_if_ind_target_pc := ind_btb_pc //////todo: complete it
+  io.ibdp_pcfifo_if_ind_br_offset := io.ip2ib.bits.br_offset //has been check
+
+  ibctrl_ibdp_cancel := ib_addr_cancel || ib_cancel
+  //==========================================================
+  //               hn_pc_oper pcfifo mask
+  //==========================================================
+  pc_oper_updt_vld_pre := ib_data_valid && !ind_btb_rd_stall &&
+    (
+        mispred_stall ||
+        fifo_full_stall ||
+        fifo_stall ||
+        buf_stall
+    )
+  pc_oper_updt_vldReg := Mux(ibctrl_ibdp_cancel,false.B,pc_oper_updt_vld_pre)
+  ibdp_pcfifo_if_hn_pc_oper := Mux(pc_oper_updt_vldReg,hn_pc_oper_updt_valReg,io.ip2ib.bits.pc_oper)
+  hn_pc_oper_updt_valReg := Mux(mispred_stall || io.iu_ifu_pcfifo_full || buf_stall,ibdp_pcfifo_if_hn_pc_oper, ibdp_pcfifo_if_hn_pc_oper & io.pc_oper_over_mask)
+  io.ibdp_pcfifo_if_hn_pc_oper := ibdp_pcfifo_if_hn_pc_oper
+  //  io.ibctrl_mispred_stall := mispred_stall
+  //  io.ibctrl_fifo_stall := fifo_stall
+  //  io.ibctrl_buf_stall := buf_stall
+  //  io.ibctrl_fifo_full_stall := fifo_full_stall
+  //  io.ibctrl_ind_btb_rd_stall := ind_btb_rd_stall
+
 
 }
