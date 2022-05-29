@@ -41,7 +41,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
   ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.chgflwPc //////todo: check it
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc //////todo: check it
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull

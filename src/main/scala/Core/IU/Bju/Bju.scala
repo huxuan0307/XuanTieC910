@@ -30,6 +30,7 @@ class IfuChangeFlow extends Bundle{
 //  val chgflwPc       = TODO: because 63bits = 24 + 39 = msb + pc, msb is MMU ref// (UInt(PcWidth.W))
   val chgflwVld      = Bool()
   val chkIdx         = UInt(25.W)
+  val tarPc          = UInt(PcWidth.W)
   val curPc          = UInt(PcWidth.W)
   val misPredStall   = Bool()
   val pcFifoFull     = Bool()
@@ -288,7 +289,7 @@ class Bju extends Module{
   //                  Interface to IFU
   //----------------------------------------------------------
   io.out.toIfu.chgflwVld      := ex2_pipe_chgflw_vld
-//  io.out.toIfu.chgflwPc       := ex2_pipe_tar_pc
+  io.out.toIfu.tarPc          := ex2_pipe_tar_pc
   io.out.toIfu.curPc          := ex2_pipe_pcfifo_read.pc
   io.out.toIfu.bhtPred        := ex2_pipe_pcfifo_read.bhtPred
   io.out.toIfu.chkIdx         := ex2_pipe_pcfifo_read.chkIdx
