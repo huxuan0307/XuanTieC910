@@ -51,33 +51,21 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
   val enq_num = PopCount(io.in.map(_.valid))
   io.allowEnq := validEntries <= IBufSize.U - 9.U
 
-  when(io.in(0).valid && io.allowEnq) {
+  val enqvalid_idx = PriorityEncoder(io.in.map(_.valid))
+
+  //todo: warning: enq flush entries not retire may cause error
+  when(io.in.map(_.valid).reduce(_||_) && io.allowEnq) {
     for (i <- 0 until 8 + 1) {
-      valid(enqPtr.value + i.U) := io.in(i).valid
+      valid(enqPtr.value + i.U) := io.in(i.U+enqvalid_idx).valid /////todo: check it when enqvalid_idx is 2k+1
 //      data.write(enqPtr.value + i.U,io.in(i).bits.data)
-      data(enqPtr.value + i.U) := io.in(i).bits.data
+      data(enqPtr.value + i.U) := io.in(i.U+enqvalid_idx).bits.data
 //      pc.write(enqPtr.value + i.U,io.in(i).bits.pc)
-      pc(enqPtr.value + i.U) := io.in(i).bits.pc
+      pc(enqPtr.value + i.U) := io.in(i.U+enqvalid_idx).bits.pc
 //      is_inst32.write(enqPtr.value + i.U,io.in(i).bits.is_inst32)
-      is_inst32(enqPtr.value + i.U) := io.in(i).bits.is_inst32
+      is_inst32(enqPtr.value + i.U) := io.in(i.U+enqvalid_idx).bits.is_inst32
 //      data(enqPtr.value + i.U).data := io.in(i).bits.data
 //      data(enqPtr.value + i.U).pc := io.in(i).bits.pc
 //      data(enqPtr.value + i.U).is_inst32 := io.in(i).bits.is_inst32
-//      data(enqPtr.value + i.U).ena := true.B
-    }
-  }.elsewhen(io.in(1).valid && !io.in(0).valid && io.allowEnq) {
-    for (i <- 0 until 8) {
-//      data.write(enqPtr.value + i.U,io.in(i+1).bits.data)
-      data(enqPtr.value + i.U) := io.in(i+1).bits.data
-//      pc.write(enqPtr.value + i.U,io.in(i+1).bits.pc)
-      pc(enqPtr.value + i.U) := io.in(i+1).bits.pc
-//      is_inst32.write(enqPtr.value + i.U,io.in(i+1).bits.is_inst32)
-      is_inst32(enqPtr.value + i.U) := io.in(i+1).bits.is_inst32
-      //      valid.write(enqPtr.value + i.U,io.in(i + 1).valid)
-      valid(enqPtr.value + i.U) := io.in(i + 1).valid
-//      data(enqPtr.value + i.U).data := io.in(i+1).bits.data
-//      data(enqPtr.value + i.U).pc := io.in(i+1).bits.pc
-//      data(enqPtr.value + i.U).is_inst32 := io.in(i+1).bits.is_inst32
 //      data(enqPtr.value + i.U).ena := true.B
     }
   }
@@ -93,7 +81,7 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
 //  deq_vec(2) := deq_vec(1) + valid(deq_vec(1).value) + (valid(deq_vec(1).value) && is_inst32(deq_vec(1).value))//data(deq_vec(1).value).is_inst32)
   val deq_vec = WireInit(VecInit(Seq.fill(3)(0.U(5.W))))
   deq_vec(0) := deqPtr.value
-  deq_vec(1) := deqPtr.value + valid(deqPtr.value).asUInt() + (valid(deqPtr.value) && is_inst32(deqPtr.value)).asUInt()
+  deq_vec(1) := deq_vec(0) + valid(deq_vec(0)).asUInt() + (valid(deq_vec(0)) && is_inst32(deq_vec(0))).asUInt()
   deq_vec(2) := deq_vec(1) + valid(deq_vec(1)).asUInt() + (valid(deq_vec(1)) && is_inst32(deq_vec(1))).asUInt()
 //  deq_vec(0).value := 0.U
 //  deq_vec(1).value := 2.U
@@ -132,4 +120,16 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
 //    valid  := VecInit(Seq.fill(IBufSize)(false.B))
   }
 
+  /////retire
+  //because inorder enq and deq,
+  //deqptr always <= enqptr,
+  //when deq valid, can retire directly
+  for(i <- 0 until 3){
+    when(valid(deq_vec(i))){
+      valid(deq_vec(i)) := false.B
+      when(is_inst32(deq_vec(i))){
+        valid(deq_vec(i)+1.U) := false.B
+      }
+    }
+  }
 }

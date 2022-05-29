@@ -174,7 +174,13 @@ class PCfifo extends Module with Config {
   io.out(0).dstVld := dst_vld_0
   io.out(0).jal    := jal_0
   io.out(0).jalr   := jalr_0
+  //bht_pred_array_result
+  //inst0 & inst1 has one con_br at most
+  //thus share one bht_pred_array_result
   io.out(0).predStore.bhtPred := bht_pre_result(1)
+  //bht_select_array_result
+  //inst0 & inst1 has one con_br at most
+  //thus share one bht_select_array_result
   io.out(0).predStore.chkIdx  := Cat(bht_pre_result(0),bht_sel_result,inst0_vghr)
   io.out(0).predStore.jmpMispred := ind_btb_miss
 
