@@ -82,10 +82,9 @@ class Rbus extends Module with IUConfig {
       pipe0_rslt_data  := cp0_in.rsltData
     }
   }
-  val pipe0_wb_rslt_preg = RegEnable(pipe0_rslt_preg, pipe_rslt_vld.head)
-  val pipe0_wb_rslt_data = RegEnable(pipe0_rslt_data, pipe_rslt_vld.head)
-  io.out(0).wbPreg    := pipe0_wb_rslt_preg
-  io.out(0).wbData    := pipe0_wb_rslt_data
+
+  io.out(0).wbPreg    := pipe0_rslt_preg
+  io.out(0).wbData    := pipe0_rslt_data
   io.out(0).wbPregVld := pipe_wb_vld(0)
   //----------------------------------------------------------
   //                         Pipe 1
@@ -109,10 +108,9 @@ class Rbus extends Module with IUConfig {
       pipe1_rslt_data := mu_in.data
     }
   }
-  val pipe1_wb_rslt_preg = RegEnable(pipe1_rslt_preg, pipe_rslt_vld(1))
-  val pipe1_wb_rslt_data = RegEnable(pipe1_rslt_data, pipe_rslt_vld(1))
-  io.out(1).wbPreg    := pipe1_wb_rslt_preg
-  io.out(1).wbData    := pipe1_wb_rslt_data
+
+  io.out(1).wbPreg    := pipe1_rslt_preg
+  io.out(1).wbData    := pipe1_rslt_data
   io.out(1).wbPregVld := pipe_wb_vld(1)
 
 }

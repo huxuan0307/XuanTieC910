@@ -190,9 +190,9 @@ class RenameTable extends Module{
   val inst_src1_read_data = Wire(Vec(4, new ReadDepData))
   val inst_dst_read_data  = Wire(Vec(4, new ReadDepData))
   for(i <- 0 until 4){
-    inst_src0_read_data(i) := MuxLookup(io.in.rt_req.instInfo(i).bits.dst_reg,
+    inst_src0_read_data(i) := MuxLookup(io.in.rt_req.instInfo(i).bits.src_reg(0),
       0.U.asTypeOf(new ReadDepData), (0 until 33).map(_.U).zip(reg_read_data))
-    inst_src1_read_data(i) := MuxLookup(io.in.rt_req.instInfo(i).bits.dst_reg,
+    inst_src1_read_data(i) := MuxLookup(io.in.rt_req.instInfo(i).bits.src_reg(1),
       0.U.asTypeOf(new ReadDepData), (0 until 33).map(_.U).zip(reg_read_data))
     inst_dst_read_data(i) := MuxLookup(io.in.rt_req.instInfo(i).bits.dst_reg,
       0.U.asTypeOf(new ReadDepData), (0 until 33).map(_.U).zip(reg_read_data))
@@ -746,4 +746,4 @@ class RenameTable extends Module{
     io.out.instInfo(3).rel_preg := inst_dst_read_data(3).preg
   }
 
-}//01 02 03 12 13 23
+}

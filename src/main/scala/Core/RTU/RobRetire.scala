@@ -151,6 +151,7 @@ class RobRetire extends Module {
   }
 
   class RetireEntryData extends Bundle {
+    val instr           : UInt = UInt(32.W)
     val vlPred          : Bool = Bool()
     val vl              : UInt = UInt(VlmaxBits.W)
     val vecDirty        : Bool = Bool()
@@ -278,7 +279,7 @@ class RobRetire extends Module {
   for (i <- 0 until NumRobReadEntry) {
     for (j <- 0 until NumPipeline) {
       // pipe(j) read(i) complete
-      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(i) && robReadIidVec(i) === pipeIidVec(i)
+      robReadPipeCmpltVec(i)(j) := pipeCmpltVec(j) && robReadIidVec(i) === pipeIidVec(j)
     }
     robReadExceptEntryValidVec(i):= io.in.fromExptEntry.valid && robReadIidVec(i) === io.in.fromExptEntry.iid
   }
@@ -342,10 +343,10 @@ class RobRetire extends Module {
     foldReadPipeCmpltVec(i)(2) := robReadPipeCmpltVec(i)(5)
     foldReadPipeCmpltVec(i)(3) := robReadPipeCmpltVec(i)(6)
   }
-
+  //dontTouch(foldReadPipeCmpltVec)
   private val foldReadPipeCmpltCntVec = Wire(Vec(NumRobReadEntry, UInt(log2Up(NumRobReadEntry).W)))
   for (i <- 0 until NumRobReadEntry) {
-    foldReadPipeCmpltCntVec(i) := foldReadPipeCmpltVec(i).count(item=>item)
+    foldReadPipeCmpltCntVec(i) := PopCount(foldReadPipeCmpltVec(i))
   }
 
   //----------------------------------------------------------
@@ -619,6 +620,7 @@ class RobRetire extends Module {
   //==========================================================
   private val retireInstDataCreateVec = Wire(Vec(NumRetireEntry, new RetireEntryData))
   for (i <- 0 until NumRetireEntry) {
+    retireInstDataCreateVec(i).instr          := robReadDataVec(i).data.instr
     retireInstDataCreateVec(i).vlPred         := robReadDataVec(i).data.vlPred
     retireInstDataCreateVec(i).vl             := robReadDataVec(i).data.vl
     retireInstDataCreateVec(i).vecDirty       := robReadDataVec(i).data.vecDirty
@@ -666,6 +668,7 @@ class RobRetire extends Module {
 
   // robToRetireInstVec
   for (i <- 0 until NumRetireEntry) {
+    io.out.toRetire.instVec(i).instr        := retireInstVec(i).bits.data.instr
     io.out.toRetire.instVec(i).split        := retireInstVec(i).bits.data.split
     io.out.toRetire.instVec(i).bju          := retireInstVec(i).bits.data.bju
     io.out.toRetire.instVec(i).checkIdx     := retireInstVec(i).bits.data.checkIdx

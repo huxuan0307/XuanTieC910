@@ -9,6 +9,7 @@ import Core.ExceptionConfig._
 import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
 import Utils.Bits.RingShiftLeft
+import difftest.DifftestInstrCommit
 
 
 class RobInput extends Bundle {
@@ -126,15 +127,15 @@ class Rob extends Module {
   private val debugInfoRobEntryNum = RegInit(0.U(NumRobEntry.W))
   private val debugInfoRobFull = RegInit(false.B)
 
-  private val robCreatePtr = RegInit(0.U(RobPtrWidth.W))
-  private val robCreateIidVec = RegInit(VecInit(Seq.fill(NumCreateEntry)(0.U(InstructionIdWidth.W))))
+  private val robCreatePtr = RegInit(1.U(RobPtrWidth.W))
+  private val robCreateIidVec = RegInit(VecInit((0 until  NumCreateEntry).map(_.U(InstructionIdWidth.W))))
 
   private val robEntryNum = RegInit(0.U(NumRobEntry.W))
   private val robFull = RegInit(false.B)
-  private val robPopIidVec = RegInit(VecInit(Seq.fill(NumPopEntry)(0.U(InstructionIdWidth.W))))
+  private val robPopIidVec = RegInit(VecInit((0 until  NumPopEntry).map(_.U(InstructionIdWidth.W))))
 
-  private val robReadPtr = RegInit(0.U(NumRobEntry.W))
-  private val robReadIidVec = RegInit(VecInit(Seq.fill(RobReadPtrNum)(0.U(InstructionIdWidth.W))))
+  private val robReadPtr = RegInit(1.U(NumRobEntry.W))
+  private val robReadIidVec = RegInit(VecInit((0 until  RobReadPtrNum).map(_.U(InstructionIdWidth.W))))
 
   /**
    * Wires
@@ -396,7 +397,7 @@ class Rob extends Module {
   completeOHVec(6) := UIntToOH(PipeIidLsbVec(6)) & Fill(NumRobEntry, io.in.fromVfpu.pipe7.cmplt)
 
   for (i <- 0 until NumRobEntry) {
-    entryCmpltValidVec(i) := Cat(completeOHVec.map(completeOH => completeOH(i)))
+    entryCmpltValidVec(i) := Cat(completeOHVec.map(completeOH => completeOH(i)).reverse)
   }
 
   for (i <- 0 until NumRobEntry) {
@@ -725,6 +726,8 @@ class Rob extends Module {
   exceptIn.fromRtu.yyXxFlush          := io.in.fromRtu.yyXxFlush
 
   exceptOutEntry                            := exceptOut.except
+  val retireOutInstExtra = Wire(Output(new RobToRetireInstExtraBundle))
+  io.out.toRetire.instExtra       := retireOutInstExtra
   io.out.toRetire.instExtra.bhtMispred      := exceptOut.toRetire.inst0.bhtMispred
   io.out.toRetire.instExtra.breakPoint      := exceptOut.toRetire.inst0.breakpoint
   io.out.toRetire.instExtra.efPcValid       := exceptOut.toRetire.inst0.efPcValid
@@ -784,7 +787,7 @@ class Rob extends Module {
   retireIn.fromVfpu.pipe6          := io.in.fromVfpu.pipe6
   retireIn.fromVfpu.pipe7          := io.in.fromVfpu.pipe7
   io.out.toRetire.instVec         := retireOut.toRetire.instVec
-  io.out.toRetire.instExtra       := retireOut.toRetire.instExtra
+  retireOutInstExtra := retireOut.toRetire.instExtra
 
   retireEntryUpdateGateClkValid   := retireOut.retire.updateGateClkValid
   retireEntryUpdateValidVec := retireOut.retire.entryUpdateValidVec
@@ -800,7 +803,6 @@ class Rob extends Module {
   io.out.toRetire.commitValidVec := retireOut.toRetire.commitValidVec
   io.out.toRetire.ctcFlushSrtEn := retireOut.toRetire.ctcFlushSrtEn
   io.out.toRetire.instVec   := retireOut.toRetire.instVec
-  io.out.toRetire.instExtra := retireOut.toRetire.instExtra
   io.out.toRetire.intSrtEn  := retireOut.toRetire.intSrtEn
   io.out.toRetire.robCurPc  := retireOut.toRetire.robCurPc
   io.out.toTop.robCurPc     := retireOut.toTop.robCurPc
@@ -811,4 +813,5 @@ class Rob extends Module {
   io.out.toIu               := retireOut.toIu
   io.out.toPad              := retireOut.toPad
   io.out.yyXx               := retireOut.yyXx
+
 }

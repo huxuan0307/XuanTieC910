@@ -52,8 +52,9 @@ class RT_Req extends Bundle{
 }
 
 class RT_Resp extends Bundle{
-  val srcMatch = Vec(6, new rt_srcMatch)
-  val instInfo = Vec(4, new rtInstResp)
+  // 0 depends on 1, 02 03 12 13 23
+  val srcMatch = Vec(6, new rt_srcMatch) // 同一拍的指令关联性
+  val instInfo = Vec(4, new rtInstResp)  // 和
 }
 
 //float rename table

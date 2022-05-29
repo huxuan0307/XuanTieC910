@@ -19,6 +19,7 @@ package difftest
 import chisel3._
 import chisel3.util._
 import Chisel.BlackBox
+import chisel3.experimental.{DataMirror, ExtModule}
 
 trait DifftestParameter {
 }
@@ -47,24 +48,32 @@ class DiffArchEventIO extends DifftestBundle {
   val exceptionInst = Input(UInt(32.W))
 }
 
-class DiffInstrCommitIO extends DifftestBundle with DifftestWithIndex {
+class DiffBasicInstrCommitIO extends DifftestBundle with DifftestWithIndex {
   val valid    = Input(Bool())
-  val pc       = Input(UInt(64.W))
-  val instr    = Input(UInt(32.W))
+  val special  = Input(UInt(8.W))
   val skip     = Input(Bool())
   val isRVC    = Input(Bool())
-  val scFailed = Input(Bool())
-  val wen      = Input(Bool())
-  val wdata    = Input(UInt(64.W))
+  val rfwen    = Input(Bool())
+  val fpwen    = Input(Bool())
+  val wpdest   = Input(UInt(32.W))
   val wdest    = Input(UInt(8.W))
 }
 
-class DiffTrapEventIO extends DifftestBundle {
-  val valid    = Input(Bool())
-  val code     = Input(UInt(3.W))
+class DiffInstrCommitIO extends DiffBasicInstrCommitIO {
   val pc       = Input(UInt(64.W))
+  val instr    = Input(UInt(32.W))
+}
+
+class DiffBasicTrapEventIO extends DifftestBundle {
+  val valid    = Input(Bool())
   val cycleCnt = Input(UInt(64.W))
   val instrCnt = Input(UInt(64.W))
+  val hasWFI   = Input(Bool())
+}
+
+class DiffTrapEventIO extends DiffBasicTrapEventIO {
+  val code     = Input(UInt(3.W))
+  val pc       = Input(UInt(64.W))
 }
 
 class DiffCSRStateIO extends DifftestBundle {
@@ -88,6 +97,26 @@ class DiffCSRStateIO extends DifftestBundle {
   val medeleg = Input(UInt(64.W))
 }
 
+class DiffDebugModeIO extends DifftestBundle {
+  val debugMode = Input(Bool())
+  val dcsr = Input(UInt(64.W))
+  val dpc = Input(UInt(64.W))
+  val dscratch0 = Input(UInt(64.W))
+  val dscratch1 = Input(UInt(64.W))
+}
+
+class DiffIntWritebackIO extends DifftestBundle {
+  val valid = Input(Bool())
+  val dest  = Input(UInt(32.W))
+  val data  = Input(UInt(64.W))
+}
+
+class DiffFpWritebackIO extends DifftestBundle {
+  val valid = Input(Bool())
+  val dest  = Input(UInt(32.W))
+  val data  = Input(UInt(64.W))
+}
+
 class DiffArchIntRegStateIO extends DifftestBundle {
   val gpr = Input(Vec(32, UInt(64.W)))
 }
@@ -96,7 +125,7 @@ class DiffArchFpRegStateIO extends DifftestBundle {
   val fpr  = Input(Vec(32, UInt(64.W)))
 }
 
-class DiffSbufferEventIO extends DifftestBundle {
+class DiffSbufferEventIO extends DifftestBundle with DifftestWithIndex{
   val sbufferResp = Input(Bool())
   val sbufferAddr = Input(UInt(64.W))
   val sbufferData = Input(Vec(64, UInt(8.W)))
@@ -132,49 +161,141 @@ class DiffPtwEventIO extends DifftestBundle {
   val ptwData = Input(Vec(4, UInt(64.W)))
 }
 
-class DifftestArchEvent extends BlackBox {
-  val io = IO(new DiffArchEventIO)
+class DiffRefillEventIO extends DifftestBundle {
+  val valid = Input(Bool())
+  val addr  = Input(UInt(64.W))
+  val data  = Input(Vec(8, UInt(64.W)))
+  val cacheid = Input(Bool())
 }
 
-class DifftestInstrCommit extends BlackBox {
-  val io = IO(new DiffInstrCommitIO)
+class DiffLrScEventIO extends DifftestBundle {
+  val valid   = Input(Bool())
+  val success = Input(Bool())
 }
 
-class DifftestTrapEvent extends BlackBox {
-  val io = IO(new DiffTrapEventIO)
+class DiffRunaheadEventIO extends DifftestBundle with DifftestWithIndex {
+  val valid         = Input(Bool())
+  val branch        = Input(Bool())
+  val may_replay    = Input(Bool())
+  val pc            = Input(UInt(64.W))
+  val checkpoint_id = Input(UInt(64.W))
 }
 
-class DifftestCSRState extends BlackBox {
-  val io = IO(new DiffCSRStateIO)
+class DiffRunaheadCommitEventIO extends DifftestBundle with DifftestWithIndex {
+  val valid         = Input(Bool())
+  val pc            = Input(UInt(64.W))
 }
 
-class DifftestArchIntRegState extends BlackBox {
-  val io = IO(new DiffArchIntRegStateIO)
+class DiffRunaheadRedirectEventIO extends DifftestBundle {
+  val valid         = Input(Bool())
+  val pc            = Input(UInt(64.W)) // for debug only
+  val target_pc     = Input(UInt(64.W)) // for debug only
+  val checkpoint_id = Input(UInt(64.W))
 }
 
-class DifftestArchFpRegState extends BlackBox {
-  val io = IO(new DiffArchFpRegStateIO)
+class DiffRunaheadMemdepPredIO extends DifftestBundle with DifftestWithIndex {
+  val valid         = Input(Bool())
+  val is_load       = Input(Bool())
+  val need_wait     = Input(Bool())
+  val pc            = Input(UInt(64.W)) // for debug only
+  val oracle_vaddr  = Output(UInt(64.W))
 }
 
-class DifftestSbufferEvent extends BlackBox {
-  val io = IO(new DiffSbufferEventIO)
+abstract class DifftestModule[T <: DifftestBundle] extends ExtModule with HasExtModuleInline
+{
+  val io: T
+
+  def getDirectionString(data: Data): String = {
+    if (DataMirror.directionOf(data) == ActualDirection.Input) "input " else "output"
+  }
+
+  def getDPICArgString(argName: String, data: Data): String = {
+    val directionString = getDirectionString(data)
+    val typeString = data.getWidth match {
+      case 1                                  => "bit"
+      case width if width > 1  && width <= 8  => "byte"
+      case width if width > 8  && width <= 32 => "int"
+      case width if width > 32 && width <= 64 => "longint"
+      case _ => s"unsupported io type of width ${data.getWidth}!!\n"
+    }
+    val argString = Seq(directionString, f"${typeString}%7s", argName)
+    argString.mkString(" ")
+  }
+
+  def getModArgString(argName: String, data: Data): String = {
+    val widthString = if (data.getWidth == 1) "      " else f"[${data.getWidth - 1}%2d:0]"
+    val argString = Seq(getDirectionString(data), widthString, s"$argName")
+    argString.mkString(" ")
+  }
+
+  def moduleName = this.getClass.getSimpleName
+  def moduleBody: String = {
+    // ExtModule implicitly adds io_* prefix to the IOs (because the IO val is named as io).
+    // This is different from BlackBoxes.
+    val interfaces = io.elements.toSeq.reverse.flatMap{ case (name, data) =>
+      data match {
+        case vec: Vec[Data] => vec.zipWithIndex.map{ case (v, i) => (s"io_${name}_$i", v) }
+        case _ => Seq((s"io_$name", data))
+      }
+    }
+    // (1) DPI-C function prototype
+    val dpicInterfaces = interfaces.filterNot(_._1 == "io_clock")
+    val dpicName = s"v_difftest_${moduleName.replace("Difftest", "")}"
+    val dpicDecl =
+      s"""
+         |import "DPI-C" function void $dpicName (
+         |${dpicInterfaces.map(ifc => getDPICArgString(ifc._1, ifc._2)).mkString(",\n")}
+         |);
+         |""".stripMargin
+    // (2) module definition
+    val modPorts = interfaces.map(i => getModArgString(i._1, i._2)).mkString(",\n")
+    val modDef =
+      s"""
+         |module $moduleName(
+         |  $modPorts
+         |);
+         |`ifndef SYNTHESIS
+         |`ifdef DIFFTEST
+         |$dpicDecl
+         |  always @(posedge io_clock) begin
+         |    $dpicName (${dpicInterfaces.map(_._1).mkString(",")});
+         |  end
+         |`endif
+         |`endif
+         |endmodule
+         |""".stripMargin
+    modDef
+  }
+  def instantiate(): Unit = setInline(s"$moduleName.v", moduleBody)
 }
 
-class DifftestStoreEvent extends BlackBox {
-  val io = IO(new DiffStoreEventIO)
+class DifftestBaseModule[T <: DifftestBundle](gen: T) extends DifftestModule[T] {
+  val io = IO(gen)
+  instantiate()
 }
 
-class DifftestLoadEvent extends BlackBox {
-  val io = IO(new DiffLoadEventIO)
-}
-
-class DifftestAtomicEvent extends BlackBox {
-  val io = IO(new DiffAtomicEventIO)
-}
-
-class DifftestPtwEvent extends BlackBox {
-  val io = IO(new DiffPtwEventIO)
-}
+class DifftestArchEvent extends DifftestBaseModule(new DiffArchEventIO)
+class DifftestBasicInstrCommit extends DifftestBaseModule(new DiffBasicInstrCommitIO)
+class DifftestInstrCommit extends DifftestBaseModule(new DiffInstrCommitIO)
+class DifftestBasicTrapEvent extends DifftestBaseModule(new DiffBasicTrapEventIO)
+class DifftestTrapEvent extends DifftestBaseModule(new DiffTrapEventIO)
+class DifftestCSRState extends DifftestBaseModule(new DiffCSRStateIO)
+class DifftestDebugMode extends DifftestBaseModule(new DiffDebugModeIO)
+class DifftestIntWriteback extends DifftestBaseModule(new DiffIntWritebackIO)
+class DifftestFpWriteback extends DifftestBaseModule(new DiffFpWritebackIO)
+class DifftestArchIntRegState extends DifftestBaseModule(new DiffArchIntRegStateIO)
+class DifftestArchFpRegState extends DifftestBaseModule(new DiffArchFpRegStateIO)
+class DifftestSbufferEvent extends DifftestBaseModule(new DiffSbufferEventIO)
+class DifftestStoreEvent extends DifftestBaseModule(new DiffStoreEventIO)
+class DifftestLoadEvent extends DifftestBaseModule(new DiffLoadEventIO)
+class DifftestAtomicEvent extends DifftestBaseModule(new DiffAtomicEventIO)
+class DifftestPtwEvent extends DifftestBaseModule(new DiffPtwEventIO)
+class DifftestRefillEvent extends DifftestBaseModule(new DiffRefillEventIO)
+class DifftestLrScEvent extends DifftestBaseModule(new DiffLrScEventIO)
+class DifftestRunaheadEvent extends DifftestBaseModule(new DiffRunaheadEventIO)
+class DifftestRunaheadCommitEvent extends DifftestBaseModule(new DiffRunaheadCommitEventIO)
+class DifftestRunaheadRedirectEvent extends DifftestBaseModule(new DiffRunaheadRedirectEventIO)
+class DifftestRunaheadMemdepPred extends DifftestBaseModule(new DiffRunaheadMemdepPredIO)
 
 // Difftest emulator top
 
@@ -201,8 +322,4 @@ class UARTIO extends Bundle {
     val valid = Output(Bool())
     val ch = Input(UInt(8.W))
   }
-}
-
-package object difftest {
-  
 }

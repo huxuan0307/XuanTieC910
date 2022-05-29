@@ -29,10 +29,15 @@ class PCGenIO extends CoreBundle{
   val redirect = Vec(4,Flipped(Valid(UInt(VAddrBits.W))))
   val pc = Output(UInt(VAddrBits.W))
   val continue = Input(Bool())
+  val IbufAllowEnq = Input(Bool())
   val had_ifu_pc = Input(UInt(VAddrBits.W))
   val had_ifu_pcload = Input(Bool())
   val vector_pcgen_pc = Input(UInt(VAddrBits.W))
   val vector_pcgen_pcload = Input(Bool())
+  //rtu_ifu_chgflw
+  val rtu_ifu_chgflw_vld = Input(Bool())
+  val rtu_ifu_chgflw_pc = Input(UInt(PcWidth.W))
+  //  //iu_ifu_chgflw is redirect(3)
   //val vector_pcgen_reset_on = Input(Bool())
   //val rtu_ifu_chgflw_pc = Input(UInt(VAddrBits.W))
   //val rtu_ifu_chgflw_vld = Input(Bool())
@@ -40,6 +45,7 @@ class PCGenIO extends CoreBundle{
   //val rtu_ifu_xx_expt_vld = Input(Bool())
   val ifu_rtu_cur_pc = Output(UInt(VAddrBits.W))
   val ifu_rtu_cur_pc_load = Output(Bool())
+  val ibctrl_cancel = Output(Bool())
 }
 
 class BHT_IP_Resp extends CoreBundle {
@@ -99,6 +105,10 @@ class IP2IB extends CoreBundle {
   val jalr       = UInt(8.W)
   val con_br       = UInt(8.W)
   val dst       = UInt(8.W)
+  val hn_pcall = UInt(8.W)
+  val hn_pret = UInt(8.W)
+  val hn_ind_br = UInt(8.W)
+  val pc_oper = UInt(8.W)
 }
 
 class IPStageIO extends  CoreBundle {
@@ -122,6 +132,27 @@ class IBStageIO extends CoreBundle {
   val ip2ib       = Flipped(Valid(new IP2IB))
 
   val ib_redirect = Valid(UInt(VAddrBits.W))
+
+  val pcgen_ibctrl_cancel = Input(Bool())
+  val iu_ifu_pcfifo_full = Input(Bool())
+  val iu_ifu_mispred_stall = Input(Bool())
+  val ibuf_ibctrl_stall = Input(Bool())
+  val idu_ifu_id_stall = Input(Bool())
+  val fifo_create_vld = Output(Bool())
+  val pcfifo_if_ibctrl_more_than_two = Input(Bool())
+  val pc_oper_over_mask = Input(UInt(8.W))
+  //val ibdp_hn_pc_oper = Input(UInt(8.W)) ////has been deal in ipstage
+  val ibdp_pcfifo_if_hn_pc_oper = Output(UInt(8.W))
+  val ibctrl_ipctrl_stall = Output(Bool())
+  val ibctrl_pcfifo_if_ras_vld = Output(Bool())
+  val ibdp_pcfifo_if_ind_br_offset = Output(UInt(21.W))
+  val ibctrl_pcfifo_if_ind_target_pc = Output(UInt(VAddrBits.W))
+  val ibctrl_pcfifo_if_ras_target_pc = Output(UInt(VAddrBits.W))
+  //  val ibctrl_mispred_stall = Output(Bool())
+  //  val ibctrl_fifo_stall = Output(Bool())
+  //  val ibctrl_buf_stall = Output(Bool())
+  //  val ibctrl_fifo_full_stall = Output(Bool())
+  //  val ibctrl_ind_btb_rd_stall = Output(Bool())
 
   val ind_jmp_valid  = Output(Bool())
   val ind_btb_target = Input(UInt(20.W))
@@ -151,12 +182,19 @@ class RobFromIfu extends Bundle {
   val curPcLoad : Bool = Bool()
 }
 
-class PCfifoIO extends Bundle {
+class PCfifoIO extends Bundle with Config {
   val in = Input(new PCfifo_iu)
   val out = Output(Vec(2, new BhtPredDataForward))
+  val fifo_create_vld = Input(Bool())
+  val ibdp_pcfifo_if_ind_br_offset = Input(UInt(21.W))
+  val ibctrl_pcfifo_if_ras_vld = Input(Bool())
+  val ibctrl_pcfifo_if_ind_target_pc = Input(UInt(VAddrBits.W))
+  val ibctrl_pcfifo_if_ras_target_pc = Input(UInt(VAddrBits.W))
+  val pcfifo_if_ibctrl_more_than_two = Output(Bool())
+  val pcfifo_if_ibdp_over_mask = Output(UInt(8.W))
 }
 class PCfifo_iu extends Bundle with Config {
-  val target_pc = UInt(PcWidth.W)
+  //val target_pc = UInt(PcWidth.W)
   val h0_vld    = Bool()
   val cur_pc    = Vec(9, UInt(PcWidth.W))
   val pc_oper   = UInt(8.W)
@@ -176,6 +214,7 @@ class BhtPredDataForward extends Bundle{ // @ct_iu_bju_pcfifo @1677-1684
   var jalr = Bool()
   var dstVld = Bool()
   val predStore = new IfuPredStore
+  val en = Bool()
 }
 class IfuPredStore extends Bundle{
 //  val pc = UInt(PcWidth.W)
@@ -186,6 +225,17 @@ class IfuPredStore extends Bundle{
 class IFUIO extends CoreBundle {
   //flush
   val bru_redirect = Flipped(Valid(UInt(VAddrBits.W)))
+  //rtu_ifu_chgflw
+  val rtu_ifu_chgflw_vld = Input(Bool())
+  val rtu_ifu_chgflw_pc = Input(UInt(PcWidth.W))
+  //  //iu_ifu_chgflw
+  //  val iu_ifu_chgflw_vld = Input(Bool())
+  //  val iu_ifu_chgflw_pc = Input(UInt(PcWidth.W))
+  //iu_ifu_mispred_stall//todo:figure out it
+  val iu_ifu_pcfifo_full = Input(Bool())
+  val iu_ifu_mispred_stall = Input(Bool())
+
+  val idu_ifu_id_stall  = Input(Bool())
   //inst fetch
   val tlb        = new IFU_TLB
   //val cache_req  = Decoupled(new ICacheReq)

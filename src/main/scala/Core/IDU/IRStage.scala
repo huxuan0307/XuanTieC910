@@ -495,7 +495,7 @@ class IRStage extends Module {
     io.out.ir_pipedown.instData(i).PIPE7 := instData(i).inst_type(8) //pipe7
     io.out.ir_pipedown.instData(i).PIPE6 := instData(i).inst_type(7) //pipe6
     io.out.ir_pipedown.instData(i).PIPE67 := instData(i).inst_type(6) //pipe67
-    io.out.ir_pipedown.instData(i).IID_PLUS := instData(i).idd_plus
+    io.out.ir_pipedown.instData(i).IID_PLUS := instData(i).iid_plus
     io.out.ir_pipedown.instData(i).BKPTB_INST := instData(i).bkptb_inst
     io.out.ir_pipedown.instData(i).BKPTA_INST := instData(i).bkpta_inst
     io.out.ir_pipedown.instData(i).EXPT := instData(i).expt

@@ -1,17 +1,18 @@
 package Core.IDU.RF
 
 import Core.ExceptionConfig.ExceptionVecWidth
-import Core.IDU.DecodeTable.{AluDecodeTable, DefaultInst}
+import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
 import Core.IDU.FuncUnit
 import Core.IDU.IS.AiqConfig.NumSrcArith
 import Core.IDU.IS.BiqConfig.NumSrcBr
-import Core.IDU.IS.LsiqConfig.NumSrcLs
+import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
 import Core.IDU.IS.SdiqConfig.NumSrcSd
 import Core.IDU.IS.VfiqConfig.NumSrcVf
 import Core.IDU.IS._
 import Core.IDU.Opcode.Opcode
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig._
+import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
 import Utils.Bits.{sext, zext}
 import chisel3._
@@ -153,7 +154,7 @@ class RFStageCtrlOutput extends Bundle with RFStageConfig {
   val toSt    = new RFStageToFuCtrlBundle // pipe4
   val toSd    = new RFStageToFuCtrlBundle // pipe5
   val toVfpu0 = new RFStageToFuCtrlBundle // pipe6
-  val toVfpu1 = new RFStageToFuCtrlBundle // pipe6
+  val toVfpu1 = new RFStageToFuCtrlBundle // pipe7
 }
 
 class RFStageCtrlBundle extends Bundle {
@@ -255,7 +256,18 @@ class RFStageDataOutput extends Bundle with RFStageConfig {
   val toVfiq0 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf)
   val toVfiq1 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf)
 
-  val toIu = new RFStageToFuDataBundle
+  val toIu0 = new RFStageToFuDataBundle
+  val toIu1 = new RFStageToFuDataBundle
+  val toBju = new RFStageToFuDataBundle
+  /**
+   * aluDstPregs(i): alu(i) dst preg
+   */
+  val aluDstPregs   : Vec[UInt] = Vec(NumAlu, UInt(NumPhysicRegsBits.W))
+
+  /**
+   * vfpuDstVregs(i): vfpu(i) dst preg
+   */
+  val vfpuDstVregs  : Vec[UInt] = Vec(NumVfUnit, UInt(NumVPregsBits.W))
 }
 
 class RFStageDataBundle extends Bundle {
@@ -276,22 +288,72 @@ class RFStage extends Module with RFStageConfig {
   private val aiq0_data = io.data.in.aiq0
   private val aiq1_data = io.data.in.aiq1
   private val biq_data = io.data.in.biq
+  private val lsiq0_data = io.data.in.lsiq0
+  private val lsiq1_data = io.data.in.lsiq1
+  private val sdiq_data = io.data.in.sdiq
+  private val vfiq0_data = io.data.in.vfiq0
+  private val vfiq1_data = io.data.in.vfiq1
 
-  // update if issue enable
+  private val pipeIssueEn = WireInit(VecInit(
+    io.data.in.aiq0.issueEn,
+    io.data.in.aiq1.issueEn,
+    io.data.in.biq.issueEn,
+    io.data.in.lsiq0.issueEn,
+    io.data.in.lsiq1.issueEn,
+    io.data.in.sdiq.issueEn,
+    io.data.in.vfiq0.issueEn,
+    io.data.in.vfiq1.issueEn,
+  ))
 
-  private val aiq0ReadData  = RegEnable(io.data.in.aiq0.issueReadData, io.data.in.aiq0.issueEn)
-  private val aiq1ReadData  = RegEnable(io.data.in.aiq1.issueReadData, io.data.in.aiq1.issueEn)
-  private val biqReadData   = RegEnable(io.data.in.biq.issueReadData, io.data.in.biq.issueEn)
-  private val lsiq0ReadData = RegEnable(io.data.in.lsiq0.issueReadData, io.data.in.lsiq0.issueEn)
-  private val lsiq1ReadData = RegEnable(io.data.in.lsiq1.issueReadData, io.data.in.lsiq1.issueEn)
+  // Todo: more readable
   /**
-   * Regs
+   * readPortMap((i, j)): read port number of ith pipe, jth src
    */
+  private val readPortMap = Map(
+    (0, 0) -> 0,
+    (0, 1) -> 1,
+    (1, 0) -> 2,
+    (1, 1) -> 3,
+    (2, 0) -> 4,
+    (2, 1) -> 5,
+    (3, 0) -> 6,
+    (3, 1) -> 7,
+    (4, 0) -> 8,
+    (4, 1) -> 9,
+    (5, 0) -> 10,
+    (0, 2) -> 7, // the same as pipe3 src1
+    (1, 2) -> 10,// the same as pipe5 src0
+  )
+
+  //==========================================================
+  //                          Regs
+  //==========================================================
 
   // performance monitor
   private val pipeInstValidVec = RegInit(VecInit(Seq.fill(NumIssue)(false.B)))
   private val pipeLaunchFailValidVec = RegInit(VecInit(Seq.fill(NumIssue)(false.B)))
   private val lsuLaunchFailValidVec = RegInit(VecInit(Seq.fill(NumIssueLsiq + NumIssueSdiq)(false.B)))
+
+  private val pipeIqEntriesOH : Vec[UInt] = RegInit(VecInit(
+    0.U(NumAiqEntry.W),
+    0.U(NumAiqEntry.W),
+    0.U(NumBiqEntry.W),
+    0.U(NumLsiqEntry.W),
+    0.U(NumLsiqEntry.W),
+    0.U(NumSdiqEntry.W),
+    0.U(NumVfiqEntry.W),
+    0.U(NumVfiqEntry.W),
+  ))
+
+  // Todo: imm
+  private val pipeDstPregs = RegInit(VecInit(Seq.fill(8)(0.U(InstructionIdWidth.W))))
+
+  private val prfSrcPregs = RegInit(VecInit(Seq.fill(NumPregReadPort)(0.U(NumPhysicRegsBits.W))))
+  private val prfRdataVec = Wire(Vec(NumPregReadPort, UInt(XLEN.W)))
+  prfRdataVec := io.data.r.map(_.data)
+
+  // Todo: check imm NumPregReadPort
+  private val fwdSrcPregs = RegInit(VecInit(Seq.fill(NumPregReadPort)(0.U(NumPhysicRegsBits.W))))
 
   //==========================================================
   //                 RF Inst Valid registers
@@ -658,74 +720,304 @@ class RFStage extends Module with RFStageConfig {
   //==========================================================
 
   private val aluDecodeTable = AluDecodeTable.table
+  private val bjuDecodeTable = BjuDecodeTable.table
+  // Todo: lsuDecodeTable
 
-  private val aiq0_inst = io.data.in.aiq0.issueReadData.inst
-
-  private val decodeList = ListLookup(aiq0_inst, DefaultInst.inst, aluDecodeTable)
-  private val funcUnit :: opcode :: rd :: rs1Vld :: rs2Vld :: Nil = decodeList
+  private val aiq0Inst = Wire(UInt(32.W))
+  private val aiq0FU :: aiq0Op :: aiq0RdVld :: aiq0Rs1Vld :: aiq0Rs2Vld :: Nil = ListLookup(aiq0Inst, DefaultInst.inst, aluDecodeTable)
 
   // Todo: Add imm sel in decode table
-  private val iu_imm_sel = Wire(Vec(5, Bool()))
-  iu_imm_sel(0) := aiq0_inst(6,0) === "b0110111".U || aiq0_inst(6,0) === "b0010111".U
-  iu_imm_sel(1) := aiq0_inst(1,0) === "b11".U && !iu_imm_sel(0)
-  iu_imm_sel(2) := DontCare
-  iu_imm_sel(3) := DontCare
-  iu_imm_sel(4) := DontCare
+  private val iu0_imm_sel = Wire(Vec(5, Bool()))
+  iu0_imm_sel(0) := aiq0Inst(6,0) === "b0110111".U || aiq0Inst(6,0) === "b0010111".U
+  iu0_imm_sel(1) := aiq0Inst(1,0) === "b11".U && !iu0_imm_sel(0)
+  iu0_imm_sel(2) := DontCare
+  iu0_imm_sel(3) := DontCare
+  iu0_imm_sel(4) := DontCare
 
   // Todo: imm_sel for RV64C
 
-  private val iu_imm : UInt = MuxCase(0.U, Seq(
-    iu_imm_sel(0) -> zext(XLEN, aiq0_inst(31, 12)),
-    iu_imm_sel(1) -> sext(XLEN, aiq0_inst(31, 22)),
+  private val iu0_imm : UInt = MuxCase(0.U, Seq(
+    iu0_imm_sel(0) -> zext(XLEN, aiq0Inst(31, 12)),
+    iu0_imm_sel(1) -> sext(XLEN, aiq0Inst(31, 20)),
   ))
+
+  private val biqInst = Wire(UInt(32.W))
+  private val biqFu :: biqOp :: biqRd :: biqRs1 :: biqRs2 :: Nil = ListLookup(biqInst, DefaultInst.inst, bjuDecodeTable)
+
+  private val aiq1Inst = Wire(UInt(32.W))
+  private val aiq1FU :: aiq1Op :: aiq1RdVld :: aiq1Rs1Vld :: aiq1Rs2Vld :: Nil = ListLookup(aiq1Inst, DefaultInst.inst, aluDecodeTable)
+
+  // Todo: Add imm sel in decode table
+  private val iu1_imm_sel = Wire(Vec(5, Bool()))
+  iu1_imm_sel(0) := aiq1Inst(6,0) === "b0110111".U || aiq1Inst(6,0) === "b0010111".U
+  iu1_imm_sel(1) := aiq1Inst(1,0) === "b11".U && !iu1_imm_sel(0)
+  iu1_imm_sel(2) := DontCare
+  iu1_imm_sel(3) := DontCare
+  iu1_imm_sel(4) := DontCare
+
+  // Todo: imm_sel for RV64C
+
+  private val iu1_imm : UInt = MuxCase(0.U, Seq(
+    iu1_imm_sel(0) -> zext(XLEN, aiq1Inst(31, 12)),
+    iu1_imm_sel(1) -> sext(XLEN, aiq1Inst(31, 20)),
+  ))
+
+
+  //==========================================================
+  //                   Pipeline Registers
+  //==========================================================
+  // Gathered from ct_idu_rf_dp.v 8 sub-segment
+
+  // launchEntryOH
+  io.data.out.toAiq0.launchEntryOH  := RegEnable(aiq0_data.issueEntryOH,  aiq0_data.issueEn)
+  io.data.out.toAiq1.launchEntryOH  := RegEnable(aiq1_data.issueEntryOH,  aiq1_data.issueEn)
+  io.data.out.toBiq.launchEntryOH   := RegEnable(biq_data.issueEntryOH,   biq_data.issueEn)
+  io.data.out.toLsiq0.launchEntryOH := RegEnable(lsiq0_data.issueEntryOH, lsiq0_data.issueEn)
+  io.data.out.toLsiq1.launchEntryOH := RegEnable(lsiq1_data.issueEntryOH, lsiq1_data.issueEn)
+  io.data.out.toSdiq.launchEntryOH  := RegEnable(sdiq_data.issueEntryOH,  sdiq_data.issueEn)
+  io.data.out.toVfiq0.launchEntryOH := RegEnable(vfiq0_data.issueEntryOH, vfiq0_data.issueEn)
+  io.data.out.toVfiq1.launchEntryOH := RegEnable(vfiq1_data.issueEntryOH, vfiq1_data.issueEn)
+
+  // update if issue enable
+  private val aiq0ReadData  = RegEnable(io.data.in.aiq0.issueReadData, io.data.in.aiq0.issueEn)
+  private val aiq1ReadData  = RegEnable(io.data.in.aiq1.issueReadData, io.data.in.aiq1.issueEn)
+  private val biqReadData   = RegEnable(io.data.in.biq.issueReadData, io.data.in.biq.issueEn)
+  private val lsiq0ReadData = RegEnable(io.data.in.lsiq0.issueReadData, io.data.in.lsiq0.issueEn)
+  private val lsiq1ReadData = RegEnable(io.data.in.lsiq1.issueReadData, io.data.in.lsiq1.issueEn)
+  private val sdiqReadData  = RegEnable(io.data.in.sdiq.issueReadData, io.data.in.sdiq.issueEn)
+
+  aiq0Inst := aiq0ReadData.inst
+  aiq1Inst := aiq1ReadData.inst
+  biqInst  := biqReadData.inst
+
+  io.data.out.aluDstPregs(0) := RegEnable(aiq0_data.issueReadData.dstPreg, aiq0_data.issueEn)
+  io.data.out.aluDstPregs(1) := RegEnable(aiq1_data.issueReadData.dstPreg, aiq1_data.issueEn)
+  io.data.out.vfpuDstVregs(0) := RegEnable(vfiq0_data.issueReadData.dstVreg, vfiq0_data.issueEn)
+  io.data.out.vfpuDstVregs(1) := RegEnable(vfiq1_data.issueReadData.dstVreg, vfiq1_data.issueEn)
+
+  private val issueEntriesOH = WireInit(VecInit(
+    io.data.in.aiq0.issueEntryOH,
+    io.data.in.aiq1.issueEntryOH,
+    io.data.in.biq.issueEntryOH,
+    io.data.in.lsiq0.issueEntryOH,
+    io.data.in.lsiq1.issueEntryOH,
+    io.data.in.sdiq.issueEntryOH,
+    io.data.in.vfiq0.issueEntryOH,
+    io.data.in.vfiq1.issueEntryOH,
+  ))
+
+  private val pipeDstPregsUpdate = WireInit(VecInit(
+    io.data.in.aiq0.issueReadData.dstPreg,
+    io.data.in.aiq1.issueReadData.dstPreg,
+    0.U,
+    io.data.in.lsiq0.issueReadData.dstPreg,
+    io.data.in.lsiq1.issueReadData.dstPreg,
+    0.U,
+    io.data.in.vfiq0.issueReadData.dstPreg,
+    io.data.in.vfiq1.issueReadData.dstPreg
+  ))
+
+  for (i <- 0 until 8) {
+    when (pipeIssueEn(i)) {
+      pipeIqEntriesOH(i) := issueEntriesOH(i)
+      pipeDstPregs(i) := pipeDstPregsUpdate(i)
+    }
+  }
 
   //==========================================================
   //                    RF Read Regfile
   //==========================================================
 
+
+
   //----------------------------------------------------------
   //                  Read Regfile for IU
   //----------------------------------------------------------
 
-  io.data.r(0).preg := aiq0ReadData.srcVec(0).preg
-  io.data.r(1).preg := aiq0ReadData.srcVec(1).preg
-  // Todo: fix r(2), should be pipe3 src1 data
-  io.data.r(2).preg := aiq0ReadData.srcVec(2).preg
-  io.data.r.zipWithIndex.foreach {
-    case (rbundle, i) =>
-      if (i > 2)
-        rbundle.preg := DontCare
+//  io.data.r(0).preg := aiq0ReadData.srcVec(0).preg
+//  io.data.r(1).preg := aiq0ReadData.srcVec(1).preg
+//  // Todo: fix r(2), should be pipe3 src1 data
+//  io.data.r(2).preg := aiq0ReadData.srcVec(2).preg
+//  io.data.r.zipWithIndex.foreach {
+//    case (rbundle, i) =>
+//      if (i > 2)
+//        rbundle.preg := DontCare
+//  }
+
+  //==========================================================
+  //                RF Execution Unit Selection
+  //==========================================================
+  // Todo:
+
+  //----------------------------------------------------------
+  //               Pipe0 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toCp0.sel     := aiq0FU === FuncUnit.CP0      && pipeDownValidVec(0)
+  io.ctrl.out.toAlu0.sel    := aiq0FU === FuncUnit.ALU      && pipeDownValidVec(0)
+  io.ctrl.out.toSpecial.sel := aiq0FU === FuncUnit.SPECIAL  && pipeDownValidVec(0)
+  io.ctrl.out.toDiv.sel     := aiq0FU === FuncUnit.DU       && pipeDownValidVec(0)
+
+  io.ctrl.out.toCp0.gateClkSel      := aiq0FU === FuncUnit.CP0     && pipeInstValidVec(0)
+  io.ctrl.out.toAlu0.gateClkSel     := aiq0FU === FuncUnit.ALU     && pipeInstValidVec(0)
+  io.ctrl.out.toSpecial.gateClkSel  := aiq0FU === FuncUnit.SPECIAL && pipeInstValidVec(0)
+  io.ctrl.out.toDiv.gateClkSel      := aiq0FU === FuncUnit.DU      && pipeInstValidVec(0)
+  // Todo: cbus_gateclk_sel
+  //  ct_idu_rf_ctrl.v:1431
+
+  //----------------------------------------------------------
+  //               Pipe1 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toAlu1.sel  := aiq1FU === FuncUnit.ALU && pipeDownValidVec(1)
+  io.ctrl.out.toMul.sel   := aiq1FU === FuncUnit.MU  && pipeDownValidVec(1)
+
+  io.ctrl.out.toAlu1.gateClkSel  := aiq1FU === FuncUnit.ALU && pipeInstValidVec(1)
+  io.ctrl.out.toMul.gateClkSel   := aiq1FU === FuncUnit.MU  && pipeInstValidVec(1)
+  // Todo: cbus_gateclk_sel
+
+  //----------------------------------------------------------
+  //               Pipe2 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toBju.sel         := pipeDownValidVec(2)
+  io.ctrl.out.toBju.gateClkSel  := pipeInstValidVec(2)
+
+  //----------------------------------------------------------
+  //               Pipe3 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toLu.sel          := pipeDownValidVec(3)
+  io.ctrl.out.toLu.gateClkSel   := pipeInstValidVec(3)
+
+  //----------------------------------------------------------
+  //               Pipe4 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toSt.sel          := pipeDownValidVec(4)
+  io.ctrl.out.toSt.gateClkSel   := pipeInstValidVec(4)
+
+  //----------------------------------------------------------
+  //               Pipe5 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toSd.sel          := pipeDownValidVec(5)
+  io.ctrl.out.toSd.gateClkSel   := pipeInstValidVec(5)
+
+  //----------------------------------------------------------
+  //               Pipe6 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toVfpu0.sel         := pipeDownValidVec(6)
+  io.ctrl.out.toVfpu0.gateClkSel  := pipeInstValidVec(6)
+
+  //----------------------------------------------------------
+  //               Pipe6 Exectuion Unit Selection
+  //----------------------------------------------------------
+  io.ctrl.out.toVfpu1.sel         := pipeDownValidVec(7)
+  io.ctrl.out.toVfpu1.gateClkSel  := pipeInstValidVec(7)
+
+  //==========================================================
+  //                   Performance Monitor
+  //==========================================================
+  private val pipeInstValid : Bool = pipeInstValidVec.reduce(_||_)
+  private val pipeInstValidVecFF : Vec[Bool] = RegEnable(pipeInstValidVec, io.ctrl.in.fromHpcp.iduCntEn)
+  io.ctrl.out.toHpcp.instValid := RegNext(pipeInstValid)
+  io.ctrl.out.toHpcp.pipeVec.zipWithIndex.foreach {
+    case (signal, i) => signal.instValid := pipeInstValidVecFF(i)
   }
 
+  //----------------------------------------------------------
+  //                    RF inst valid
+  //----------------------------------------------------------
+  // pipeInstValid and pipeInstValidVecFF have assigned
+
+  //----------------------------------------------------------
+  //              RF stage performance monitor
+  //----------------------------------------------------------
+  // Todo
+
+  // Data Path
+  val srcDataMap = Map(
+    (0,0) -> Seq (
+      aiq0ReadData.srcVec(0).wb -> prfRdataVec(readPortMap(0, 0)),  // has write back -> read reg
+    ),
+    (0,1) -> Seq (
+      !aiq0ReadData.srcValid(1) -> iu0_imm,                         // !srcValid      -> use imm
+      aiq0ReadData.srcVec(1).wb -> prfRdataVec(readPortMap(0, 1)),  // has write back -> use reg
+    ),
+    (0,2) -> Seq (
+      aiq0ReadData.srcVec(2).wb -> prfRdataVec(readPortMap(0, 2)),  // has write back -> use reg
+    ),
+    (1,0) -> Seq (
+      aiq1ReadData.srcVec(0).wb -> prfRdataVec(readPortMap(1, 0)),  // has write back -> read reg
+    ),
+    (1,1) -> Seq (
+      !aiq1ReadData.srcValid(1) -> iu1_imm,                         // !srcValid      -> use imm
+      aiq1ReadData.srcVec(1).wb -> prfRdataVec(readPortMap(1, 1)),  // has write back -> use reg
+    ),
+    (1,2) -> Seq (
+      aiq0ReadData.srcVec(2).wb -> prfRdataVec(readPortMap(1, 2)),  // has write back -> use reg
+    ),
+    (2,0) -> Seq (
+      biqReadData.srcVec(0).wb  -> prfRdataVec(readPortMap(2, 0)),  // has write back -> use reg
+    ),
+    (2,1) -> Seq (
+      //Todo: fix this iu0_imm
+      !biqReadData.srcValid(1)  -> iu0_imm,                         // !srcValid      -> use imm
+      biqReadData.srcVec(1).wb  -> prfRdataVec(readPortMap(2, 1)),  // has write back -> use reg
+    ),
+    (3,0) -> Seq (
+      lsiq0ReadData.srcVec(0).wb-> prfRdataVec(readPortMap(3, 0)),  // has write back -> use reg
+    ),
+    (3,1) -> Seq (
+      lsiq0ReadData.srcVec(0).wb-> prfRdataVec(readPortMap(3, 1)),  // has write back -> use reg
+    ),
+    (4,0) -> Seq (
+      lsiq1ReadData.srcVec(0).wb-> prfRdataVec(readPortMap(4, 0)),  // has write back -> use reg
+    ),
+    (4,1) -> Seq (
+      lsiq1ReadData.srcVec(0).wb-> prfRdataVec(readPortMap(4, 1)),  // has write back -> use reg
+    ),
+    (5,0) -> Seq (
+      sdiqReadData.src0.wb      -> prfRdataVec(readPortMap(5, 0)),  // has write back -> use reg
+    )
+  )
+
+  //==========================================================
+  //                    Pipe0 Data Path
+  //==========================================================
+  private val rfPipe0ClkEn = io.data.in.aiq0.issueGateClkEn
+  // Todo: gated_clk_cell for pipe0
+
+  //----------------------------------------------------------
+  //                    Source Operand 0
+  //----------------------------------------------------------
   // iu src0 only from reg
-  io.data.out.toIu.src0 := MuxCase(0.U, // Todo: replace with fwd data
-    Seq(
-      aiq0ReadData.srcVec(0).wb -> io.data.r(0).data,   // has write back -> read reg
-    )
+  io.data.out.toIu0.src0 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((0, 0))
   )
 
+  //----------------------------------------------------------
+  //                    Source Operand 1
+  //----------------------------------------------------------
   // iu src1 from reg or imm
-  io.data.out.toIu.src1 := MuxCase(0.U, // Todo: replace with fwd data
-    Seq(
-      !aiq0ReadData.srcValid(1) -> iu_imm,                 // !srcValid -> use imm
-      aiq0ReadData.srcVec(1).wb -> io.data.r(1).data,   // has write back -> use reg
-    )
+  io.data.out.toIu0.src1 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((0, 1))
   )
-
-  // iu src2 only from imm
-  io.data.out.toIu.src2 := MuxCase(0.U, // Todo: replace with fwd data
-    Seq(
-      // Todo: fix r(2), should be pipe3 src1 data
-      aiq0ReadData.srcVec(2).wb -> io.data.r(2).data,  // has write back -> use reg
-    )
-  )
-
   // Todo: figure out src1NoImm
-  io.data.out.toIu.src1NoImm := MuxCase(0.U, // Todo: replace with fwd data
+  io.data.out.toIu0.src1NoImm := MuxCase(0.U, // Todo: replace with fwd data
     Seq(
-      aiq0ReadData.srcVec(1).wb -> io.data.r(1).data,  // has write back -> use reg
+      aiq0ReadData.srcVec(1).wb -> prfRdataVec(readPortMap((0,1))),  // has write back -> use reg
     )
   )
+
+  //----------------------------------------------------------
+  //                    Source Operand 2
+  //----------------------------------------------------------
+  // iu src2 only from imm
+  io.data.out.toIu0.src2 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((0, 2))
+  )
+
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
 
   private val iuSrcNoReadyVec = Wire(Vec(AiqConfig.NumSrcArith, Bool()))
   // src no ready when need read reg but data has not been write back
@@ -743,105 +1035,291 @@ class RFStage extends Module with RFStageConfig {
   //----------------------------------------------------------
   //                Output to Execution Units
   //----------------------------------------------------------
-
-  io.data.out.toIu.iid  := aiq0ReadData.iid
-  io.data.out.toIu.inst := aiq0ReadData.inst
-  io.data.out.toIu.dstPreg.valid := aiq0ReadData.dstValid
-  io.data.out.toIu.dstPreg.bits := aiq0ReadData.dstPreg
-  io.data.out.toIu.dstVPreg.valid := aiq0ReadData.dstVValid
-  io.data.out.toIu.dstVPreg.bits := aiq0ReadData.dstVreg
-  io.data.out.toIu.opcode := opcode
-//  io.data.out.toIu.src0
-//  io.data.out.toIu.src1
-//  io.data.out.toIu.src2
-//  io.data.out.toIu.src1NoImm
-  io.data.out.toIu.imm := DontCare // Todo: figure out and fix
-  io.data.out.toIu.aluShort := aiq0ReadData.aluShort
-  io.data.out.toIu.rsltSel := DontCare // Todo: fix or remove
-  io.data.out.toIu.vlmul := aiq0ReadData.vlmul
-  io.data.out.toIu.vsew := aiq0ReadData.vsew
-  io.data.out.toIu.vl := aiq0ReadData.vl
+  io.data.out.toIu0.iid  := aiq0ReadData.iid
+  io.data.out.toIu0.inst := aiq0ReadData.inst
+  io.data.out.toIu0.dstPreg.valid := aiq0ReadData.dstValid
+  io.data.out.toIu0.dstPreg.bits := aiq0ReadData.dstPreg
+  io.data.out.toIu0.dstVPreg.valid := aiq0ReadData.dstVValid
+  io.data.out.toIu0.dstVPreg.bits := aiq0ReadData.dstVreg
+  io.data.out.toIu0.opcode := aiq0Op
+  //  io.data.out.toIu.src0
+  //  io.data.out.toIu.src1
+  //  io.data.out.toIu.src2
+  //  io.data.out.toIu.src1NoImm
+  io.data.out.toIu0.imm := DontCare // Todo: figure out and fix
+  io.data.out.toIu0.aluShort := aiq0ReadData.aluShort
+  io.data.out.toIu0.rsltSel := DontCare // Todo: fix or remove
+  io.data.out.toIu0.vlmul := aiq0ReadData.vlmul
+  io.data.out.toIu0.vsew := aiq0ReadData.vsew
+  io.data.out.toIu0.vl := aiq0ReadData.vl
   // output to special
-  io.data.out.toIu.exceptVec := aiq0ReadData.exceptVec
-  io.data.out.toIu.highHwExpt := aiq0ReadData.highHwExcept
-  io.data.out.toIu.specialImm := iu_imm(19, 0)
-  io.data.out.toIu.pid := aiq0ReadData.pid
+  io.data.out.toIu0.exceptVec := aiq0ReadData.exceptVec
+  io.data.out.toIu0.highHwExpt := aiq0ReadData.highHwExcept
+  io.data.out.toIu0.specialImm := iu0_imm(19, 0)
+  io.data.out.toIu0.pid := aiq0ReadData.pid
   // output to cp0
   io.ctrl.out.toCp0.iid := aiq0ReadData.iid
   io.ctrl.out.toCp0.inst := aiq0ReadData.inst
   io.ctrl.out.toCp0.preg := aiq0ReadData.dstPreg
   // Todo: Had
   io.ctrl.out.toCp0.src0 := io.data.r(0).data
-  io.ctrl.out.toCp0.opcode := opcode
-
-
-
-
+  io.ctrl.out.toCp0.opcode := aiq0Op
 
   //==========================================================
-  //                RF Execution Unit Selection
+  //                    Pipe1 Data Path
   //==========================================================
-  // Todo:
-  //----------------------------------------------------------
-  //               Pipe0 Exectuion Unit Selection
-  //----------------------------------------------------------
-  io.ctrl.out.toCp0.sel   := funcUnit === FuncUnit.CP0 && pipeDownValidVec(0)
-  io.ctrl.out.toAlu0.sel  := funcUnit === FuncUnit.ALU && pipeDownValidVec(0)
-
-  io.ctrl.out.toCp0.gateClkSel  := funcUnit === FuncUnit.CP0 && pipeInstValidVec(0)
-  io.ctrl.out.toAlu0.gateClkSel := funcUnit === FuncUnit.ALU && pipeInstValidVec(0)
-  //----------------------------------------------------------
-  //               Pipe1 Exectuion Unit Selection
-  //----------------------------------------------------------
+  private val rfPipe1ClkEn = io.data.in.aiq1.issueGateClkEn
+  // Todo: gated_clk_cell for pipe1
 
   //----------------------------------------------------------
-  //               Pipe2 Exectuion Unit Selection
+  //                    Source Operand 0
   //----------------------------------------------------------
-
-
-  //==========================================================
-  //                    Pipe0 Data Path
-  //==========================================================
+  // iu src0 only from reg
+  io.data.out.toIu1.src0 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((1, 0))
+  )
 
   //----------------------------------------------------------
-  //                   Pipeline Registers
+  //                    Source Operand 1
   //----------------------------------------------------------
-  io.data.out.toAiq0.launchEntryOH := RegEnable(aiq0_data.issueEntryOH, aiq0_data.issueEn)
+  // iu src1 from reg or imm
+  io.data.out.toIu1.src1 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((1, 1))
+  )
+  // Todo: figure out src1NoImm
+  io.data.out.toIu1.src1NoImm := MuxCase(0.U, // Todo: replace with fwd data
+    Seq(
+      aiq0ReadData.srcVec(1).wb -> io.data.r(1).data,  // has write back -> use reg
+    )
+  )
 
+  //----------------------------------------------------------
+  //                    Source Operand 2
+  //----------------------------------------------------------
+  // iu src2 only from imm
+  io.data.out.toIu1.src2 := MuxCase(0.U, // Todo: replace with fwd data
+    srcDataMap((1, 2))
+  )
 
-  //==========================================================
-  //                   Performance Monitor
-  //==========================================================
-  private val pipeInstValid : Bool = pipeInstValidVec.reduce(_||_)
-  private val pipeInstValidVecFF : Vec[Bool] = RegEnable(pipeInstValidVec, io.ctrl.in.fromHpcp.iduCntEn)
-  io.ctrl.out.toHpcp.instValid := RegNext(pipeInstValid)
-  io.ctrl.out.toHpcp.pipeVec.zipWithIndex.foreach {
-    case (signal, i) => signal.instValid := pipeInstValidVecFF(i)
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
+
+  private val iu1SrcNoReadyVec = Wire(Vec(AiqConfig.NumSrcArith, Bool()))
+  // src no ready when need read reg but data has not been write back
+  iu1SrcNoReadyVec.zipWithIndex.foreach {
+    case (noReady, i) =>
+      noReady := aiq1ReadData.srcValid(i) && !aiq1ReadData.srcVec(i).wb // Todo: && !fwd
+  }
+
+  pipeSrcNotReadyVec(1) := iu1SrcNoReadyVec.reduce(_||_)
+  io.data.out.toAiq1.readyClr.zipWithIndex.foreach {
+    case (readyClr, i) =>
+      readyClr := iu1SrcNoReadyVec(i)
   }
 
   //----------------------------------------------------------
-  //                    RF inst valid
+  //                Output to Execution Units
   //----------------------------------------------------------
+  io.data.out.toIu1.iid  := aiq1ReadData.iid
+  io.data.out.toIu1.inst := aiq1ReadData.inst
+  io.data.out.toIu1.dstPreg.valid := aiq1ReadData.dstValid
+  io.data.out.toIu1.dstPreg.bits := aiq1ReadData.dstPreg
+  io.data.out.toIu1.dstVPreg.valid := aiq1ReadData.dstVValid
+  io.data.out.toIu1.dstVPreg.bits := aiq1ReadData.dstVreg
+  io.data.out.toIu1.opcode := aiq1Op
+  //  io.data.out.toIu.src1
+  //  io.data.out.toIu.src1
+  //  io.data.out.toIu.src2
+  //  io.data.out.toIu.src1NoImm
+  io.data.out.toIu1.imm := DontCare // Todo: figure out and fix
+  // Todo: mult
+  //  io.data.out.toIu1.multFunc
+  //  io.data.out.toIu1.mlaSrc2Preg
+  //  io.data.out.toIu1.mlasrc2Vld
+  io.data.out.toIu1.aluShort := aiq1ReadData.aluShort
+  io.data.out.toIu1.rsltSel := DontCare // Todo: fix or remove
+  io.data.out.toIu1.vlmul := aiq1ReadData.vlmul
+  io.data.out.toIu1.vsew := aiq1ReadData.vsew
+  io.data.out.toIu1.vl := aiq1ReadData.vl
+  // no special
+  io.data.out.toIu1.exceptVec   := DontCare
+  io.data.out.toIu1.highHwExpt  := DontCare
+  io.data.out.toIu1.specialImm  := DontCare
+  io.data.out.toIu1.pid         := DontCare
 
+  //==========================================================
+  //                    Pipe2 Data Path
+  //==========================================================
+  private val rfPipe2ClkEn = biq_data.issueGateClkEn
+  // Todo: gated_clk_cell for pipe2
 
-  io.ctrl.out.toSd := DontCare
-  io.ctrl.out.toSt := DontCare
-  io.ctrl.out.toBju := DontCare
-  io.ctrl.out.toAlu1 := DontCare
-  io.ctrl.out.toLu := DontCare
-  io.ctrl.out.toSpecial := DontCare
-  io.ctrl.out.toVfpu0 := DontCare
-  io.ctrl.out.toVfpu1 := DontCare
-  io.ctrl.out.toMul := DontCare
-  io.ctrl.out.toDiv := DontCare
+  //----------------------------------------------------------
+  //                    Source Operand 0
+  //----------------------------------------------------------
+  io.data.out.toBju.src0 := MuxCase(0.U,
+    srcDataMap((2,0))
+  )
 
-  io.data.out.toAiq1 := DontCare
-  io.data.out.toBiq := DontCare
+  //----------------------------------------------------------
+  //                    Source Operand 1
+  //----------------------------------------------------------
+  io.data.out.toBju.src1 := MuxCase(0.U,
+    srcDataMap((2,1))
+  )
+  io.data.out.toBju.src2      := DontCare
+  io.data.out.toBju.src1NoImm := DontCare
+
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
+  private val bjuSrcNoReadyVec = Wire(Vec(BiqConfig.NumSrcBr, Bool()))
+  // src no ready when need read reg but data has not been write back
+  bjuSrcNoReadyVec.zipWithIndex.foreach {
+    case (noReady, i) =>
+      noReady := biqReadData.srcValid(i) && !biqReadData.srcVec(i).wb // Todo: && !fwd
+  }
+
+  pipeSrcNotReadyVec(2) := bjuSrcNoReadyVec.reduce(_||_)
+  io.data.out.toBiq.readyClr.zipWithIndex.foreach {
+    case (readyClr, i) =>
+      readyClr := bjuSrcNoReadyVec(i)
+  }
+
+  //----------------------------------------------------------
+  //                Output to Execution Units
+  //----------------------------------------------------------
+  io.data.out.toBju.iid  := biqReadData.iid
+  io.data.out.toBju.inst := biqReadData.inst
+  io.data.out.toBju.opcode := biqOp
+  //  io.data.out.toBju.src0
+  //  io.data.out.toBju.src1
+  // Todo: bju
+  //  io.data.out.toBju.offset
+  //  io.data.out.toBju.length
+  //  io.data.out.toBju.rts
+  //  io.data.out.toBju.pcall
+  io.data.out.toBju.pid         := biqReadData.pid
+  io.data.out.toBju.vlmul := aiq1ReadData.vlmul
+  io.data.out.toBju.vsew := aiq1ReadData.vsew
+  io.data.out.toBju.vl := aiq1ReadData.vl
+  // no special
+  io.data.out.toBju.exceptVec   := DontCare
+  io.data.out.toBju.highHwExpt  := DontCare
+  io.data.out.toBju.specialImm  := DontCare
+  // no dst
+  io.data.out.toBju.dstPreg     := DontCare
+  io.data.out.toBju.dstVPreg    := DontCare
+  io.data.out.toBju.imm         := DontCare
+  // no alu
+  io.data.out.toBju.aluShort    := DontCare
+  io.data.out.toBju.rsltSel     := DontCare
+
+  //==========================================================
+  //                Source Pipeline Registers
+  //==========================================================
+  // Gathered from ct_idu_rf_dp.v 8 sub-segment
+  // pipe0
+  private val rfPipe0PrfSrcPregUpdateVldVec = Wire(Vec(NumSrcArith, Bool()))
+  private val rfPipe0FwdSrcPregUpdateVldVec = Wire(Vec(NumSrcArith, Bool()))
+  rfPipe0PrfSrcPregUpdateVldVec(0) := pipeIssueEn(0)
+  rfPipe0PrfSrcPregUpdateVldVec(1) := pipeIssueEn(0)
+  rfPipe0PrfSrcPregUpdateVldVec(2) := pipeIssueEn(0) && aiq0_data.issueReadData.srcValid(2)
+  rfPipe0FwdSrcPregUpdateVldVec(0) := pipeIssueEn(0)
+  rfPipe0FwdSrcPregUpdateVldVec(1) := pipeIssueEn(0)
+  rfPipe0FwdSrcPregUpdateVldVec(2) := pipeIssueEn(0) && aiq0_data.issueReadData.srcValid(2)
+
+  when(rfPipe0PrfSrcPregUpdateVldVec(0)) {
+    prfSrcPregs(readPortMap((0, 0))) := aiq0_data.issueReadData.srcVec(0).preg
+  }
+  when(rfPipe0PrfSrcPregUpdateVldVec(1)) {
+    prfSrcPregs(readPortMap((0, 1))) := aiq0_data.issueReadData.srcVec(1).preg
+  }
+  when(rfPipe0FwdSrcPregUpdateVldVec(0)) {
+    fwdSrcPregs(0) := aiq0_data.issueReadData.srcVec(0).preg
+  }
+  when(rfPipe0FwdSrcPregUpdateVldVec(1)) {
+    fwdSrcPregs(1) := aiq0_data.issueReadData.srcVec(1).preg
+  }
+
+  // Todo: output
+
+  // pipe1
+  private val rfPipe1PrfSrcPregUpdateVldVec = Wire(Vec(NumSrcArith, Bool()))
+  private val rfPipe1FwdSrcPregUpdateVldVec = Wire(Vec(NumSrcArith, Bool()))
+  rfPipe1PrfSrcPregUpdateVldVec(0) := pipeIssueEn(1)
+  rfPipe1PrfSrcPregUpdateVldVec(1) := pipeIssueEn(1)
+  rfPipe1PrfSrcPregUpdateVldVec(2) := pipeIssueEn(1) && aiq1_data.issueReadData.srcValid(2)
+  rfPipe1FwdSrcPregUpdateVldVec(0) := pipeIssueEn(1)
+  rfPipe1FwdSrcPregUpdateVldVec(1) := pipeIssueEn(1)
+  rfPipe1FwdSrcPregUpdateVldVec(2) := pipeIssueEn(1) && aiq1_data.issueReadData.srcValid(2)
+
+  // Todo: imm
+  for (src <- 0 until 2) {
+    when(rfPipe1PrfSrcPregUpdateVldVec(src)) {
+      prfSrcPregs(readPortMap((1, src))) := aiq1_data.issueReadData.srcVec(src).preg
+    }
+    when(rfPipe1FwdSrcPregUpdateVldVec(src)) {
+      fwdSrcPregs(readPortMap((1, src))) := aiq1_data.issueReadData.srcVec(src).preg
+    }
+  }
+
+  // Todo: output
+
+  // pipe2
+  private val rfPipe2PrfSrcPregUpdateVldVec = Wire(Vec(NumSrcBr, Bool()))
+  private val rfPipe2FwdSrcPregUpdateVldVec = Wire(Vec(NumSrcBr, Bool()))
+  rfPipe2PrfSrcPregUpdateVldVec.foreach(_ := pipeIssueEn(2))
+  rfPipe2FwdSrcPregUpdateVldVec.foreach(_ := pipeIssueEn(2))
+  for (src <- 0 until 2) {
+    when(rfPipe2PrfSrcPregUpdateVldVec(src)) {
+      prfSrcPregs(readPortMap((2, src))) := biq_data.issueReadData.srcVec(src).preg
+    }
+    when(rfPipe2FwdSrcPregUpdateVldVec(src)) {
+      fwdSrcPregs(readPortMap((2, src))) := biq_data.issueReadData.srcVec(src).preg
+    }
+  }
+
+  // pipe3
+  private val rfPipe3PrfSrcPregUpdateVldVec = Wire(Vec(NumSrcLsX, Bool()))
+  private val rfPipe3FwdSrcPregUpdateVldVec = Wire(Vec(NumSrcLsX, Bool()))
+  rfPipe3PrfSrcPregUpdateVldVec.foreach(_ := pipeIssueEn(3))
+  rfPipe3FwdSrcPregUpdateVldVec.foreach(_ := pipeIssueEn(3))
+  // Todo: srcvm prf and fwd
+  //  ct_idu_rf_dp.v: 2879
+
+  // Todo: simplify
+  when(rfPipe3PrfSrcPregUpdateVldVec(0)) {
+    prfSrcPregs(readPortMap((3, 0))) := lsiq0_data.issueReadData.srcVec(0).preg
+  }
+  when(rfPipe0PrfSrcPregUpdateVldVec(2)) {
+    prfSrcPregs(readPortMap((0, 2))) := aiq0_data.issueReadData.srcVec(2).preg
+  }.elsewhen(rfPipe3PrfSrcPregUpdateVldVec(1)) {
+    prfSrcPregs(readPortMap((3, 1))) := lsiq0_data.issueReadData.srcVec(1).preg
+  }
+
+  when(rfPipe3FwdSrcPregUpdateVldVec(0)) {
+    fwdSrcPregs(readPortMap((3, 0))) := lsiq0_data.issueReadData.srcVec(0).preg
+  }
+  when(rfPipe0FwdSrcPregUpdateVldVec(2)) {
+    fwdSrcPregs(readPortMap((0, 2))) := aiq0_data.issueReadData.srcVec(2).preg
+  }.elsewhen(rfPipe3PrfSrcPregUpdateVldVec(1)) {
+    fwdSrcPregs(readPortMap((3, 1))) := lsiq0_data.issueReadData.srcVec(1).preg
+  }
+
+  // Todo: output
+  io.data.r.zipWithIndex.foreach {
+    case (bundle, i) =>
+      bundle.preg := prfSrcPregs(i)
+  }
+
   io.data.out.toVfiq0 := DontCare
   io.data.out.toVfiq1 := DontCare
   io.data.out.toLsiq0 := DontCare
   io.data.out.toLsiq1 := DontCare
   io.data.out.toSdiq := DontCare
-
-
 }

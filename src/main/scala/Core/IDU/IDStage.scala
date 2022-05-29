@@ -71,7 +71,7 @@ class IRData extends Bundle {
   val illegal    = Bool()//136
   val split_last = Bool()//135
   val vmla       = Bool()//134
-  val idd_plus   = UInt(4.W)
+  val iid_plus   = UInt(4.W)
   val bkptb_inst = Bool()//129
   val bkpta_inst = Bool()//128
   val fmov       = Bool()//127

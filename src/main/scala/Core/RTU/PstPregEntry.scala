@@ -324,8 +324,8 @@ class PstPregEntry extends Module {
   //==========================================================
   //          to Difftest
   //==========================================================
-  private val retireValidVec  = VecInit(io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
+  private val retireValidVecReg  = RegInit(VecInit(io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
     case (wbValid, iidMatch) => wbValid && iidMatch
-  })
-  io.x.out.retireValidVec := retireValidVec //////for difftest
+  }))
+  io.x.out.retireValidVec := retireValidVecReg //////for difftest
 }

@@ -3,6 +3,7 @@ import chisel3._
 import chisel3.util._
 
 class ROBData extends Bundle{
+  val INSTR           = UInt(32.W)
   val VL_PRED         = Bool() //39
   val VL              = UInt(8.W) //38
   val VEC_DIRTY       = Bool() //30
@@ -547,6 +548,7 @@ class ISStage extends Module{
   val rob_create_data = WireInit(VecInit(Seq.fill(4)(0.U.asTypeOf(new ROBData))))
 
   for(i <- 0 until 4){
+    rob_create_data(i).INSTR   := inst_read_data(i).opcode
     rob_create_data(i).VL_PRED := inst_read_data(i).VL_PRED
     rob_create_data(i).VL := inst_read_data(i).VL
     //rob_create_data(i).VEC_DIRTY :=
@@ -607,7 +609,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 0
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel0 === 0.U){//inst0
+  when(dis_info.rob_create.sel0 === 0.U){//inst0
     rob_create_data(0).VEC_DIRTY  := dis_inst_vec_dirty(0)
     rob_create_data(0).FP_DIRTY   := dis_inst_fp_dirty(0)
     rob_create_data(0).INST_NUM   := 1.U
@@ -616,7 +618,7 @@ class ISStage extends Module{
     rob_create_data(0).RAS        := dis_inst_ras(0)
     rob_create_data(0).PC_OFFSET  := dis_inst_pc_offset(0)
     rob_create_data(0).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel0 === 1.U){//inst0 and inst1
+  }.elsewhen(dis_info.rob_create.sel0 === 1.U){//inst0 and inst1
     rob_create_data(0).VEC_DIRTY  := dis_inst01_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst01_fp_dirty
     rob_create_data(0).INST_NUM   := 2.U
@@ -625,7 +627,7 @@ class ISStage extends Module{
     rob_create_data(0).RAS        := dis_inst_ras(0)
     rob_create_data(0).PC_OFFSET  := dis_inst01_pc_offset
     rob_create_data(0).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel0 === 2.U){//inst0, inst1 and inst2
+  }.elsewhen(dis_info.rob_create.sel0 === 2.U){//inst0, inst1 and inst2
     rob_create_data(0).VEC_DIRTY  := dis_inst012_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst012_fp_dirty
     rob_create_data(0).INST_NUM   := 3.U
@@ -639,7 +641,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 1
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel1 === 0.U){//inst1
+  when(dis_info.rob_create.sel1 === 0.U){//inst1
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(1)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(1)
     rob_create_data(1).INST_NUM   := 1.U
@@ -648,7 +650,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(1)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(1)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 1.U){//inst1 and inst2
+  }.elsewhen(dis_info.rob_create.sel1 === 1.U){//inst1 and inst2
     rob_create_data(1).VEC_DIRTY  := dis_inst12_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst12_fp_dirty
     rob_create_data(1).INST_NUM   := 2.U
@@ -657,7 +659,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(1)
     rob_create_data(1).PC_OFFSET  := dis_inst12_pc_offset
     rob_create_data(1).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 2.U){//inst2
+  }.elsewhen(dis_info.rob_create.sel1 === 2.U){//inst2
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(1).INST_NUM   := 1.U
@@ -666,7 +668,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(2)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 3.U){//inst3
+  }.elsewhen(dis_info.rob_create.sel1 === 3.U){//inst3
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(1).INST_NUM   := 1.U
@@ -675,7 +677,7 @@ class ISStage extends Module{
     rob_create_data(1).RAS        := dis_inst_ras(3)
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(3)
     rob_create_data(1).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel1 === 4.U){//inst1, inst2 and inst3
+  }.elsewhen(dis_info.rob_create.sel1 === 4.U){//inst1, inst2 and inst3
     rob_create_data(1).VEC_DIRTY  := dis_inst123_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst123_fp_dirty
     rob_create_data(1).INST_NUM   := 3.U
@@ -689,7 +691,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                  Create Data for Port 2
   //----------------------------------------------------------
-  when(io.in.pre_dispatch.rob_create.sel2 === 0.U){//inst2
+  when(dis_info.rob_create.sel2 === 0.U){//inst2
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(2).INST_NUM   := 1.U
@@ -698,7 +700,7 @@ class ISStage extends Module{
     rob_create_data(2).RAS        := dis_inst_ras(2)
     rob_create_data(2).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(2).CMPLT_CNT  := 1.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel2 === 2.U){//inst2 and inst3
+  }.elsewhen(dis_info.rob_create.sel2 === 2.U){//inst2 and inst3
     rob_create_data(2).VEC_DIRTY  := dis_inst23_vec_dirty
     rob_create_data(2).FP_DIRTY   := dis_inst23_fp_dirty
     rob_create_data(2).INST_NUM   := 2.U
@@ -707,7 +709,7 @@ class ISStage extends Module{
     rob_create_data(2).RAS        := dis_inst_ras(2)
     rob_create_data(2).PC_OFFSET  := dis_inst23_pc_offset
     rob_create_data(2).CMPLT_CNT  := 2.U
-  }.elsewhen(io.in.pre_dispatch.rob_create.sel2 === 3.U){//inst3
+  }.elsewhen(dis_info.rob_create.sel2 === 3.U){//inst3
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(2).INST_NUM   := 1.U
@@ -741,13 +743,13 @@ class ISStage extends Module{
   val inst_iid = Wire(Vec(4, UInt(7.W)))
 
   inst_iid(0) := io.in.fromRTU.rob_inst_idd(0)
-  inst_iid(1) := Mux(io.in.pre_dispatch.pst_create_iid_sel(0)(0), io.in.fromRTU.rob_inst_idd(0), io.in.fromRTU.rob_inst_idd(1))
-  inst_iid(2) := MuxLookup(io.in.pre_dispatch.pst_create_iid_sel(1), 0.U(7.W), Seq(
+  inst_iid(1) := Mux(dis_info.pst_create_iid_sel(0)(0), io.in.fromRTU.rob_inst_idd(0), io.in.fromRTU.rob_inst_idd(1))
+  inst_iid(2) := MuxLookup(dis_info.pst_create_iid_sel(1), 0.U(7.W), Seq(
     "b001".U -> io.in.fromRTU.rob_inst_idd(0),
     "b010".U -> io.in.fromRTU.rob_inst_idd(1),
     "b100".U -> io.in.fromRTU.rob_inst_idd(2)
   ))
-  inst_iid(3) := MuxLookup(io.in.pre_dispatch.pst_create_iid_sel(2), 0.U(7.W), Seq(
+  inst_iid(3) := MuxLookup(dis_info.pst_create_iid_sel(2), 0.U(7.W), Seq(
     "b001".U -> io.in.fromRTU.rob_inst_idd(1),
     "b010".U -> io.in.fromRTU.rob_inst_idd(2),
     "b100".U -> io.in.fromRTU.rob_inst_idd(3)

@@ -18,10 +18,10 @@ class IFU extends Module with Config {
 
 
 
-  val ifu_continue     = RegInit(true.B)
-  ifu_continue := !io.tlb.tlb_miss && icache.io.cache_resp.valid && ibuf.io.allowEnq
+
   val backend_redirect = io.bru_redirect.valid
-  val reg_update       = ifu_continue || backend_redirect
+  val reg_update       = !ibstage.io.ibctrl_ipctrl_stall && ((!io.tlb.tlb_miss && icache.io.cache_req.ready) ||
+    backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid) //&& ibuf.io.allowEnq has been replace in ibstage
 
   //pc select
   val pc_gen = Module(new PCGen)
@@ -30,13 +30,16 @@ class IFU extends Module with Config {
   pc_gen.io.had_ifu_pc := DontCare
   pc_gen.io.vector_pcgen_pcload := false.B
   pc_gen.io.vector_pcgen_pc := DontCare
+  pc_gen.io.rtu_ifu_chgflw_vld := io.rtu_ifu_chgflw_vld
+  pc_gen.io.rtu_ifu_chgflw_pc := io.rtu_ifu_chgflw_pc
   //
   pc_gen.io.redirect(0).valid := ubtb.io.ubtb_resp.valid
   pc_gen.io.redirect(0).bits  := ubtb.io.ubtb_resp.bits.target_pc
   pc_gen.io.redirect(1) := ipstage.io.ip_redirect
   pc_gen.io.redirect(2) := ibstage.io.ib_redirect
   pc_gen.io.redirect(3) := io.bru_redirect
-  pc_gen.io.continue := !io.tlb.tlb_miss && icache.io.cache_resp.valid && ibuf.io.allowEnq
+  pc_gen.io.continue := !io.tlb.tlb_miss && icache.io.cache_req.ready && ibuf.io.allowEnq
+  pc_gen.io.IbufAllowEnq := ibuf.io.allowEnq
 
   //IF stage
   val if_pc = pc_gen.io.pc
@@ -46,7 +49,7 @@ class IFU extends Module with Config {
   //    if_pc := pc_gen.io.pc
   //  }
   io.pc := if_pc
-  val if_data_valid = !pc_gen.io.redirect(1).valid || !pc_gen.io.redirect(2).valid || !pc_gen.io.redirect(3).valid
+  val if_data_valid = !(pc_gen.io.redirect(1).valid || pc_gen.io.redirect(2).valid || pc_gen.io.redirect(3).valid)
 
 
   ubtb.io.pc := if_pc
@@ -75,7 +78,7 @@ class IFU extends Module with Config {
 
   //IP stage
   val if_vld  = RegEnable(if_data_valid, reg_update)
-  val ip_pc   = RegNext(RegEnable(pc_gen.io.pc, reg_update))
+  val ip_pc   = RegEnable(pc_gen.io.pc, reg_update)
   val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, reg_update)
 //  val if_vld  = RegNext(if_data_valid)
 //  val ip_pc   = RegNext(if_pc)
@@ -87,22 +90,29 @@ class IFU extends Module with Config {
   ipstage.io.ubtb_resp   := ip_ubtb
   ipstage.io.btb_resp    := btb.io.btb_target
   ipstage.io.bht_resp    := bht.io.bht_resp //TODO:封装bht输出
-  ipstage.io.icache_resp := RegEnable(icache.io.cache_resp,true.B)
+  ipstage.io.icache_resp := icache.io.cache_resp
   //ipstage.io.icache_resp := RegNext(io.cache_resp)
 
   bht.io.ip_bht_con_br_vld   := ipstage.io.ip_bht_con_br_vld
   bht.io.ip_bht_con_br_taken := ipstage.io.ip_bht_con_br_taken
 
   //IB stage
-  val ip_vld = RegNext(ipstage.io.out.valid)
+  val ip_vld = RegEnable(ipstage.io.out.valid, reg_update)
   val ip_out = RegEnable(ipstage.io.out.bits, reg_update) //ubtb,btb,bht
-//  val ib_pc  = ip_out.pc
+  val ib_pc  = ip_out.pc
   val ib_vld = ip_vld && !pc_gen.io.redirect(3).valid
 
 
 
+  ibstage.io.pc_oper_over_mask := pcfifo.io.pcfifo_if_ibdp_over_mask
+  ibstage.io.pcgen_ibctrl_cancel := pc_gen.io.ibctrl_cancel
+  ibstage.io.iu_ifu_mispred_stall := io.iu_ifu_mispred_stall
+  ibstage.io.ibuf_ibctrl_stall := !ibuf.io.allowEnq
+  ibstage.io.pcfifo_if_ibctrl_more_than_two := pcfifo.io.pcfifo_if_ibctrl_more_than_two
+  ibstage.io.iu_ifu_pcfifo_full := io.iu_ifu_pcfifo_full
+  ibstage.io.idu_ifu_id_stall := io.idu_ifu_id_stall
   ibstage.io.ip2ib.valid := ib_vld
-  ibstage.io.ip2ib.bits  := RegNext(ipstage.io.out.bits)
+  ibstage.io.ip2ib.bits  := RegEnable(ipstage.io.out.bits, reg_update)
 
   //ras
   ras.io.ifu_update.target := ip_out.push_pc
@@ -149,17 +159,17 @@ class IFU extends Module with Config {
     ibuf.io.in(i+1).bits.pc := Cat(ibstage.io.ip2ib.bits.pc(38,4), 0.U(4.W)) + (i.U << 1.U)
     ibuf.io.in(i+1).bits.data := ip_out.icache_resp.inst_data(i)
     ibuf.io.in(i+1).bits.is_inst32 := ip_out.inst_32_9(i+1)
-    ibuf.io.in(i+1).valid := ip_out.chgflw_vld_mask(i+1) && ib_vld
+    ibuf.io.in(i+1).valid := ip_out.chgflw_vld_mask(i+1) && ib_vld && reg_update
   }
   ibuf.io.in(0).bits.pc := Cat(ibstage.io.ip2ib.bits.pc(38,4), 0.U(4.W)) - 2.U
   ibuf.io.in(0).bits.data := ip_out.h0_data
   ibuf.io.in(0).bits.is_inst32 := ip_out.inst_32_9(0)
-  ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld//ip_out.bits.chgflw_vld_mask(0)
+  ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld && reg_update//ip_out.bits.chgflw_vld_mask(0)
 
   for(i <- 0 to 2){
     io.instData(i).vl_pred      := false.B
     io.instData(i).vl           := 0.U
-    io.instData(i).pc           := ibuf.io.out(i).bits.pc(14,0)
+    io.instData(i).pc           := ibuf.io.out(i).bits.pc(15,1)
     io.instData(i).vsew         := 0.U
     io.instData(i).vlmul        := 0.U
     io.instData(i).no_spec      := false.B
@@ -181,21 +191,25 @@ class IFU extends Module with Config {
   io.toROB.curPc := pc_gen.io.ifu_rtu_cur_pc//0.U    //from had???
   ibuf.io.flush := backend_redirect
 
-  pcfifo.io.in.target_pc := ibstage.io.ib_redirect.bits
-  pcfifo.io.in.h0_vld    := ipstage.io.out.bits.h0_vld
-  pcfifo.io.in.cur_pc(0) := ipstage.io.out.bits.h0_pc
+  pcfifo.io.fifo_create_vld := ibstage.io.fifo_create_vld
+  pcfifo.io.ibdp_pcfifo_if_ind_br_offset := ibstage.io.ibdp_pcfifo_if_ind_br_offset
+  pcfifo.io.ibctrl_pcfifo_if_ras_vld := ibstage.io.ibctrl_pcfifo_if_ras_vld
+  pcfifo.io.ibctrl_pcfifo_if_ras_target_pc := ibstage.io.ibctrl_pcfifo_if_ras_target_pc
+  pcfifo.io.ibctrl_pcfifo_if_ind_target_pc := ibstage.io.ibctrl_pcfifo_if_ind_target_pc
+  pcfifo.io.in.h0_vld    := ip_out.h0_vld
+  pcfifo.io.in.cur_pc(0) := ip_out.h0_pc ////todo: check it
   for(i <- 1 to 8) {
-    pcfifo.io.in.cur_pc(i) := ipstage.io.out.bits.cur_pc(i-1)
+    pcfifo.io.in.cur_pc(i) := ip_out.cur_pc(i-1)
   }
-  pcfifo.io.in.pc_oper   := ipstage.io.out.bits.chgflw_vld_mask(7,0)
-  pcfifo.io.in.jal       := ipstage.io.out.bits.jal
-  pcfifo.io.in.jalr      := ipstage.io.out.bits.jalr
-  pcfifo.io.in.con_br    := ipstage.io.out.bits.con_br
-  pcfifo.io.in.dst_vld   := ipstage.io.out.bits.dst
-  pcfifo.io.in.sel_res   := ipstage.io.out.bits.bht_resp.pre_sel
-  pcfifo.io.in.pre_res   := ipstage.io.out.bits.bht_res
-  pcfifo.io.in.vghr      := bht.io.bht_ghr
-  pcfifo.io.in.ind_btb_miss := false.B
+  pcfifo.io.in.pc_oper   := ibstage.io.ibdp_pcfifo_if_hn_pc_oper //////Wire from ip_out, same cycle with ibstage
+  pcfifo.io.in.jal       := ip_out.jal
+  pcfifo.io.in.jalr      := ip_out.jalr
+  pcfifo.io.in.con_br    := ip_out.con_br
+  pcfifo.io.in.dst_vld   := ip_out.dst
+  pcfifo.io.in.sel_res   := ip_out.bht_resp.pre_sel
+  pcfifo.io.in.pre_res   := ip_out.bht_res
+  pcfifo.io.in.vghr      := bht.io.bht_ghr //////has RegNext in bht, same cycle with ibstage
+  pcfifo.io.in.ind_btb_miss := false.B //////todo: figure out
 
   for(i <- 0 to 1){
     io.ifuForward(i) := pcfifo.io.out(i)

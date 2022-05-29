@@ -102,6 +102,7 @@ abstract class RobFromLsuPipeCommonBundle extends Bundle {
 }
 
 class RobToRetireInstBundle extends Bundle {
+  val instr:UInt  = UInt(32.W)
   val valid : Bool = Bool()
   val bju : Bool = Bool()
   val condBranch : Bool = Bool()

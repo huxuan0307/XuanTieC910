@@ -38,15 +38,19 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.bpu_update.rtu_retire_condbr_taken(0) := rtu.io.out.toIfu.retireVec(0).condBrTaken
   ifu.io.bpu_update.rtu_retire_condbr_taken(1) := rtu.io.out.toIfu.retireVec(1).condBrTaken
   ifu.io.bpu_update.rtu_retire_condbr_taken(2) := rtu.io.out.toIfu.retireVec(2).condBrTaken
+  ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
+  ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
+  ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.chgflwPc //////todo: check it
+  ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
+  ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
+  ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
 
   //IFU ignore other signals
   ifu.io.bpu_update.ind_btb_commit_jmp_path := DontCare
   ifu.io.bpu_update.ind_btb_rtu_jmp_pc := DontCare
   ifu.io.bpu_update.ind_btb_rtu_jmp_mispred := DontCare
   ifu.io.bpu_update.bht_update := DontCare //from BJU??
-  ifu.io.ifuForward := DontCare // from BJU??
-  ifu.io.bru_redirect.valid := false.B //from BJU
-  ifu.io.bru_redirect.bits := DontCare
   ifu.io.tlb.tlb_miss := false.B
   ifu.io.tlb.paddr := ifu.io.tlb.vaddr // todo: add TLB, Now, suppose that paddr===vaddr
   //ifu.io.instVld := Seq(true.B,true.B,true.B).map(_) //todo: ???
@@ -95,12 +99,21 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.aiq0fromIU.div := DontCare //////todo: iu add signal
   idu.io.in.biqfromIU.div := DontCare //////todo: iu add signal
   idu.io.in.RTfromIU := DontCare //////todo: iu add signal
+  idu.io.in.RTfromIU.ex2_pipe0_wb_preg_dupx := iu.io.iuToRtu.rbusRslt(0).wbPreg //////todo: check it, and compare with PRFfromIU
+  idu.io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.RTfromIU.ex2_pipe1_wb_preg_dupx := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.IDfromHad := DontCare
   idu.io.in.IDfromFence := DontCare
   idu.io.in.IRfromCp0Sub := DontCare
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
-  idu.io.in.IQfromIUsub.wbPreg := DontCare //////todo: find out
+  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg//DontCare //////todo: check it, and compare with PRFfromIU
+  idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
+  idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
+  idu.io.in.IQfromIUsub.wbPreg(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
+  idu.io.in.IQfromIUsub.wbPreg(2).valid := DontCare //////todo: check it, from lsu?
   idu.io.in.RFfromHad := DontCare
   idu.io.in.RFfromVFPU := DontCare
   idu.io.in.RFfromCp0sub := DontCare
@@ -126,10 +139,10 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).predStore.pc := DontCare //////todo: find out
     iu.io.ifuForward(i).jalr := ifu.io.ifuForward(i).jalr
     iu.io.ifuForward(i).jal := ifu.io.ifuForward(i).jal
-    iu.io.ifuForward(i).en := true.B //////todo: add signal
+    iu.io.ifuForward(i).en := ifu.io.ifuForward(i).en //////todo: add signal
   }
   iu.io.rtuIn.flushFe := rtu.io.out.toIu.flushFe
-  iu.io.rtuIn.flush := DontCare //////todo: find out
+  iu.io.rtuIn.flush := false.B //////todo: find out
   iu.io.rtuIn.flushChgflwMask := rtu.io.out.toIu.flushChangeFlowMask
   iu.io.rtuIn.robReadPcfifovld := rtu.io.out.toIu.robReadPcFifoValid
   iu.io.rtuIn.robReadPcfifovldGateEn := rtu.io.out.toIu.robReadPcFifoGateClkValid
@@ -142,8 +155,8 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.alu0Sel.gateSel := idu.io.out.RFCtrl.toAlu0.gateClkSel
   iu.io.alu1Sel.sel := idu.io.out.RFCtrl.toAlu1.sel
   iu.io.alu1Sel.gateSel := idu.io.out.RFCtrl.toAlu1.gateClkSel
-  iu.io.isIn.issue := DontCare //////todo: ISStage add idu_iu_is_div_issue
-  iu.io.isIn.gateClkIssue := DontCare //////todo: idu_iu_is_div_gateclk_issue ???
+  iu.io.isIn.issue := false.B //////todo: ISStage add idu_iu_is_div_issue
+  iu.io.isIn.gateClkIssue := false.B //////todo: idu_iu_is_div_gateclk_issue ???
   iu.io.specialPid := DontCare //////todo: check idu_iu_rf_pipe0_pid and idu_iu_rf_pipe1_pid ???
   iu.io.bjuSel.sel := idu.io.out.RFCtrl.toBju.sel
   iu.io.bjuSel.gateSel := idu.io.out.RFCtrl.toBju.gateClkSel
@@ -153,23 +166,44 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.specialSel.gateSel := idu.io.out.RFCtrl.toSpecial.gateClkSel
   iu.io.divSel.sel := idu.io.out.RFCtrl.toDiv.sel
   iu.io.divSel.gateSel := idu.io.out.RFCtrl.toDiv.gateClkSel
-  iu.io.pipe0.iid := idu.io.out.RFData.iid
-  iu.io.pipe0.dstVld := idu.io.out.RFData.dstPreg.valid
-  iu.io.pipe0.dstPreg := idu.io.out.RFData.dstPreg.bits
-  iu.io.pipe0.opcode := idu.io.out.RFData.opcode
-  iu.io.pipe0.exptVec := idu.io.out.RFData.exceptVec.bits
-  iu.io.pipe0.exptVld := idu.io.out.RFData.exceptVec.valid
-  iu.io.pipe0.highHwExpt := idu.io.out.RFData.highHwExpt
-  iu.io.pipe0.specialImm := idu.io.out.RFData.specialImm
-  iu.io.pipe0.aluShort := idu.io.out.RFData.aluShort
-  iu.io.pipe0.imm := idu.io.out.RFData.imm
-  iu.io.pipe0.src0 := idu.io.out.RFData.src0
-  iu.io.pipe0.src1 := idu.io.out.RFData.src1
-  iu.io.pipe0.src2 := idu.io.out.RFData.src2
-  iu.io.pipe0.src1NoImm := idu.io.out.RFData.src1NoImm
-  iu.io.pipe0.func := DontCare //////todo: find it
-  iu.io.pipe1 := DontCare //////todo: from rf?
-  iu.io.pipe2 := DontCare //////todo: from rf
+  iu.io.pipe0.iid := idu.io.out.RFData.toIu0.iid
+  iu.io.pipe0.dstVld := idu.io.out.RFData.toIu0.dstPreg.valid
+  iu.io.pipe0.dstPreg := idu.io.out.RFData.toIu0.dstPreg.bits
+  iu.io.pipe0.opcode := idu.io.out.RFData.toIu0.opcode
+  iu.io.pipe0.exptVec := idu.io.out.RFData.toIu0.exceptVec.bits
+  iu.io.pipe0.exptVld := idu.io.out.RFData.toIu0.exceptVec.valid
+  iu.io.pipe0.highHwExpt := idu.io.out.RFData.toIu0.highHwExpt
+  iu.io.pipe0.specialImm := idu.io.out.RFData.toIu0.specialImm
+  iu.io.pipe0.aluShort := idu.io.out.RFData.toIu0.aluShort
+  iu.io.pipe0.imm := idu.io.out.RFData.toIu0.imm
+  iu.io.pipe0.src0 := idu.io.out.RFData.toIu0.src0
+  iu.io.pipe0.src1 := idu.io.out.RFData.toIu0.src1
+  iu.io.pipe0.src2 := idu.io.out.RFData.toIu0.src2
+  iu.io.pipe0.src1NoImm := idu.io.out.RFData.toIu0.src1NoImm
+  iu.io.pipe0.func := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
+  iu.io.pipe1.iid := idu.io.out.RFData.toIu1.iid
+  iu.io.pipe1.dstVld := idu.io.out.RFData.toIu1.dstPreg.valid
+  iu.io.pipe1.dstPreg := idu.io.out.RFData.toIu1.dstPreg.bits
+  iu.io.pipe1.multFunc := DontCare //////todo: find it, (8.W) different with toIu1.opcode(7.W)
+  iu.io.pipe1.mlaSrc2Preg := DontCare //////todo: find it
+  iu.io.pipe1.mlaSrc2Vld := DontCare //////todo: find it
+  iu.io.pipe1.mulSel := DontCare //////todo: find it
+  iu.io.pipe1.aluShort := idu.io.out.RFData.toIu1.aluShort
+  iu.io.pipe1.imm := idu.io.out.RFData.toIu1.imm
+  iu.io.pipe1.src0 := idu.io.out.RFData.toIu1.src0
+  iu.io.pipe1.src1 := idu.io.out.RFData.toIu1.src1
+  iu.io.pipe1.src2 := idu.io.out.RFData.toIu1.src2
+  iu.io.pipe1.src1NoImm := idu.io.out.RFData.toIu1.src1NoImm
+  iu.io.pipe1.func := idu.io.out.RFData.toIu1.opcode
+  iu.io.pipe2.iid := idu.io.out.RFData.toBju.iid
+  iu.io.pipe2.src0 := idu.io.out.RFData.toBju.src0
+  iu.io.pipe2.src1 := idu.io.out.RFData.toBju.src1
+  iu.io.pipe2.func := idu.io.out.RFData.toBju.opcode
+  iu.io.pipe2.pid := idu.io.out.RFData.toBju.pid
+  iu.io.pipe2.length := DontCare //////todo: complete in rf
+  iu.io.pipe2.offset := DontCare //////todo: complete in rf
+  iu.io.pipe2.pCall := DontCare //////todo: complete in rf
+  iu.io.pipe2.rts := DontCare //////todo: complete in rf
   iu.io.cp0In := DontCare
 
 
@@ -217,6 +251,7 @@ class SimTop extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.robCreate(i).data.ctrl.cmpltValid := idu.io.out.IStoRTU.rob_create(i).data.CMPLT //////todo: check it
     rtu.io.in.fromIdu.robCreate(i).dpEn := idu.io.out.IStoRTU.rob_create(i).dp_en
     rtu.io.in.fromIdu.robCreate(i).gateClkEn := idu.io.out.IStoRTU.rob_create(i).gateclk_en
+    rtu.io.in.fromIdu.robCreate(i).data.data.instr := idu.io.out.IStoRTU.rob_create(i).data.INSTR
   }
   for(i <- 0 to (NumCreateEntry-1)) {
     //////todo:check it
@@ -250,11 +285,11 @@ class SimTop extends Module with Config with ROBConfig {
       in1.iid := iu.io.iuToRtu.cbusRslt.pipe1Iid
       in2.iid := iu.io.iuToRtu.cbusRslt.pipe2Iid
       in0.flush := iu.io.iuToRtu.cbusRslt.pipe0Flush
-      in1.flush := DontCare //////todo: find it
-      in2.flush := DontCare //////todo: find it
-      in0.noSpec := DontCare //////todo: find it
-      in1.noSpec := DontCare //////todo: find it
-      in2.noSpec := DontCare //////todo: find it
+      in1.flush := false.B //////todo: find it
+      in2.flush := false.B //////todo: find it
+      in0.noSpec := 0.U.asTypeOf(in0.noSpec) //////todo: find it
+      in1.noSpec := 0.U.asTypeOf(in1.noSpec) //////todo: find it
+      in2.noSpec := 0.U.asTypeOf(in2.noSpec) //////todo: find it
       in0.mtval := iu.io.iuToRtu.cbusRslt.pipe0Mtval
       in1.mtval := DontCare //////todo: find it
       in2.mtval := DontCare //////todo: find it
@@ -310,7 +345,7 @@ class SimTop extends Module with Config with ROBConfig {
       wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
-      pcFifoPop0.length := DontCare //////todo: find it
+      pcFifoPop0.length := false.B //////todo: find it
       pcFifoPop0.bhtPred := iu.io.bjuToRtu.bhtPred //////todo: popNum = 3
       pcFifoPop0.bhtMispred := iu.io.bjuToRtu.bhtMispred
       pcFifoPop0.jmp := iu.io.bjuToRtu.jmp
@@ -318,25 +353,36 @@ class SimTop extends Module with Config with ROBConfig {
       pcFifoPop0.pcall := iu.io.bjuToRtu.pCall
       pcFifoPop0.condBranch := iu.io.bjuToRtu.condBr
       pcFifoPop0.pcNext := iu.io.bjuToRtu.pc
-      pcFifoPop0.lsb := DontCare //////todo: add it
-      pcFifoPop1 := DontCare
-      pcFifoPop2 := DontCare
+      pcFifoPop0.lsb := false.B //////todo: add it
+      pcFifoPop1 := 0.U.asTypeOf(pcFifoPop1)
+      pcFifoPop2 := 0.U.asTypeOf(pcFifoPop2)
   }
 
 
   //RTU ignore other signals
-  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := DontCare //////todo: add sdiq, idu.io.out.sdiq.....
-  rtu.io.in.fromIdu.fenceIdle := DontCare //////todo: find out
-  rtu.io.in.fromLsu := DontCare
+  rtu.io.in.fromIdu.toPst.pregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.pregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.fregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.fregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
+  rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
+  rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
+//  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
+//  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
+//  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
+//  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
+//  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
+//  rtu.io.in.fromLsu.allCommitDataValid := 0.U.asTypeOf(rtu.io.in.fromLsu.allCommitDataValid)
+//  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
-  rtu.io.in.fromCp0 := DontCare
-  rtu.io.in.fromPad := DontCare
-  rtu.io.in.fromHad := DontCare
-  rtu.io.in.fromHpcp := DontCare
-  rtu.io.in.fromMmu := DontCare
-  rtu.io.in.fromVfpu := DontCare
+  rtu.io.in.fromCp0.xxIntB := true.B //////_b
+  rtu.io.in.fromCp0.xxVec := 0.U.asTypeOf(rtu.io.in.fromCp0.xxVec)
+  rtu.io.in.fromCp0.icgEn := false.B
+  rtu.io.in.fromCp0.yyClkEn := false.B
+  rtu.io.in.fromCp0.srtEn := false.B
+  rtu.io.in.fromPad := 0.U.asTypeOf(rtu.io.in.fromPad)
+  rtu.io.in.fromHad := 0.U.asTypeOf(rtu.io.in.fromHad)
+  rtu.io.in.fromHpcp := 0.U.asTypeOf(rtu.io.in.fromHpcp)
+  rtu.io.in.fromMmu := 0.U.asTypeOf(rtu.io.in.fromMmu)
+  rtu.io.in.fromVfpu := 0.U.asTypeOf(rtu.io.in.fromVfpu)
 
 
   dontTouch(ifu.io)

@@ -43,13 +43,16 @@ class uBTB extends Module with Config with HasCircularQueuePtrHelper {
     hit_vec(i) := ubtb_valid(i) && ubtb_tag(i) === tag
   }
 
+  val bypass_hit = io.update_data.valid && io.update_data.bits.entry_valid && io.update_data.bits.tag === tag
+
   val entry_hit_target = ParallelPriorityMux(hit_vec.zip(ubtb_target))
   val entry_hit_ras    = ParallelPriorityMux(hit_vec.zip(ubtb_ras))
 
   val target_pc = Mux(entry_hit_ras, io.ras_pc, Cat(io.pc(VAddrBits-1,21), entry_hit_target, 0.U(1.W)))
+  val bypass_target = Cat(io.pc(VAddrBits-1,21), io.update_data.bits.target, 0.U(1.W))
 
-  io.ubtb_resp.valid := hit_vec.asUInt.orR
-  io.ubtb_resp.bits.target_pc := target_pc
+  io.ubtb_resp.valid := hit_vec.asUInt.orR || bypass_hit
+  io.ubtb_resp.bits.target_pc := Mux(bypass_hit, bypass_target, target_pc)
   io.ubtb_resp.bits.hit_index := hit_vec.asUInt()
   io.ubtb_resp.bits.is_ret    := entry_hit_ras
 

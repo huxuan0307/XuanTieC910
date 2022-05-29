@@ -25,7 +25,7 @@ class IPStage extends Module with Config {
   val pc      = Wire(Vec(8,UInt(VAddrBits.W)))
   for(i <- 0 until 8){
     inst_32(i) := io.icache_resp.bits.inst_data(i)(1,0) === "b11".U
-    pc(i)      := Cat(io.pc(VAddrBits-1,4),i.U)
+    pc(i)      := Cat(io.pc(VAddrBits-1,4),i.U(3.W),0.U(1.W))
   }
 
   //last half inst
@@ -130,6 +130,7 @@ class IPStage extends Module with Config {
   val jalr    = ipdecode.io.decode_info.jalr.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val jal     = ipdecode.io.decode_info.jal.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val dst     = ipdecode.io.decode_info.dst_vld.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
+  val pc_oper = ipdecode.io.decode_info.pc_oper.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val chgflw_after_head = Mux(bht_pre_result(1), chgflw | con_br, chgflw) & pc_mask9 //take bht predict con_br result
   val chgflw_mask_pre = PriorityMux(Seq(
     chgflw_after_head(0) -> "b0000_0001_1".U,
@@ -150,6 +151,7 @@ class IPStage extends Module with Config {
   val ind_vld     = chgflw_vld_mask & jalr & !preturn
   val jal_vld     = chgflw_vld_mask & jal
   val jalr_vld    = chgflw_vld_mask & jalr
+  val pc_oper_vld = chgflw_vld_mask & pc_oper
   val push_pc_vec = Wire(Vec(8+1,UInt(VAddrBits.W)))
   push_pc_vec(0) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 2.U  //inst 32
   push_pc_vec(8) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 16.U // inst 16
@@ -181,11 +183,18 @@ class IPStage extends Module with Config {
   ))
 
   val br_offset = WireInit(0.U(21.W))
-  for(i <- 0 until 8){
-    when(br_position === i.U) {
-      br_offset := ipdecode.io.decode_info.offset(i)
-    }
-  }
+
+  br_offset := PriorityMux(Seq(
+    br_mask(0) -> Mux(h0_br,ipdecode.io.decode_info.offset(0),ipdecode.io.decode_info.offset(1)),
+    br_mask(1) -> ipdecode.io.decode_info.offset(2),
+    br_mask(2) -> ipdecode.io.decode_info.offset(3),
+    br_mask(3) -> ipdecode.io.decode_info.offset(4),
+    br_mask(4) -> ipdecode.io.decode_info.offset(5),
+    br_mask(5) -> ipdecode.io.decode_info.offset(6),
+    br_mask(6) -> ipdecode.io.decode_info.offset(7),
+    br_mask(7) -> ipdecode.io.decode_info.offset(8)
+  ))
+
 //  // offset
 //  val branch_mask = Cat(br_mask.asUInt(),br_mask(0).asUInt()) & chgflw_vld_mask
 //  val branch_base = PriorityMux(Seq(
@@ -251,9 +260,13 @@ class IPStage extends Module with Config {
   io.out.bits.chgflw_vld_mask := chgflw_vld_mask
   io.out.bits.h0_pc         := h0_pc
   io.out.bits.cur_pc        := pc
+  io.out.bits.hn_pcall := pcall_vld(7,0)
+  io.out.bits.hn_pret := preturn_vld(7,0)
+  io.out.bits.hn_ind_br := ind_vld(7,0)
 
   io.out.bits.jal  := jal_vld(7,0)
-  io.out.bits.jalr := jal_vld(7,0)
+  io.out.bits.jalr := jalr_vld(7,0)
   io.out.bits.con_br := con_br_vld(7,0)
   io.out.bits.dst  := dst(7,0)
+  io.out.bits.pc_oper := pc_oper_vld(7,0)
 }
