@@ -38,15 +38,19 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.bpu_update.rtu_retire_condbr_taken(0) := rtu.io.out.toIfu.retireVec(0).condBrTaken
   ifu.io.bpu_update.rtu_retire_condbr_taken(1) := rtu.io.out.toIfu.retireVec(1).condBrTaken
   ifu.io.bpu_update.rtu_retire_condbr_taken(2) := rtu.io.out.toIfu.retireVec(2).condBrTaken
+  ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
+  ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
+  ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.chgflwPc //////todo: check it
+  ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
+  ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
+  ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
 
   //IFU ignore other signals
   ifu.io.bpu_update.ind_btb_commit_jmp_path := DontCare
   ifu.io.bpu_update.ind_btb_rtu_jmp_pc := DontCare
   ifu.io.bpu_update.ind_btb_rtu_jmp_mispred := DontCare
   ifu.io.bpu_update.bht_update := DontCare //from BJU??
-  ifu.io.ifuForward := DontCare // from BJU??
-  ifu.io.bru_redirect.valid := false.B //from BJU
-  ifu.io.bru_redirect.bits := PcStart.U
   ifu.io.tlb.tlb_miss := false.B
   ifu.io.tlb.paddr := ifu.io.tlb.vaddr // todo: add TLB, Now, suppose that paddr===vaddr
   //ifu.io.instVld := Seq(true.B,true.B,true.B).map(_) //todo: ???
@@ -135,7 +139,7 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).predStore.pc := DontCare //////todo: find out
     iu.io.ifuForward(i).jalr := ifu.io.ifuForward(i).jalr
     iu.io.ifuForward(i).jal := ifu.io.ifuForward(i).jal
-    iu.io.ifuForward(i).en := true.B //////todo: add signal
+    iu.io.ifuForward(i).en := ifu.io.ifuForward(i).en //////todo: add signal
   }
   iu.io.rtuIn.rtuFlush.fe := rtu.io.out.toIu.flushFe
   iu.io.rtuIn.rtuFlush.flush := false.B //////todo: find out

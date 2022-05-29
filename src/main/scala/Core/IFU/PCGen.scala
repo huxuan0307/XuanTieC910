@@ -33,6 +33,7 @@ class PCGen extends Module with Config {
   //  PC Increase
   // &CombBeg; @43
   ifpc_chgflw_pre := PriorityMux(Seq(
+      io.rtu_ifu_chgflw_vld -> io.rtu_ifu_chgflw_pc,
       io.redirect(3).valid -> io.redirect(3).bits,//io.redirect(3).bits,
       io.redirect(2).valid -> io.redirect(2).bits,//io.redirect(2).bits,
       io.redirect(1).valid -> io.redirect(1).bits,//io.redirect(1).bits,
@@ -67,4 +68,14 @@ class PCGen extends Module with Config {
 
   io.ifu_rtu_cur_pc_load := ifu_rtu_cur_pc_loadReg
   io.ifu_rtu_cur_pc := ifu_rtu_cur_pcReg
+
+  //-----------------------IB Cancel--------------------------
+  io.ibctrl_cancel := io.had_ifu_pcload ||
+    io.vector_pcgen_pcload ||
+    io.rtu_ifu_chgflw_vld ||
+    io.redirect(3).valid
+    //|| io.rtu_ifu_xx_expt_vld todo
+    //|| dbg_cancel
+
+
 }
