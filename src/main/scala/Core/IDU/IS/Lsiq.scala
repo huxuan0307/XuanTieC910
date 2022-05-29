@@ -169,7 +169,7 @@ class Lsiq extends Module with LsiqConfig {
 
   // find two empty entry
   private val enq0OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryOutValidVec.map(!_)))
-  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryOutValidVec.reverse.map(!_)))
+  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryOutValidVec.reverse.map(!_)).reverse)
   io.out.entryEnqOHVec(0) := enq0OH.asUInt
   io.out.entryEnqOHVec(1) := enq1OH.asUInt
   //==========================================================
