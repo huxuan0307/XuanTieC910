@@ -6,8 +6,8 @@ import chisel3.util._
 import Core.IU.{IduRfPipe2, unitSel}
 import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.InstructionIdWidth
-import Core.ROBConfig.NumRobReadEntry
-import Utils.{LookupTree, SignExt}
+import Core.ROBConfig.{IidWidth, NumRobReadEntry}
+import Utils.{LookupTree, SignExt, ZeroExt}
 import Core.IDU.Opcode.BjuOpcode
 import Core.RTU.{CompareIid, PcFifoData}
 
@@ -169,7 +169,7 @@ class Bju extends Module{
   //---------------------------------------------------------
   val jump_pc = ex1_pipe_rf.src0(PcWidth+1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth+1))
   val branch_pc = Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth,1) + SignExt(ex1_pipe_rf.offset(20,1),(PcWidth)) ,
-    ex1_pipe_pcfifo_read.pc(PcWidth,1)  + SignExt(Cat(ex1_pipe_rf.length,!ex1_pipe_rf.length),PcWidth)) // otherwise PC+4 TODO pc + pclengh
+    ex1_pipe_pcfifo_read.pc(PcWidth,1)  + ZeroExt(Cat(ex1_pipe_rf.length,!ex1_pipe_rf.length),PcWidth)) // otherwise PC+4 TODO pc + pclengh
   val bju_tar_pc = Mux(is_jmp&&bj_taken,jump_pc(39,1),branch_pc)
   // todo MMU ref
   //----------------------------------------------------------
@@ -250,7 +250,7 @@ class Bju extends Module{
   val ex2_pipe_tar_pc      = RegEnable(bju_tar_pc,0.U(PcWidth.W),ex1_pipe_inst_vld)
   val ex2_pipe_is_br       = RegEnable(is_br,false.B,ex1_pipe_inst_vld)
   val ex2_pipe_is_jmp      = RegEnable(is_jmp,false.B,ex1_pipe_inst_vld)
-  val ex2_pipe_iid         = RegEnable(ex1_pipe_rf.iid,0.U(InstructionIdWidth),ex1_pipe_inst_vld) // rtu ptr
+  val ex2_pipe_iid         = RegEnable(ex1_pipe_rf.iid,0.U(IidWidth.W),ex1_pipe_inst_vld) // rtu ptr
   val ex2_pipe_pid         = RegEnable(ex1_pipe_rf.pid,0.U(PcFifoAddr.W),ex1_pipe_inst_vld) // pid pc fifo ptr
   val ex2_pipe2_pcall      = RegEnable(ex1_pipe_rf.pCall, false.B, ex1_pipe_inst_vld)
   val ex2_pipe2_pret       = RegEnable(ex1_pipe_rf.rts,   false.B,   ex1_pipe_inst_vld)

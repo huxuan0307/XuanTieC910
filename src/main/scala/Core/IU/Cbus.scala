@@ -119,9 +119,9 @@ class Cbus extends Module with IUConfig{
   io.out.pipe1Cmplt       := cbus_pipe1_inst_vld
   io.out.pipe1Iid         := cbus_pipe1_iid
   // pipe 2
-  io.out.pipe2Abnormal    := bju_in.sel
-  io.out.pipe2BhtMispred  := bju_in.abnormal
-  io.out.pipe2Cmplt       := bju_in.jmpMispred
-  io.out.pipe2JmpMispred  := bju_in.bhtMispred
+  io.out.pipe2Abnormal    := bju_in.abnormal
+  io.out.pipe2BhtMispred  := bju_in.bhtMispred
+  io.out.pipe2Cmplt       := bju_in.sel
+  io.out.pipe2JmpMispred  := bju_in.jmpMispred
   io.out.pipe2Iid         := bju_in.iid
 }
