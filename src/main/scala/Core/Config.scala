@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3._
 
 object FuncOpType {
-  def width = 7.W
+  def width  = 7.W
   def uwidth = UInt(width)
 }
 

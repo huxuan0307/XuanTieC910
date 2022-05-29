@@ -100,7 +100,7 @@ class Mu extends Module with IUConfig {
   //----------------------------------------------------------
   val pipe1_en = io.sel.gateSel
   val ex1_pipe = RegEnable(io.in, io.in, pipe1_en)
-  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.func)
+  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.opcode)
   val src = new MDUbit(UInt(XLEN.W))
   val lastOp = RegEnable(funcOpType, funcOpType, io.sel.sel)
   //val isDiv = MDUOpType.isDiv(funcOpType)
