@@ -60,7 +60,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IDfromIFUIB.instData := ifu.io.instData
   idu.io.in.IDfromIFUIB.instVld := ifu.io.instVld
   idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare  //todo: figure out Gateclk
-  idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.cancel
+  idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.yyXxCancel
   idu.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
   idu.io.in.fromRTU.flush_fe := rtu.io.out.toIdu.flushFe
   idu.io.in.fromRTU.flush_is := rtu.io.out.toIdu.flushIs
@@ -137,8 +137,8 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).jal := ifu.io.ifuForward(i).jal
     iu.io.ifuForward(i).en := true.B //////todo: add signal
   }
-  iu.io.rtuIn.flushFe := rtu.io.out.toIu.flushFe
-  iu.io.rtuIn.flush := false.B //////todo: find out
+  iu.io.rtuIn.rtuFlush.fe := rtu.io.out.toIu.flushFe
+  iu.io.rtuIn.rtuFlush.flush := false.B //////todo: find out
   iu.io.rtuIn.flushChgflwMask := rtu.io.out.toIu.flushChangeFlowMask
   iu.io.rtuIn.robReadPcfifovld := rtu.io.out.toIu.robReadPcFifoValid
   iu.io.rtuIn.robReadPcfifovldGateEn := rtu.io.out.toIu.robReadPcFifoGateClkValid
@@ -176,7 +176,7 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe0.src1 := idu.io.out.RFData.toIu0.src1
   iu.io.pipe0.src2 := idu.io.out.RFData.toIu0.src2
   iu.io.pipe0.src1NoImm := idu.io.out.RFData.toIu0.src1NoImm
-  iu.io.pipe0.func := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
+  iu.io.pipe0.opcode := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
   iu.io.pipe1.iid := idu.io.out.RFData.toIu1.iid
   iu.io.pipe1.dstVld := idu.io.out.RFData.toIu1.dstPreg.valid
   iu.io.pipe1.dstPreg := idu.io.out.RFData.toIu1.dstPreg.bits
@@ -190,11 +190,11 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe1.src1 := idu.io.out.RFData.toIu1.src1
   iu.io.pipe1.src2 := idu.io.out.RFData.toIu1.src2
   iu.io.pipe1.src1NoImm := idu.io.out.RFData.toIu1.src1NoImm
-  iu.io.pipe1.func := idu.io.out.RFData.toIu1.opcode
+  iu.io.pipe1.opcode := idu.io.out.RFData.toIu1.opcode
   iu.io.pipe2.iid := idu.io.out.RFData.toBju.iid
   iu.io.pipe2.src0 := idu.io.out.RFData.toBju.src0
   iu.io.pipe2.src1 := idu.io.out.RFData.toBju.src1
-  iu.io.pipe2.func := idu.io.out.RFData.toBju.opcode
+  iu.io.pipe2.opcode := idu.io.out.RFData.toBju.opcode
   iu.io.pipe2.pid := idu.io.out.RFData.toBju.pid
   iu.io.pipe2.length := DontCare //////todo: complete in rf
   iu.io.pipe2.offset := DontCare //////todo: complete in rf
@@ -342,13 +342,13 @@ class SimTop extends Module with Config with ROBConfig {
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
       pcFifoPop0.length := false.B //////todo: find it
-      pcFifoPop0.bhtPred := iu.io.bjuToRtu.bhtPred //////todo: popNum = 3
-      pcFifoPop0.bhtMispred := iu.io.bjuToRtu.bhtMispred
-      pcFifoPop0.jmp := iu.io.bjuToRtu.jmp
-      pcFifoPop0.pret := iu.io.bjuToRtu.pRet
-      pcFifoPop0.pcall := iu.io.bjuToRtu.pCall
-      pcFifoPop0.condBranch := iu.io.bjuToRtu.condBr
-      pcFifoPop0.pcNext := iu.io.bjuToRtu.pc
+      pcFifoPop0.bhtPred := iu.io.bjuToRtu(0).bhtPred //////todo: popNum = 3
+      pcFifoPop0.bhtMispred := iu.io.bjuToRtu(0).bhtMispred
+      pcFifoPop0.jmp := iu.io.bjuToRtu(0).jmp
+      pcFifoPop0.pret := iu.io.bjuToRtu(0).pret
+      pcFifoPop0.pcall := iu.io.bjuToRtu(0).pcall
+      pcFifoPop0.condBranch := iu.io.bjuToRtu(0).condBranch
+      pcFifoPop0.pcNext := iu.io.bjuToRtu(0).pcNext
       pcFifoPop0.lsb := false.B //////todo: add it
       pcFifoPop1 := 0.U.asTypeOf(pcFifoPop1)
       pcFifoPop2 := 0.U.asTypeOf(pcFifoPop2)

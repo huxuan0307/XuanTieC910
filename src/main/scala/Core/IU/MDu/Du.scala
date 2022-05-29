@@ -119,7 +119,7 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   //               Pipe0 EX1 Instruction Data
   //----------------------------------------------------------
   val ex1_pipe = RegEnable(io.in, io.in, pipe1_en)
-  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.func)
+  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.opcode)
   val isDiv = RegInit(false.B)
   val isW   = RegInit(false.B)
   val isDivSign = RegInit(false.B)
