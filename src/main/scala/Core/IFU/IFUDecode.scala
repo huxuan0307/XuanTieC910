@@ -20,6 +20,7 @@ class IFUDecodeIO extends CoreBundle {
   val is_call   = Output(Bool())
   val is_return = Output(Bool())
   val offset    = Output(UInt(21.W))
+  val is_pc_oper = Output(Bool())
 }
 
 class IFUDecode extends Module with Config {
@@ -37,6 +38,12 @@ class IFUDecode extends Module with Config {
   val con_br = icache_br && (inst(2,1) === "b01".U || Cat(inst(14),inst(1)) === "b10".U)
   //auipc
   val auipc = (inst(6,0) === "b0010111".U)
+
+  //Hn_pc_oper
+  val pc_oper = icache_br ||
+    (Cat(inst(14,12),inst(6,0)) === "b000_1100111".U) ||                            //jalr
+    ((Cat(inst(15,13),inst(6,0)) === "b100_00000_10".U) && (inst(11,7) =/= 0.U(5.W))) || //c.jr/c.jalr
+    (inst(6,0) === "b0010111".U)                                                  //auipc
 
   //chgflw: contain all the chgflw inst except con_br, jal & jalr, c.j & c.jr & c.jalr
   val chgflw = (Cat(inst(14,12),inst(6,0)) === "b000_1100111".U) || ((Cat(inst(15,13),inst(6,0)) === "b100_00000_10".U) && (inst(11,7) =/= 0.U(5.W))) || ab_br
@@ -132,5 +139,6 @@ class IFUDecode extends Module with Config {
   io.is_call   := is_call
   io.is_return := is_return
   io.offset    := offset
+  io.is_pc_oper := pc_oper
 
 }

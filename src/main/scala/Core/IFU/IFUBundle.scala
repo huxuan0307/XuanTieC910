@@ -108,6 +108,7 @@ class IP2IB extends CoreBundle {
   val hn_pcall = UInt(8.W)
   val hn_pret = UInt(8.W)
   val hn_ind_br = UInt(8.W)
+  val pc_oper = UInt(8.W)
 }
 
 class IPStageIO extends  CoreBundle {
@@ -139,6 +140,19 @@ class IBStageIO extends CoreBundle {
   val idu_ifu_id_stall = Input(Bool())
   val fifo_create_vld = Output(Bool())
   val pcfifo_if_ibctrl_more_than_two = Input(Bool())
+  val pc_oper_over_mask = Input(UInt(8.W))
+  //val ibdp_hn_pc_oper = Input(UInt(8.W)) ////has been deal in ipstage
+  val ibdp_pcfifo_if_hn_pc_oper = Output(UInt(8.W))
+  val ibctrl_ipctrl_stall = Output(Bool())
+  val ibctrl_pcfifo_if_ras_vld = Output(Bool())
+  val ibdp_pcfifo_if_ind_br_offset = Output(UInt(21.W))
+  val ibctrl_pcfifo_if_ind_target_pc = Output(UInt(VAddrBits.W))
+  val ibctrl_pcfifo_if_ras_target_pc = Output(UInt(VAddrBits.W))
+  //  val ibctrl_mispred_stall = Output(Bool())
+  //  val ibctrl_fifo_stall = Output(Bool())
+  //  val ibctrl_buf_stall = Output(Bool())
+  //  val ibctrl_fifo_full_stall = Output(Bool())
+  //  val ibctrl_ind_btb_rd_stall = Output(Bool())
 
   val ind_jmp_valid  = Output(Bool())
   val ind_btb_target = Input(UInt(20.W))
@@ -168,14 +182,19 @@ class RobFromIfu extends Bundle {
   val curPcLoad : Bool = Bool()
 }
 
-class PCfifoIO extends Bundle {
+class PCfifoIO extends Bundle with Config {
   val in = Input(new PCfifo_iu)
   val out = Output(Vec(2, new BhtPredDataForward))
   val fifo_create_vld = Input(Bool())
+  val ibdp_pcfifo_if_ind_br_offset = Input(UInt(21.W))
+  val ibctrl_pcfifo_if_ras_vld = Input(Bool())
+  val ibctrl_pcfifo_if_ind_target_pc = Input(UInt(VAddrBits.W))
+  val ibctrl_pcfifo_if_ras_target_pc = Input(UInt(VAddrBits.W))
   val pcfifo_if_ibctrl_more_than_two = Output(Bool())
+  val pcfifo_if_ibdp_over_mask = Output(UInt(8.W))
 }
 class PCfifo_iu extends Bundle with Config {
-  val target_pc = UInt(PcWidth.W)
+  //val target_pc = UInt(PcWidth.W)
   val h0_vld    = Bool()
   val cur_pc    = Vec(9, UInt(PcWidth.W))
   val pc_oper   = UInt(8.W)

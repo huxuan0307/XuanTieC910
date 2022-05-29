@@ -15,7 +15,7 @@ class PCGen extends Module with Config {
   val rtu_cur_pc_load = WireInit(false.B)
   val ifu_rtu_cur_pcReg = RegInit(PcStart.U(VAddrBits.W))
   val ifu_rtu_cur_pc_loadReg = WireInit(false.B)
-  val pcgen_chgflw = io.redirect.map(_.valid).reduce(_||_)
+  val pcgen_chgflw = io.redirect.map(_.valid).reduce(_||_) || io.rtu_ifu_chgflw_vld
   // &Force("bus","ipctrl_pcgen_taken_pc",38,0); @28
   //==========================================================
   //                PC MUX of Change Flow

@@ -130,6 +130,7 @@ class IPStage extends Module with Config {
   val jalr    = ipdecode.io.decode_info.jalr.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val jal     = ipdecode.io.decode_info.jal.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val dst     = ipdecode.io.decode_info.dst_vld.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
+  val pc_oper = ipdecode.io.decode_info.pc_oper.asUInt() & bry9 & Cat(!inst_32(7),"b1111_1111".U)
   val chgflw_after_head = Mux(bht_pre_result(1), chgflw | con_br, chgflw) & pc_mask9 //take bht predict con_br result
   val chgflw_mask_pre = PriorityMux(Seq(
     chgflw_after_head(0) -> "b0000_0001_1".U,
@@ -150,6 +151,7 @@ class IPStage extends Module with Config {
   val ind_vld     = chgflw_vld_mask & jalr & !preturn
   val jal_vld     = chgflw_vld_mask & jal
   val jalr_vld    = chgflw_vld_mask & jalr
+  val pc_oper_vld = chgflw_vld_mask & pc_oper
   val push_pc_vec = Wire(Vec(8+1,UInt(VAddrBits.W)))
   push_pc_vec(0) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 2.U  //inst 32
   push_pc_vec(8) := Cat(io.pc(VAddrBits-1,4), 0.U(4.W)) + 16.U // inst 16
@@ -263,7 +265,8 @@ class IPStage extends Module with Config {
   io.out.bits.hn_ind_br := ind_vld(7,0)
 
   io.out.bits.jal  := jal_vld(7,0)
-  io.out.bits.jalr := jal_vld(7,0)
+  io.out.bits.jalr := jalr_vld(7,0)
   io.out.bits.con_br := con_br_vld(7,0)
   io.out.bits.dst  := dst(7,0)
+  io.out.bits.pc_oper := pc_oper_vld(7,0)
 }
