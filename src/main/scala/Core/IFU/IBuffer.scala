@@ -120,16 +120,4 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
 //    valid  := VecInit(Seq.fill(IBufSize)(false.B))
   }
 
-  /////retire
-  //because inorder enq and deq,
-  //deqptr always <= enqptr,
-  //when deq valid, can retire directly
-  for(i <- 0 until 3){
-    when(valid(deq_vec(i))){
-      valid(deq_vec(i)) := false.B
-      when(is_inst32(deq_vec(i))){
-        valid(deq_vec(i)+1.U) := false.B
-      }
-    }
-  }
 }

@@ -733,9 +733,45 @@ class IDU extends Module with Config {
   biq.io.in.ctrl.rfPopValid := rfstage.io.ctrl.out.toIq(2).popValid
   biq.io.in.ctrl.rfAluRegFwdValid := DontCare//////todo: add rfstage.io.ctrl.out.alu_reg_fwd_vld
   biq.io.in.ctrl.rfLaunchFailValid := rfstage.io.ctrl.out.toIq(2).launchFailValid
-  biq.io.in.data.createData := isstage.io.out.toBiq.create_data.asTypeOf(biq.io.in.data.createData)
-  biq.io.in.data.bypassData := isstage.io.out.toBiq.bypass_data.asTypeOf(biq.io.in.data.bypassData)
-  biq.io.in.data.rfReadyClr := rfstage.io.data.out.toBiq.readyClr.asTypeOf(biq.io.in.data.rfReadyClr)
+  biq.io.in.data.createData.zipWithIndex.foreach {
+    case (c, i) =>
+      c.srcVec.zipWithIndex.foreach {
+        case (src, j) =>
+          src.ready := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.rdy
+          src.preg := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.preg
+          src.wb := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.wb
+          src.lsuMatch := isstage.io.out.toBiq.create_data(i).src_info(j).lsu_match
+      }
+      c.iid := isstage.io.out.toBiq.create_data(i).IID
+      c.pid := isstage.io.out.toBiq.create_data(i).PID
+      c.length := isstage.io.out.toBiq.create_data(i).LENGTH
+      c.inst := isstage.io.out.toBiq.create_data(i).OPCODE
+      c.pcall := isstage.io.out.toBiq.create_data(i).PCALL
+      c.rts := isstage.io.out.toBiq.create_data(i).RTS
+      c.srcValid := isstage.io.out.toBiq.create_data(i).src_vld
+      c.vl := isstage.io.out.toBiq.create_data(i).VL
+      c.vlmul := isstage.io.out.toBiq.create_data(i).VLMUL
+      c.vsew := isstage.io.out.toBiq.create_data(i).VSEW
+  }
+  biq.io.in.data.bypassData.srcVec.zipWithIndex.foreach {
+    case (src, j) =>
+      src.ready := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.rdy
+      src.preg := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.preg
+      src.wb := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.wb
+      src.lsuMatch := isstage.io.out.toBiq.bypass_data.src_info(j).lsu_match
+  }
+  biq.io.in.data.bypassData.iid      := isstage.io.out.toBiq.bypass_data.IID
+  biq.io.in.data.bypassData.pid      := isstage.io.out.toBiq.bypass_data.PID
+  biq.io.in.data.bypassData.length   := isstage.io.out.toBiq.bypass_data.LENGTH
+  biq.io.in.data.bypassData.inst     := isstage.io.out.toBiq.bypass_data.OPCODE
+  biq.io.in.data.bypassData.pcall    := isstage.io.out.toBiq.bypass_data.PCALL
+  biq.io.in.data.bypassData.rts      := isstage.io.out.toBiq.bypass_data.RTS
+  biq.io.in.data.bypassData.srcValid := isstage.io.out.toBiq.bypass_data.src_vld
+  biq.io.in.data.bypassData.vl       := isstage.io.out.toBiq.bypass_data.VL
+  biq.io.in.data.bypassData.vlmul    := isstage.io.out.toBiq.bypass_data.VLMUL
+  biq.io.in.data.bypassData.vsew     := isstage.io.out.toBiq.bypass_data.VSEW
+  biq.io.in.data.rfReadyClr(0) := rfstage.io.data.out.toBiq.readyClr(0)
+  biq.io.in.data.rfReadyClr(1) := rfstage.io.data.out.toBiq.readyClr(1)
   biq.io.in.data.rfLaunchEntry := rfstage.io.data.out.toBiq.launchEntryOH.asTypeOf(biq.io.in.data.rfLaunchEntry) //////todo: check it
   biq.io.in.data.srcReadyForBypass := isstage.io.out.toBiq.src_rdy_for_bypass
 
