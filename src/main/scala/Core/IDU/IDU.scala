@@ -1,10 +1,9 @@
 package Core.IDU
 
 import Core.Config
-
 import Core.IDU.IS.AiqConfig.{NumAiqCreatePort, NumSrcArith}
 import Core.IDU.RF.PrfConfig.NumPregReadPort
-
+import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.{NumPhysicRegsBits, XLEN}
 import IS._
 import RF._
@@ -106,7 +105,7 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
     val wbPreg : Vec[ValidIO[UInt]] = Vec(WbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
   }
   val ISfromIUsub = new Bundle{
-    val pcfifo_dis_inst_pid = Vec(4, UInt(5.W))
+    val pcfifo_dis_inst_pid = Vec(4, UInt(PcFifoAddr.W))
   }
   val PRFfromIU = new Bundle{
     val ex2_pipe0_wb_preg_data = UInt(XLEN.W)

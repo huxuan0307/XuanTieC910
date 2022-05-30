@@ -123,15 +123,15 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromPad := DontCare
   idu.io.in.fromLSU := DontCare //////todo: add LSU
   idu.io.in.ISfromVFPU := DontCare
-  idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := DontCare //////iu.io.bjuToIdu.allowPid todo: find out
+  idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
 
 
 
 
   //IU
   for(i <- 0 to 1) {
-    iu.io.ifuForward(i).curPc := ifu.io.ifuForward(i).curPc
-    iu.io.ifuForward(i).tarPc := ifu.io.ifuForward(i).tarPc
+    iu.io.ifuForward(i).curPc := Cat(ifu.io.ifuForward(i).curPc,0.U(1.W))
+    iu.io.ifuForward(i).tarPc := Cat(ifu.io.ifuForward(i).tarPc,0.U(1.W))
     iu.io.ifuForward(i).dstVld := ifu.io.ifuForward(i).dstVld
     iu.io.ifuForward(i).predStore.bhtPred := ifu.io.ifuForward(i).predStore.bhtPred
     iu.io.ifuForward(i).predStore.chkIdx := ifu.io.ifuForward(i).predStore.chkIdx

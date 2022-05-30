@@ -167,10 +167,12 @@ class Bju extends Module{
   //----------------------------------------------------------
   //                BJU jump address calculation
   //---------------------------------------------------------
-  val jump_pc = ex1_pipe_rf.src0(PcWidth+1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth+1))
-  val branch_pc = Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth,1) + SignExt(ex1_pipe_rf.offset(20,1),(PcWidth)) ,
-    ex1_pipe_pcfifo_read.pc(PcWidth,1)  + ZeroExt(Cat(ex1_pipe_rf.length,!ex1_pipe_rf.length),PcWidth)) // otherwise PC+4 TODO pc + pclengh
-  val bju_tar_pc = Mux(is_jmp&&bj_taken,jump_pc(39,1),branch_pc)
+  val jump_pc = Wire(UInt((PcWidth+1).W))
+  jump_pc := ex1_pipe_rf.src0(PcWidth,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth+1))
+  val branch_pc = Wire(UInt((PcWidth).W))
+  branch_pc := Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth,1) + SignExt(ex1_pipe_rf.offset(20,1),(PcWidth)) ,
+    ex1_pipe_pcfifo_read.pc(PcWidth,1)  + ZeroExt(Cat(ex1_pipe_rf.length.asUInt,~ex1_pipe_rf.length.asUInt),PcWidth)) // otherwise PC+4 TODO pc + pclengh
+  val bju_tar_pc = Mux(is_jmp,jump_pc(39,1),branch_pc)
   // todo MMU ref
   //----------------------------------------------------------
   //                      BHT Check
