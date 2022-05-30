@@ -29,6 +29,7 @@ class ICacheIO extends Bundle with Config with CacheConfig {//todo:SimpleBus里d
   val cache_resp = ValidIO(new ICacheResp)
   val cohreq = ValidIO(UInt(XLEN.W)) //coh，缓存一致性，连到dcache的请求，输出
   val cohresp = Flipped(ValidIO(new cohResp)) //dcahce返回的响应数据，输入
+  val refill_sm_busy = Output(Bool())
 }
 
 class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with CacheConfig {
@@ -251,6 +252,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   val predecode_out = Mux(state===s_lookUp || idle_afterfill,reqreadPredecWire,reqreadPredecReg)
   io.cache_resp.bits.predecode := predecode_out.asTypeOf(io.cache_resp.bits.predecode)//移动Dindex*32位
   io.cache_resp.valid := (state===s_lookUp) || idle_afterfill
+  io.refill_sm_busy := !(state === s_idle || state === s_lookUp)
 
 
   //-------------------------------------状态机------------------------------------------------

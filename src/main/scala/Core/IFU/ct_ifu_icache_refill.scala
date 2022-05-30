@@ -10,12 +10,10 @@ class ct_ifu_icache_refill extends Module with Config with CacheConfig {
   val io = IO(new icache_RefillIO)
 
   val paddr = Cat(0.U((XLEN-PAddrBits).W),io.req.bits.paddr) - PcStart.U(XLEN.W)//todo: change addr width
-  val paddrReg = RegNext(0.U(XLEN.W))
+  val paddrReg = RegEnable(paddr,0.U(XLEN.W),io.req.valid)
 
 
-  when(io.req.valid){
-    paddrReg := paddr
-  }
+
 
 
   val ram = Module(new RAMHelper)

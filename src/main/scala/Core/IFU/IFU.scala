@@ -21,7 +21,7 @@ class IFU extends Module with Config {
 
   val backend_redirect = io.bru_redirect.valid
   val reg_update       = !ibstage.io.ibctrl_ipctrl_stall && ((!io.tlb.tlb_miss && icache.io.cache_req.ready) ||
-    backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid) //&& ibuf.io.allowEnq has been replace in ibstage
+    backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid) && !icache.io.refill_sm_busy //&& ibuf.io.allowEnq has been replace in ibstage
 
   //pc select
   val pc_gen = Module(new PCGen)
@@ -78,7 +78,7 @@ class IFU extends Module with Config {
 
   //IP stage
   val if_vld  = RegEnable(if_data_valid, reg_update)
-  val ip_pc   = RegEnable(pc_gen.io.pc, reg_update)
+  val ip_pc   = RegEnable(pc_gen.io.pc, PcStart.U(VAddrBits.W), reg_update)
   val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, reg_update)
 //  val if_vld  = RegNext(if_data_valid)
 //  val ip_pc   = RegNext(if_pc)
@@ -100,7 +100,7 @@ class IFU extends Module with Config {
   val ip_vld = RegEnable(ipstage.io.out.valid, reg_update)
   val ip_out = RegEnable(ipstage.io.out.bits, reg_update) //ubtb,btb,bht
   val ib_pc  = ip_out.pc
-  val ib_vld = ip_vld && !pc_gen.io.redirect(3).valid
+  val ib_vld = ip_vld && !pc_gen.io.redirect(3).valid && !icache.io.refill_sm_busy
 
 
 
