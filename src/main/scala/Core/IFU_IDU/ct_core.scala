@@ -41,7 +41,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
   ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc// Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
@@ -130,8 +130,8 @@ class SimTop extends Module with Config with ROBConfig {
 
   //IU
   for(i <- 0 to 1) {
-    iu.io.ifuForward(i).curPc := Cat(ifu.io.ifuForward(i).curPc,0.U(1.W))
-    iu.io.ifuForward(i).tarPc := Cat(ifu.io.ifuForward(i).tarPc,0.U(1.W))
+    iu.io.ifuForward(i).curPc := ifu.io.ifuForward(i).curPc
+    iu.io.ifuForward(i).tarPc := ifu.io.ifuForward(i).tarPc
     iu.io.ifuForward(i).dstVld := ifu.io.ifuForward(i).dstVld
     iu.io.ifuForward(i).predStore.bhtPred := ifu.io.ifuForward(i).predStore.bhtPred
     iu.io.ifuForward(i).predStore.chkIdx := ifu.io.ifuForward(i).predStore.chkIdx
