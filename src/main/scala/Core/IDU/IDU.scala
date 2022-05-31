@@ -653,7 +653,12 @@ class IDU extends Module with Config {
         cbundle.srcVec(j).ready := isstage.io.out.toAiq1.create_data(i).src_info(j).src_data.rdy
         cbundle.srcVec(j).lsuMatch := isstage.io.out.toAiq1.create_data(i).src_info(j).lsu_match
       }
-      cbundle.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+      cbundle.srcVec(2).preg     := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.preg
+      cbundle.srcVec(2).wb       := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.wb
+      cbundle.srcVec(2).ready    := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.rdy
+      cbundle.srcVec(2).lsuMatch := isstage.io.out.toAiq1.create_data(i).SRC2_LSU_MATCH
+      //todo: aiq1_src2_mla_rdy
+      //cbundle.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
       cbundle.vl := isstage.io.out.toAiq1.create_data(i).VL
       cbundle.vlmul := isstage.io.out.toAiq1.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq1.create_data(i).VSEW
@@ -684,7 +689,12 @@ class IDU extends Module with Config {
     aiq1.io.in.data.bypassData.srcVec(j).ready := isstage.io.out.toAiq1.bypass_data.src_info(j).src_data.rdy
     aiq1.io.in.data.bypassData.srcVec(j).lsuMatch := isstage.io.out.toAiq1.bypass_data.src_info(j).lsu_match
   }
-  aiq1.io.in.data.bypassData.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+  aiq1.io.in.data.bypassData.srcVec(2).preg     := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.preg
+  aiq1.io.in.data.bypassData.srcVec(2).wb       := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.wb
+  aiq1.io.in.data.bypassData.srcVec(2).ready    := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.rdy
+  aiq1.io.in.data.bypassData.srcVec(2).lsuMatch := isstage.io.out.toAiq1.bypass_data.SRC2_LSU_MATCH
+  //todo: aiq1_src2_mla_rdy
+  //aiq1.io.in.data.bypassData.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
   aiq1.io.in.data.bypassData.vl := isstage.io.out.toAiq1.bypass_data.VL
   aiq1.io.in.data.bypassData.vlmul := isstage.io.out.toAiq1.bypass_data.VLMUL
   aiq1.io.in.data.bypassData.vsew := isstage.io.out.toAiq1.bypass_data.VSEW

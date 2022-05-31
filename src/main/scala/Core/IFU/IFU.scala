@@ -17,11 +17,23 @@ class IFU extends Module with Config {
   val pcfifo = Module(new PCfifo)
 
 
-
-
   val backend_redirect = io.bru_redirect.valid
-  val reg_update       = !ibstage.io.ibctrl_ipctrl_stall && ((!io.tlb.tlb_miss && icache.io.cache_req.ready) ||
-    backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid) && !icache.io.refill_sm_busy //&& ibuf.io.allowEnq has been replace in ibstage
+  val bru_redirect_pc = Reg(UInt(VAddrBits.W))
+  val bru_redirect_valid = RegInit(false.B)
+  bru_redirect_pc := io.bru_redirect.bits
+  when(backend_redirect && icache.io.refill_sm_busy){
+    bru_redirect_valid := true.B
+  }.elsewhen(bru_redirect_valid && !icache.io.refill_sm_busy){
+    bru_redirect_valid := false.B
+  }
+
+
+
+  // val reg_update       = !ibstage.io.ibctrl_ipctrl_stall && (!io.tlb.tlb_miss && icache.io.cache_req.ready) ||
+  //   backend_redirect || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid && !icache.io.refill_sm_busy //&& ibuf.io.allowEnq has been replace in ibstage
+
+  val reg_update = !ibstage.io.ibctrl_ipctrl_stall && ((!io.tlb.tlb_miss && icache.io.cache_req.ready) || ibstage.io.ib_redirect.valid || ipstage.io.ip_redirect.valid) && !icache.io.refill_sm_busy ||
+  !icache.io.refill_sm_busy && (backend_redirect || bru_redirect_valid)
 
   //pc select
   val pc_gen = Module(new PCGen)
@@ -37,8 +49,9 @@ class IFU extends Module with Config {
   pc_gen.io.redirect(0).bits  := ubtb.io.ubtb_resp.bits.target_pc
   pc_gen.io.redirect(1) := ipstage.io.ip_redirect
   pc_gen.io.redirect(2) := ibstage.io.ib_redirect
-  pc_gen.io.redirect(3) := io.bru_redirect
-  pc_gen.io.continue := !io.tlb.tlb_miss && icache.io.cache_req.ready && ibuf.io.allowEnq
+  pc_gen.io.redirect(3).valid := io.bru_redirect.valid || bru_redirect_valid
+  pc_gen.io.redirect(3).bits  := Mux(backend_redirect, io.bru_redirect.bits, bru_redirect_pc)
+  pc_gen.io.continue := reg_update
   pc_gen.io.IbufAllowEnq := ibuf.io.allowEnq
 
   //IF stage
