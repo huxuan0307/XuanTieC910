@@ -90,7 +90,7 @@ class IFU extends Module with Config {
   icache.io.cohresp.bits := DontCare
 
   //IP stage
-  val if_vld  = RegEnable(if_data_valid, reg_update)
+  val if_vld  = RegEnable(if_data_valid, false.B, reg_update)
   val ip_pc   = RegEnable(pc_gen.io.pc, PcStart.U(VAddrBits.W), reg_update)
   val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, reg_update)
 //  val if_vld  = RegNext(if_data_valid)
@@ -110,8 +110,8 @@ class IFU extends Module with Config {
   bht.io.ip_bht_con_br_taken := ipstage.io.ip_bht_con_br_taken
 
   //IB stage
-  val ip_vld = RegEnable(ipstage.io.out.valid, reg_update)
-  val ip_out = RegEnable(ipstage.io.out.bits, reg_update) //ubtb,btb,bht
+  val ip_vld = RegEnable(ipstage.io.out.valid, false.B, reg_update)
+  val ip_out = RegEnable(ipstage.io.out.bits, 0.U.asTypeOf(ipstage.io.out.bits), reg_update) //ubtb,btb,bht
   val ib_pc  = ip_out.pc
   val ib_vld = ip_vld && !pc_gen.io.redirect(3).valid && !icache.io.refill_sm_busy
 
@@ -125,7 +125,7 @@ class IFU extends Module with Config {
   ibstage.io.iu_ifu_pcfifo_full := io.iu_ifu_pcfifo_full
   ibstage.io.idu_ifu_id_stall := io.idu_ifu_id_stall
   ibstage.io.ip2ib.valid := ib_vld
-  ibstage.io.ip2ib.bits  := RegEnable(ipstage.io.out.bits, reg_update)
+  ibstage.io.ip2ib.bits  := RegEnable(ipstage.io.out.bits, 0.U.asTypeOf(ipstage.io.out.bits), reg_update)
 
   //ras
   ras.io.ifu_update.target := ip_out.push_pc

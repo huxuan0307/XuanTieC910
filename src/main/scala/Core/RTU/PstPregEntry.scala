@@ -263,7 +263,27 @@ class PstPregEntry extends Module {
   when(io.in.fromIfu.xxSyncReset) {
     entry := 0.U.asTypeOf(new PstPregEntryData)
     entry.reg := io.x.in.resetDestReg
-  }.elsewhen(createValid) {
+    }.elsewhen(createValid) {
+      //    entry := PriorityMux(Seq(
+      //      (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
+      //      (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
+      //      (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
+      //      (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3),
+      //      true.B -> 0.U.asTypeOf(new PstPregEntryData)
+      //    ))
+      //    entry := Mux(
+      //      (io.x.in.createValidOH.asUInt === "b0001".U), io.in.fromIdu.instVec(0),
+      //      Mux(
+      //      (io.x.in.createValidOH.asUInt === "b0010".U) , io.in.fromIdu.instVec(1),
+      //        Mux(
+      //      (io.x.in.createValidOH.asUInt === "b0100".U) , io.in.fromIdu.instVec(2),
+      //          Mux(
+      //      (io.x.in.createValidOH.asUInt === "b1000".U) , io.in.fromIdu.instVec(3),
+      //      0.U.asTypeOf(new PstPregEntryData))
+      //        )
+      //      )
+      //    )
+      //    entry := io.in.fromIdu.instVec(0)
     entry := entryCreate
   }.otherwise {
     entry := entry
@@ -324,8 +344,9 @@ class PstPregEntry extends Module {
   //==========================================================
   //          to Difftest
   //==========================================================
-  private val retireValidVecReg  = RegInit(VecInit(io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
+  private val retireValidVecReg  = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+  retireValidVecReg := io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
     case (wbValid, iidMatch) => wbValid && iidMatch
-  }))
+  }
   io.x.out.retireValidVec := retireValidVecReg //////for difftest
 }
