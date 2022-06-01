@@ -184,7 +184,7 @@ class Bju extends Module{
   //pcfifo create pc of jalr is predict pc minus offset
   //so only need compare to src0
   val bju_tarpc_cmp_fail = ex1_pipe_pcfifo_read.pc =/= ex1_pipe_rf.src0(PcWidth+1,0)
-  val bju_jmp_mispred = (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred)   // todo: && page fault
+  val bju_jmp_mispred = false.B//todo: after complete RFstage: (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred)   // todo: && page fault
   //----------------------------------------------------------
   //                Change Flow (cancel) signal                 @change flow signal @ct_iu_bju.v @752
   //----------------------------------------------------------
