@@ -142,7 +142,7 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).en := ifu.io.ifuForward(i).en //////todo: add signal
   }
   iu.io.rtuIn.rtuFlush.fe := rtu.io.out.toIu.flushFe
-  iu.io.rtuIn.rtuFlush.flush := false.B //////todo: find out
+  iu.io.rtuIn.rtuFlush.flush := rtu.io.out.yyXx.flush //////todo: find out
   iu.io.rtuIn.flushChgflwMask := rtu.io.out.toIu.flushChangeFlowMask
   iu.io.rtuIn.robReadPcfifovld := rtu.io.out.toIu.robReadPcFifoValid
   iu.io.rtuIn.robReadPcfifovldGateEn := rtu.io.out.toIu.robReadPcFifoGateClkValid
@@ -342,7 +342,7 @@ class SimTop extends Module with Config with ROBConfig {
       in1.vstart := DontCare
       in2.vstart := DontCare
       wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools //////todo: check it
-      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools
+      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95,0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
       pcFifoPop0.length := false.B //////todo: find it
@@ -370,7 +370,7 @@ class SimTop extends Module with Config with ROBConfig {
 //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
 //  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
 //  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
-//  rtu.io.in.fromLsu.allCommitDataValid := 0.U.asTypeOf(rtu.io.in.fromLsu.allCommitDataValid)
+  rtu.io.in.fromLsu.allCommitDataValid := true.B
 //  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0.xxIntB := true.B //////_b

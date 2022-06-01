@@ -136,7 +136,7 @@ class RobExcept extends Module with RobExceptConfig {
   //==========================================================
 
   private val exceptEntryData       : RobExceptEntry = RegInit(0.U.asTypeOf(Output(new RobExceptEntry)))
-  private val exceptEntryDataUpdate : RobExceptEntry = RegInit(0.U.asTypeOf(Output(new RobExceptEntry)))
+  private val exceptEntryDataUpdate : RobExceptEntry = Wire(Output(new RobExceptEntry))
   private val exceptEntryValid      = RegInit(false.B)
   private val ssfStateCur           = RegInit(0.U(2.W))
   private val ssfStateNext          = RegInit(0.U(2.W))
