@@ -42,7 +42,9 @@ class PstPregEntryInterconnectOutput extends Bundle {
   val destRegOH         : Vec[Bool] = Vec(NumLogicRegs, Bool())
   val releasePregOH     : Vec[Bool] = Vec(NumPhysicRegs, Bool())
   val retiredReleasedWb : Bool      = Bool()
-  val retireValidVec    : Vec[Bool] = Vec(NumRetireEntry,Bool()) //////todo: only for difftest
+  val retireValidVecReg    : Vec[Bool] = Vec(NumRetireEntry,Bool()) //////todo: only for difftest
+  val destretireVld     : Bool      = Bool() //////todo: only for difftest
+  val retirePregVec     : Vec[UInt] = Vec(NumRetireEntry, UInt(NumPhysicRegsBits.W))
 }
 
 class PstPregEntryInterconnectBundle extends Bundle {
@@ -110,11 +112,6 @@ class PstPregEntry extends Module {
   private val lifecycleStateCur   = RegInit(PregState.dealloc)
   private val wbStateCur    = RegInit(WbState.idle)
 
-  //private val retireIidMatchVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
-
-//  val Entry_reg  = RegInit(0.U(NumLogicRegsBits.W))
-//  val Entry_iid  = RegInit(0.U(InstructionIdWidth.W))
-//  val Entry_preg = RegInit(0.U(NumPhysicRegsBits.W))
 
   //==========================================================
   //                 Instance of Gated Cell
@@ -214,8 +211,8 @@ class PstPregEntry extends Module {
 
   private val wbValid = io.x.in.wbValid
 
-//  private val wb_cur_state_wb = Wire(Bool())
-//  private val wb_cur_state_wb_masked = Wire(Bool())
+  //  private val wb_cur_state_wb = Wire(Bool())
+  //  private val wb_cur_state_wb_masked = Wire(Bool())
 
   //----------------------------------------------------------
   //             Preg Write Back State Transfer
@@ -268,58 +265,11 @@ class PstPregEntry extends Module {
   when(io.in.fromIfu.xxSyncReset) {
     entry := 0.U.asTypeOf(new PstPregEntryData)
     entry.reg := io.x.in.resetDestReg
-//    Entry_preg := 0.U
-//    Entry_iid := 0.U
-//    Entry_reg := io.x.in.resetDestReg
   }.elsewhen(createValid) {
-      //    entry := PriorityMux(Seq(
-      //      (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
-      //      (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
-      //      (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
-      //      (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3),
-      //      true.B -> 0.U.asTypeOf(new PstPregEntryData)
-      //    ))
-      //    entry := Mux(
-      //      (io.x.in.createValidOH.asUInt === "b0001".U), io.in.fromIdu.instVec(0),
-      //      Mux(
-      //      (io.x.in.createValidOH.asUInt === "b0010".U) , io.in.fromIdu.instVec(1),
-      //        Mux(
-      //      (io.x.in.createValidOH.asUInt === "b0100".U) , io.in.fromIdu.instVec(2),
-      //          Mux(
-      //      (io.x.in.createValidOH.asUInt === "b1000".U) , io.in.fromIdu.instVec(3),
-      //      0.U.asTypeOf(new PstPregEntryData))
-      //        )
-      //      )
-      //    )
-      //    entry := io.in.fromIdu.instVec(0)
-//    Entry_reg  := PriorityMux(Seq(
-//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
-//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
-//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
-//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
-//          )).reg
-//    Entry_iid  := PriorityMux(Seq(
-//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
-//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
-//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
-//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
-//          )).iid
-//    Entry_preg := PriorityMux(Seq(
-//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
-//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
-//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
-//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
-//          )).preg
-
     entry := entryCreate
   }.otherwise {
     entry := entry
   }
-
-//  dontTouch(Entry_reg)
-//  dontTouch(Entry_iid)
-//  dontTouch(Entry_preg)
-
   //----------------------------------------------------------
   //                Retire IID Match Register
   //----------------------------------------------------------
@@ -327,19 +277,16 @@ class PstPregEntry extends Module {
 
   when(io.in.fromIfu.xxSyncReset) {
     retireIidMatchVec := 0.U(retireIidMatchVec.getWidth.W).asBools
-    //retireIidMatchVec := 0.U(retireIidMatchVec.getWidth.W).asBools
   }.elsewhen(lifecycleStateCur === PregState.alloc){
     // Only in alloc state, entry need to retire
     for (i <- 0 until NumRetireEntry) {
       // Todo: figure out why need gate clk valid
-          when(io.in.fromRob.bits(i).gateClkValid) {
-            retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
-          }
-      //retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
+//      when(io.in.fromRob.bits(i).gateClkValid) {
+//        retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
+//      }
+      retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
     }
   }
-
-  //dontTouch(retireIidMatchVec)
 
   //==========================================================
   //                       Retire signal
@@ -380,9 +327,23 @@ class PstPregEntry extends Module {
   //==========================================================
   //          to Difftest
   //==========================================================
-  private val retireValidVecReg  = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
-  retireValidVecReg := io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
+  private val destretireVld = (lifecycleStateCur === PregState.retire)
+
+  private val retireValidVecWire  = WireInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+  private val retireValidVecReg   = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+  retireValidVecWire := io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
     case (wbValid, iidMatch) => wbValid && iidMatch
   }
-  io.x.out.retireValidVec := retireValidVecReg //////for difftest
+  io.x.out.destretireVld := destretireVld
+
+  val retirePregVec = Seq.fill(NumRetireEntry)(RegInit(0.U(NumPhysicRegsBits.W)))
+  when(retireValid){
+    retireValidVecReg := retireValidVecWire
+    retirePregVec.zipWithIndex.foreach {
+      case (r, i) =>
+        r := retireValidVecWire(i) & UIntToOH(entry.preg, NumPhysicRegs).asUInt
+    }
+  }
+  io.x.out.retireValidVecReg := retireValidVecReg //////for difftest
+  io.x.out.retirePregVec := retirePregVec
 }
