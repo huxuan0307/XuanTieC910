@@ -104,12 +104,17 @@ class PstPregEntry extends Module {
   //                           Regs
   //==========================================================
 
-  private val entryCreate = RegInit(0.U.asTypeOf(new PstPregEntryData))
+  private val entryCreate = WireInit(0.U.asTypeOf(new PstPregEntryData))
   private val entry   = RegInit(0.U.asTypeOf(new PstPregEntryData))
   private val retireIidMatchVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
   private val lifecycleStateCur   = RegInit(PregState.dealloc)
   private val wbStateCur    = RegInit(WbState.idle)
 
+  //private val retireIidMatchVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+
+//  val Entry_reg  = RegInit(0.U(NumLogicRegsBits.W))
+//  val Entry_iid  = RegInit(0.U(InstructionIdWidth.W))
+//  val Entry_preg = RegInit(0.U(NumPhysicRegsBits.W))
 
   //==========================================================
   //                 Instance of Gated Cell
@@ -200,7 +205,7 @@ class PstPregEntry extends Module {
   //               Preg Write Back State Machine
   //==========================================================
 
-  private val wbStateNext   = RegInit(WbState.idle)
+  private val wbStateNext   = WireInit(WbState.idle)
   private val wbStateReset  = Mux(io.x.in.resetMapped, WbState.wb, WbState.idle)
 
   //----------------------------------------------------------
@@ -263,7 +268,10 @@ class PstPregEntry extends Module {
   when(io.in.fromIfu.xxSyncReset) {
     entry := 0.U.asTypeOf(new PstPregEntryData)
     entry.reg := io.x.in.resetDestReg
-    }.elsewhen(createValid) {
+//    Entry_preg := 0.U
+//    Entry_iid := 0.U
+//    Entry_reg := io.x.in.resetDestReg
+  }.elsewhen(createValid) {
       //    entry := PriorityMux(Seq(
       //      (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
       //      (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
@@ -284,10 +292,34 @@ class PstPregEntry extends Module {
       //      )
       //    )
       //    entry := io.in.fromIdu.instVec(0)
+//    Entry_reg  := PriorityMux(Seq(
+//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
+//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
+//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
+//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
+//          )).reg
+//    Entry_iid  := PriorityMux(Seq(
+//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
+//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
+//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
+//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
+//          )).iid
+//    Entry_preg := PriorityMux(Seq(
+//            (io.x.in.createValidOH.asUInt === "b0001".U) -> io.in.fromIdu.instVec(0),
+//            (io.x.in.createValidOH.asUInt === "b0010".U) -> io.in.fromIdu.instVec(1),
+//            (io.x.in.createValidOH.asUInt === "b0100".U) -> io.in.fromIdu.instVec(2),
+//            (io.x.in.createValidOH.asUInt === "b1000".U) -> io.in.fromIdu.instVec(3)
+//          )).preg
+
     entry := entryCreate
   }.otherwise {
     entry := entry
   }
+
+//  dontTouch(Entry_reg)
+//  dontTouch(Entry_iid)
+//  dontTouch(Entry_preg)
+
   //----------------------------------------------------------
   //                Retire IID Match Register
   //----------------------------------------------------------
@@ -295,15 +327,19 @@ class PstPregEntry extends Module {
 
   when(io.in.fromIfu.xxSyncReset) {
     retireIidMatchVec := 0.U(retireIidMatchVec.getWidth.W).asBools
+    //retireIidMatchVec := 0.U(retireIidMatchVec.getWidth.W).asBools
   }.elsewhen(lifecycleStateCur === PregState.alloc){
     // Only in alloc state, entry need to retire
     for (i <- 0 until NumRetireEntry) {
       // Todo: figure out why need gate clk valid
-      when(io.in.fromRob.bits(i).gateClkValid) {
-        retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
-      }
+          when(io.in.fromRob.bits(i).gateClkValid) {
+            retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
+          }
+      //retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
     }
   }
+
+  //dontTouch(retireIidMatchVec)
 
   //==========================================================
   //                       Retire signal

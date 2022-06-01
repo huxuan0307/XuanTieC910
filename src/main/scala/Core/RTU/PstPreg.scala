@@ -175,12 +175,12 @@ class PstPreg extends Module {
       pregOutReleasePregOHVec(i) := x.out.releasePregOH
       pregOutRetiredReleaseWb(i) := x.out.retiredReleasedWb
     } else {
-      in := DontCare
-      x.in := DontCare
-      pregOutEmpty(i) := DontCare
-      pregOutDestRegOHVec(i) := DontCare
-      pregOutReleasePregOHVec(i) := DontCare
-      pregOutRetiredReleaseWb(i) := DontCare
+      in := 0.U.asTypeOf(in)
+      x.in := 0.U.asTypeOf(x.in)
+      pregOutEmpty(i) := 0.U.asTypeOf(pregOutEmpty(i))
+      pregOutDestRegOHVec(i) := 1.U.asTypeOf(pregOutDestRegOHVec(i))
+      pregOutReleasePregOHVec(i) := 0.U.asTypeOf(pregOutReleasePregOHVec(i))
+      pregOutRetiredReleaseWb(i) := 1.U.asTypeOf(pregOutRetiredReleaseWb(i))
     }
   }
 
