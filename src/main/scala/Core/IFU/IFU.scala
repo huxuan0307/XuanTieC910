@@ -92,7 +92,7 @@ class IFU extends Module with Config {
   //IP stage
   val if_vld  = RegEnable(if_data_valid, false.B, reg_update)
   val ip_pc   = RegEnable(pc_gen.io.pc, PcStart.U(VAddrBits.W), reg_update)
-  val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, reg_update)
+  val ip_ubtb = RegEnable(ubtb.io.ubtb_resp, 0.U.asTypeOf(ubtb.io.ubtb_resp), reg_update)
 //  val if_vld  = RegNext(if_data_valid)
 //  val ip_pc   = RegNext(if_pc)
 //  val ip_ubtb = RegNext(ubtb.io.ubtb_resp)

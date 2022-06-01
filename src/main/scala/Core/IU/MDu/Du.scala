@@ -39,8 +39,8 @@ class Radix8Divider(len: Int = 64) extends Module {
   val shiftReg = RegInit(0.U((len * 2).W))
   val (hi,lo) = (shiftReg(len * 2-1, len),shiftReg(len - 1, 0))
 
-  val aReg = RegEnable(a, a, newReq)
-  val bReg = RegEnable(b, b, newReq)
+  val aReg = RegEnable(a, 0.U.asTypeOf(a), newReq)
+  val bReg = RegEnable(b, 0.U.asTypeOf(b), newReq)
 
   val cnt = RegEnable(len.U(log2Up(len+1).W), len.U(log2Up(len+1).W), newReq)//
 
@@ -118,7 +118,7 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   //----------------------------------------------------------
   //               Pipe0 EX1 Instruction Data
   //----------------------------------------------------------
-  val ex1_pipe = RegEnable(io.in, io.in, pipe1_en)
+  val ex1_pipe = RegEnable(io.in, 0.U.asTypeOf(io.in), pipe1_en)
   val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.opcode)
   val isDiv = RegInit(false.B)
   val isW   = RegInit(false.B)
@@ -126,7 +126,7 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
   val isRem = RegInit(false.B)
   val src = new MDUbit(UInt(XLEN.W))
   //val ROBIdx = Reg(new ROBPtr)
-  val iid  = RegEnable(io.in.iid, io.in.iid, io.sel.sel)
+  val iid  = RegEnable(io.in.iid, 0.U.asTypeOf(io.in.iid), io.sel.sel)
   when(io.sel.sel){
     isDiv     := MDUOpType.isDiv(funcOpType)
     isW       := MDUOpType.isW(funcOpType)
@@ -183,7 +183,7 @@ class Du extends Module with IUConfig with HasCircularQueuePtrHelper {
 
   div.io.in.bits(0) := dividend_abs//divInputFunc(src1)//
   div.io.in.bits(1) := divisor_abs//divInputFunc(src2)//
-  val divby0 = RegEnable(divisor_abs===0.U, divisor_abs===0.U, io.sel.sel)
+  val divby0 = RegEnable(divisor_abs===0.U, false.B, io.sel.sel)
   //val div0w0 = RegEnable((dividend_abs===0.U)&&(divisor_abs===0.U),io.in.fire())
   val divby0res = SignExt("b1111".U, 64)
   //val res0w0 = Mux(isW,divby0res,Cat(ZeroExt("b00".U,32),SignExt("b1111".U,32)))
