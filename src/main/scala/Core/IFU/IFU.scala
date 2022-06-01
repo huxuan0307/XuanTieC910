@@ -18,7 +18,7 @@ class IFU extends Module with Config {
 
 
   val backend_redirect = io.bru_redirect.valid
-  val bru_redirect_pc = Reg(UInt(VAddrBits.W))
+  val bru_redirect_pc = RegInit(0.U(VAddrBits.W))
   val bru_redirect_valid = RegInit(false.B)
   bru_redirect_pc := io.bru_redirect.bits
   when(backend_redirect && icache.io.refill_sm_busy){

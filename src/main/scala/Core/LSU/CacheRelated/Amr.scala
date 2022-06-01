@@ -107,7 +107,7 @@ class Amr extends Module with LsuConfig with AmrStateConfig {
   }.elsewhen(amr_update_vld){
     amr_bytes_vld := amr_bytes_vld_next
   }
-  val amr_addr_tto4 = Reg(UInt((PA_WIDTH-4).W))
+  val amr_addr_tto4 = RegInit(0.U((PA_WIDTH-4).W))
   amr_addr_tto4 := amr_from_wmb_ce_addr((PA_WIDTH-1),4)
   //==========================================================
   //                 Generate next state

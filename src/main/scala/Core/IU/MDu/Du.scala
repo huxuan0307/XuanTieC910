@@ -36,7 +36,7 @@ class Radix8Divider(len: Int = 64) extends Module {
   //io.in.ready := (state === s_idle)
   val newReq = (state === s_idle) && io.in.valid
   val (a, b) = (io.in.bits(0), io.in.bits(1))
-  val shiftReg = Reg(UInt((len * 2).W))
+  val shiftReg = RegInit(0.U((len * 2).W))
   val (hi,lo) = (shiftReg(len * 2-1, len),shiftReg(len - 1, 0))
 
   val aReg = RegEnable(a, a, newReq)

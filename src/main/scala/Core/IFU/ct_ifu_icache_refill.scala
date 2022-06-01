@@ -30,7 +30,7 @@ class ct_ifu_icache_refill extends Module with Config with CacheConfig {
   val state: UInt = RegInit(s_pf0)
   //replace等待axi4响应，如果是ramhelper一次64bit数据，一个缓存块64byte需要8次传输
 
-  val SRam_write  =Reg(Vec(RefillTimes,UInt(RamhelperBits.W))) //往法
+  val SRam_write  =RegInit(VecInit(Seq.fill(RefillTimes)(0.U(RamhelperBits.W)))) //往法
 
 
   //L2测试可先用ramhelper

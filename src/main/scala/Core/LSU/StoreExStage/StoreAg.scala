@@ -263,8 +263,8 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //if the 1st time boundary 2nd instruction stall, the offset set 16 for bias, else
   //if stall, it set to 0, cache stall will not change offset
   val st_ag_offset = Wire(UInt(XLEN.W))
-  val st_ag_offset_h = Reg(UInt((XLEN/2).W))
-  val st_ag_offset_l = Reg(UInt((XLEN/2).W))
+  val st_ag_offset_h = RegInit(0.U((XLEN/2).W))
+  val st_ag_offset_l = RegInit(0.U((XLEN/2).W))
   val st_ag_cross_page_str_imme_stall_arb = Wire(Bool())
   val st_ag_str_imme_stall  = Wire(Bool())
   when(st_ag_cross_page_str_imme_stall_arb){

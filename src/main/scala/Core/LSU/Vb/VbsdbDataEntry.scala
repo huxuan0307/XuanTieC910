@@ -275,7 +275,7 @@ class VbsdbDataEntry extends Module with DCacheConfig with LsuConfig with DataEn
   val vb_sdb_data_entry_vld = vb_data_entry_state(3,2).orR
   val sdb_data_vld          =(vb_data_entry_state === REQ_CD_CHANNEL)
   val sdb_entry_avail       = !vb_sdb_data_entry_vld && !vb_data_entry_create_vld
-  val sdb_return_order = Reg(UInt(4.W))
+  val sdb_return_order = RegInit(0.U(4.W))
   for(i<-0 until(4)){
     when(sdb_start_bias === i.U){
       sdb_return_order := ShiftRegister(io.in.sdb.entryDataIndex,i,sdb_start_bias === i.U)
