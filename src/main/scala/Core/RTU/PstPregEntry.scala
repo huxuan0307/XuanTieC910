@@ -168,7 +168,7 @@ class PstPregEntry extends Module {
     is(PregState.alloc) {
       when(io.in.fromRtu.yyXxFlush) {
         lifecycleStateNext := PregState.dealloc
-      }.elsewhen(releaseValid && wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      }.elsewhen(releaseValid && wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.elsewhen(releaseValid) {
         lifecycleStateNext := PregState.release
@@ -179,7 +179,7 @@ class PstPregEntry extends Module {
       }
     }
     is(PregState.retire) {
-      when(releaseValid && wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      when(releaseValid && wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.elsewhen(releaseValid) {
         lifecycleStateNext := PregState.release
@@ -188,7 +188,7 @@ class PstPregEntry extends Module {
       }
     }
     is(PregState.release) {
-      when(wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      when(wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.otherwise{
         lifecycleStateNext := PregState.release

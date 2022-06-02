@@ -1,5 +1,5 @@
 package Core.IFU
-import Utils.UIntToMask
+import Utils.{SignExt, UIntToMask}
 import Core.{Config, CoreBundle}
 import chisel3._
 import chisel3.util._
@@ -28,8 +28,8 @@ class IBStage extends Module with Config {
   val ubtb_ras_mispred  = io.ip2ib.bits.ubtb_valid && io.ip2ib.bits.ubtb_resp.is_ret && io.ip2ib.bits.pret && !ubtb_ras_pc_hit //is return,ubtb is return
   val ubtb_ras_hit      = io.ip2ib.bits.ubtb_valid && io.ip2ib.bits.ubtb_resp.is_ret && io.ip2ib.bits.pret && ubtb_ras_pc_hit
 
-  val br_target1_8 = Cat(io.ip2ib.bits.pc(VAddrBits-1, 4), 0.U(4.W)) + io.ip2ib.bits.br_offset + (io.ip2ib.bits.br_position << 1.U)
-  val br_target_0  = Cat(io.ip2ib.bits.pc(VAddrBits-1, 4), 0.U(4.W)) + io.ip2ib.bits.br_offset - 2.U
+  val br_target1_8 = Cat(io.ip2ib.bits.pc(VAddrBits-1, 4), 0.U(4.W)) + SignExt(io.ip2ib.bits.br_offset,VAddrBits) + (io.ip2ib.bits.br_position << 1.U)
+  val br_target_0  = Cat(io.ip2ib.bits.pc(VAddrBits-1, 4), 0.U(4.W)) + SignExt(io.ip2ib.bits.br_offset,VAddrBits) - 2.U
   val br_target    = Mux(io.ip2ib.bits.h0_vld && io.ip2ib.bits.br_position === 0.U, br_target_0, br_target1_8)
   val btb_miss    = io.ip2ib.bits.btb_miss
   val btb_mispred = io.ip2ib.bits.br_valid && io.ip2ib.bits.btb_valid && br_target(20,1) =/= io.ip2ib.bits.btb_target

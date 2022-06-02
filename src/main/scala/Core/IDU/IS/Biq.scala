@@ -225,9 +225,9 @@ class Biq extends Module with BiqConfig {
   private val entryCreatePortAgeVec = Wire(Vec(NumBiqCreatePort, Vec(NumBiqEntry, Bool())))
   for (i <- 0 until NumBiqEntry) {
     entryCreatePortAgeVec(0)(i) := entryValidVec(i) &&
-      !ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i)
+      !(ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i))
     entryCreatePortAgeVec(1)(i) := entryValidVec(i) &&
-      !ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i) || enq0OH(i)
+      !(ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i)) || enq0OH(i)
   }
 
   //create 0/1 select:

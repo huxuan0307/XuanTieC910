@@ -2,7 +2,7 @@ package Core.IDU.RF
 
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
-import Core.IDU.FuncUnit
+import Core.IDU.{FuncUnit, ct_idu_rf_pipe2_decd}
 import Core.IDU.IS.AiqConfig.NumSrcArith
 import Core.IDU.IS.BiqConfig.NumSrcBr
 import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
@@ -240,6 +240,7 @@ class RFStageToFuDataBundle extends Bundle with RFStageConfig {
   val vl          : UInt = UInt(VlmaxBits.W)
   val vlmul       : UInt = UInt(VlmulBits.W)
   val vsew        : UInt = UInt(VsewBits.W)
+  val offset = UInt(21.W)
 }
 
 class RFStageDataOutput extends Bundle with RFStageConfig {
@@ -744,6 +745,9 @@ class RFStage extends Module with RFStageConfig {
   private val biqInst = Wire(UInt(32.W))
   private val biqFu :: biqOp :: biqRd :: biqRs1 :: biqRs2 :: Nil = ListLookup(biqInst, DefaultInst.inst, bjuDecodeTable)
 
+  private val pipe2_decd = Module(new ct_idu_rf_pipe2_decd)
+  pipe2_decd.io.pipe2_decd_opcode := biqInst
+
   private val aiq1Inst = Wire(UInt(32.W))
   private val aiq1FU :: aiq1Op :: aiq1RdVld :: aiq1Rs1Vld :: aiq1Rs2Vld :: Nil = ListLookup(aiq1Inst, DefaultInst.inst, aluDecodeTable)
 
@@ -1057,6 +1061,7 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu0.highHwExpt := aiq0ReadData.highHwExcept
   io.data.out.toIu0.specialImm := iu0_imm(19, 0)
   io.data.out.toIu0.pid := aiq0ReadData.pid
+  io.data.out.toIu0.offset := DontCare
   // output to cp0
   io.ctrl.out.toCp0.iid := aiq0ReadData.iid
   io.ctrl.out.toCp0.inst := aiq0ReadData.inst
@@ -1149,6 +1154,7 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu1.highHwExpt  := DontCare
   io.data.out.toIu1.specialImm  := DontCare
   io.data.out.toIu1.pid         := DontCare
+  io.data.out.toIu1.offset := DontCare
 
   //==========================================================
   //                    Pipe2 Data Path
@@ -1218,6 +1224,7 @@ class RFStage extends Module with RFStageConfig {
   // no alu
   io.data.out.toBju.aluShort    := DontCare
   io.data.out.toBju.rsltSel     := DontCare
+  io.data.out.toBju.offset := pipe2_decd.io.pipe2_decd_offset
 
   //==========================================================
   //                Source Pipeline Registers
