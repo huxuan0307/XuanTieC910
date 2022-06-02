@@ -8,6 +8,7 @@ import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
+import difftest._
 
 class PcFifoData extends Bundle {
   val length      : Bool = Bool() // 47
@@ -175,6 +176,7 @@ class RobRetire extends Module {
     val bju             : Bool = Bool()
     val split           : Bool = Bool()
     val iid             : UInt = UInt(InstructionIdWidth.W)
+    //
   }
 
   /**
@@ -1168,5 +1170,45 @@ class RobRetire extends Module {
   io.out.toRetire.splitSpecFailSrt := DontCare
   io.out.toRetire.intSrtEn := DontCare
   io.out.toRetire.ssfIid := DontCare
+
+//  for (i <- 0 until NumCommitEntry) {
+//    val instrCommit = Module(new DifftestInstrCommit)
+//    instrCommit.io.clock    := clock
+//    instrCommit.io.coreid   := 0.U
+//    instrCommit.io.index    := i.U
+//
+//    instrCommit.io.valid    := robCommitIid(i).valid
+//    instrCommit.io.special  := 0.U
+//    instrCommit.io.skip     := false.B
+//    instrCommit.io.isRVC    := false.B
+//    instrCommit.io.rfwen    := false.B
+//    instrCommit.io.fpwen    := false.B
+//    instrCommit.io.wpdest   := 0.U
+//    instrCommit.io.wdest    := 0.U
+//    instrCommit.io.pc       := 0.U
+//    instrCommit.io.instr    := 0.U
+//  }
+
+  val csrCommit = Module(new DifftestCSRState)
+  csrCommit.io.clock          := clock
+  csrCommit.io.priviledgeMode := 0.U
+  csrCommit.io.mstatus        := 0.U
+  csrCommit.io.sstatus        := 0.U
+  csrCommit.io.mepc           := 0.U
+  csrCommit.io.sepc           := 0.U
+  csrCommit.io.mtval          := 0.U
+  csrCommit.io.stval          := 0.U
+  csrCommit.io.mtvec          := 0.U
+  csrCommit.io.stvec          := 0.U
+  csrCommit.io.mcause         := 0.U
+  csrCommit.io.scause         := 0.U
+  csrCommit.io.satp           := 0.U
+  csrCommit.io.mip            := 0.U
+  csrCommit.io.mie            := 0.U
+  csrCommit.io.mscratch       := 0.U
+  csrCommit.io.sscratch       := 0.U
+  csrCommit.io.mideleg        := 0.U
+  csrCommit.io.medeleg        := 0.U
+
 
 }
