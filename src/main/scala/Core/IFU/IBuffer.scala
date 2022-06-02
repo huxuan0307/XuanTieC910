@@ -117,7 +117,7 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
   when(io.flush){
     enqPtr := 0.U.asTypeOf(new IbufPtr)
     deqPtr := 0.U.asTypeOf(new IbufPtr)
-//    valid  := VecInit(Seq.fill(IBufSize)(false.B))
+    valid  := VecInit(Seq.fill(IBufSize)(false.B))
   }
 
   /////retire

@@ -76,7 +76,7 @@ class Alu extends Module with IUConfig{
       AluOpcode.SLLW  -> (src1 << shamt),
       AluOpcode.SRLW  -> (src1(31, 0) >> shamt),
       AluOpcode.SRAW  -> (src1(31, 0).asSInt >> shamt).asUInt,
-      AluOpcode.LUI   -> src2
+      AluOpcode.LUI   -> (src2 << 12.U)
     ))
   }
   //==========================================================

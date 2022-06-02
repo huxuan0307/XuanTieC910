@@ -344,8 +344,8 @@ class LoadDA extends Module with LsuConfig{
   val ld_da_ahead_vreg_wb_vld = RegInit(false.B)
   val ld_da_borrow_vld        = RegInit(false.B)
 
-  val ld_da_dcache_data_bank = Reg(Vec(8, UInt(32.W)))
-  val ld_da_tag_read = Reg(UInt(27.W))
+  val ld_da_dcache_data_bank = RegInit(VecInit(Seq.fill(8)(0.U(32.W))))
+  val ld_da_tag_read = RegInit(0.U(27.W))
 
   val ld_da_expt_vec = RegInit(0.U(5.W))
   val ld_da_mt_value = RegInit(0.U(PA_WIDTH.W))

@@ -176,9 +176,9 @@ class DepRegEntry extends Module with DepRegEntryConfig {
   }.elsewhen(io.in.wen) {
     data := dataCreate
   }.otherwise {
-    data.ready := dataInit.ready
-    data.lsuMatch := dataInit.lsuMatch
-    data.wb := dataInit.wb
+    data.ready := dataUpdate.ready
+    data.lsuMatch := dataUpdate.lsuMatch
+    data.wb := dataUpdate.wb
   }
 
   io.out.readData := readData

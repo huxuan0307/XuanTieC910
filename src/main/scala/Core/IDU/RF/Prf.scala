@@ -69,7 +69,7 @@ class PrfIO extends Bundle with PrfConfig {
 /**
  * Physical regfile
  */
-class Prf extends Module {
+class Prf extends Module with PrfConfig{
   val io : PrfIO = IO(new PrfIO)
 
   /**
@@ -93,9 +93,15 @@ class Prf extends Module {
 
   // Todo: gated clk
 
-  when(!fault && wen) {
-    when(wPreg =/= 0.U) {
-      data(wPreg) := wdata
+//  when(!fault && wen) {
+//    when(wPreg =/= 0.U) {
+//      data(wPreg) := wdata
+//    }
+//  }
+
+  for(i <- 0 until NumPregWritePort){
+    when(wenVec(i)){
+      data(wPregVec(i)) := wdataVec(i)
     }
   }
 

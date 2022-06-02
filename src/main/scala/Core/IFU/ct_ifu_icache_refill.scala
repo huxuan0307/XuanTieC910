@@ -10,12 +10,10 @@ class ct_ifu_icache_refill extends Module with Config with CacheConfig {
   val io = IO(new icache_RefillIO)
 
   val paddr = Cat(0.U((XLEN-PAddrBits).W),io.req.bits.paddr) - PcStart.U(XLEN.W)//todo: change addr width
-  val paddrReg = RegNext(0.U(XLEN.W))
+  val paddrReg = RegEnable(paddr,0.U(XLEN.W),io.req.valid)
 
 
-  when(io.req.valid){
-    paddrReg := paddr
-  }
+
 
 
   val ram = Module(new RAMHelper)
@@ -32,7 +30,7 @@ class ct_ifu_icache_refill extends Module with Config with CacheConfig {
   val state: UInt = RegInit(s_pf0)
   //replace等待axi4响应，如果是ramhelper一次64bit数据，一个缓存块64byte需要8次传输
 
-  val SRam_write  =Reg(Vec(RefillTimes,UInt(RamhelperBits.W))) //往法
+  val SRam_write  =RegInit(VecInit(Seq.fill(RefillTimes)(0.U(RamhelperBits.W)))) //往法
 
 
   //L2测试可先用ramhelper

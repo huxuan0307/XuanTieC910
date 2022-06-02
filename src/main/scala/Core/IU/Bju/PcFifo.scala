@@ -175,7 +175,7 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
   io.iduWrite.alloPid := to_idu_pid_vec
   // pop ptr
   val pop_en = io.rtuRw.readPcfifovld.reduce(_ || _)
-  val pop_num = OHToUInt((io.rtuRw.readPcfifovld).asUInt)
+  val pop_num = PopCount(io.rtuRw.readPcfifovld)
 
   when(io.rtuRw.rtuFlush.flush && (io.bjuRw.iuYyXxCancel || io.rtuRw.rtuFlush.fe)){
     pop_ptr := createPtr

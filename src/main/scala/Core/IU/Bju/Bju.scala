@@ -167,10 +167,12 @@ class Bju extends Module{
   //----------------------------------------------------------
   //                BJU jump address calculation
   //---------------------------------------------------------
-  val jump_pc = ex1_pipe_rf.src0(PcWidth+1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth+1))
-  val branch_pc = Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth,1) + SignExt(ex1_pipe_rf.offset(20,1),(PcWidth)) ,
-    ex1_pipe_pcfifo_read.pc(PcWidth,1)  + ZeroExt(Cat(ex1_pipe_rf.length,!ex1_pipe_rf.length),PcWidth)) // otherwise PC+4 TODO pc + pclengh
-  val bju_tar_pc = Mux(is_jmp&&bj_taken,jump_pc(39,1),branch_pc)
+  val jump_pc = Wire(UInt((PcWidth).W))
+  jump_pc := ex1_pipe_rf.src0(PcWidth-1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth))
+  val branch_pc = Wire(UInt((PcWidth).W))
+  branch_pc := Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth-1,0) + SignExt(ex1_pipe_rf.offset(20,0),(PcWidth)) ,
+    ex1_pipe_pcfifo_read.pc(PcWidth-1,0)  + 4.U)// TODO ZeroExt(Cat(ex1_pipe_rf.length.asUInt,~ex1_pipe_rf.length.asUInt),PcWidth)) // otherwise PC+4 TODO pc + pclengh
+  val bju_tar_pc = Mux(is_jmp,jump_pc(PcWidth-1,0),branch_pc)
   // todo MMU ref
   //----------------------------------------------------------
   //                      BHT Check
@@ -182,7 +184,7 @@ class Bju extends Module{
   //pcfifo create pc of jalr is predict pc minus offset
   //so only need compare to src0
   val bju_tarpc_cmp_fail = ex1_pipe_pcfifo_read.pc =/= ex1_pipe_rf.src0(PcWidth+1,0)
-  val bju_jmp_mispred = (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred)   // todo: && page fault
+  val bju_jmp_mispred = false.B//todo: after complete RFstage: (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred)   // todo: && page fault
   //----------------------------------------------------------
   //                Change Flow (cancel) signal                 @change flow signal @ct_iu_bju.v @752
   //----------------------------------------------------------

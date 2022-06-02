@@ -117,7 +117,7 @@ class PstPreg extends Module {
   private val pregCreateValid   = Wire(Vec(NumPhysicRegs, UInt(NumCreateEntry.W)))
   private val releaseValidOH      = Wire(Vec(NumPhysicRegs, Bool()))
   private val deallocValidOH = Wire(Vec(NumPhysicRegs, Bool()))
-  private val resetDestReg      = Wire(Vec(NumPhysicRegs, UInt(NumLogicRegs.W)))
+  private val resetDestReg      = Wire(Vec(NumPhysicRegs, UInt(NumLogicRegsBits.W)))
   resetDestReg.zipWithIndex.foreach {
     case (reg, i) =>
       if (i < NumLogicRegs)
@@ -147,7 +147,7 @@ class PstPreg extends Module {
       in.fromCp0 := io.in.fromCp0
       in.fromIdu.instVec.zipWithIndex.foreach{
         case (data, i) =>
-          data.preg := io.in.fromIdu.alloc(i).bits.preg
+          data.preg := io.in.fromIdu.alloc(i).bits.relPreg
           data.iid  := io.in.fromIdu.alloc(i).bits.iid
           data.reg  := io.in.fromIdu.alloc(i).bits.dstReg
       }
@@ -175,12 +175,12 @@ class PstPreg extends Module {
       pregOutReleasePregOHVec(i) := x.out.releasePregOH
       pregOutRetiredReleaseWb(i) := x.out.retiredReleasedWb
     } else {
-      in := DontCare
-      x.in := DontCare
-      pregOutEmpty(i) := DontCare
-      pregOutDestRegOHVec(i) := DontCare
-      pregOutReleasePregOHVec(i) := DontCare
-      pregOutRetiredReleaseWb(i) := DontCare
+      in := 0.U.asTypeOf(in)
+      x.in := 0.U.asTypeOf(x.in)
+      pregOutEmpty(i) := 0.U.asTypeOf(pregOutEmpty(i))
+      pregOutDestRegOHVec(i) := 1.U.asTypeOf(pregOutDestRegOHVec(i))
+      pregOutReleasePregOHVec(i) := 0.U.asTypeOf(pregOutReleasePregOHVec(i))
+      pregOutRetiredReleaseWb(i) := 1.U.asTypeOf(pregOutRetiredReleaseWb(i))
     }
   }
 
@@ -201,7 +201,7 @@ class PstPreg extends Module {
 
   disPregOHVec.zipWithIndex.foreach {
     case (value, i) =>
-      value := VecInit(UIntToOH(idu.alloc(i).bits.preg, NumPhysicRegs).asBools)
+      value := VecInit((UIntToOH(idu.alloc(i).bits.preg, NumPhysicRegs).asUInt & VecInit(Seq.fill(NumPhysicRegs)(idu.alloc(i).bits.pregValid)).asUInt).asBools)
   }
 
   pregCreateValid.zipWithIndex.foreach {
@@ -396,22 +396,22 @@ class PstPreg extends Module {
   //          to Difftest
   //==========================================================
   val temdestReg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
   val temdestReg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
   val temdestReg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
+  val tempreg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
   entries.zipWithIndex.foreach{
     case (entries, i) =>
-      val destReg = OHToUInt(entries.io.x.out.destRegOH)
-      val preg = OHToUInt(entries.io.x.out.releasePregOH)
-      val retireValidVec = entries.io.x.out.retireValidVec
+      val destReg = OHToUInt((entries.io.x.out.destRegOH).asUInt)
+      val preg = entries.io.x.out.retirePregVec
+      val retireValidVec = entries.io.x.out.retireValidVecReg//destretireVld
       temdestReg0(i) := retireValidVec(0) & destReg
-      tempreg0(i)  := retireValidVec(0) & preg
+      tempreg0(i)  := preg(0)
       temdestReg1(i) := retireValidVec(1) & destReg
-      tempreg1(i)  := retireValidVec(1) & preg
+      tempreg1(i)  := preg(1)
       temdestReg2(i) := retireValidVec(2) & destReg
-      tempreg2(i)  := retireValidVec(2) & preg
+      tempreg2(i)  := preg(2)
   }
   val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
   val diffcommitpreg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))

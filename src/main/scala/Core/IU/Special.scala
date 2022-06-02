@@ -65,7 +65,7 @@ class Special extends Module{
   //               Pipe2 EX1 Instruction Data
   //----------------------------------------------------------
   val pipe1_en = io.sel.gateSel
-  val ex1_pipe = RegEnable(io.in, io.in, pipe1_en)
+  val ex1_pipe = RegEnable(io.in, 0.U.asTypeOf(io.in), pipe1_en)
   val ex1_pipe_pc = io.bjuSpecialPc
   //==========================================================
   //                  Instruction Selection

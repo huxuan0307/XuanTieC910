@@ -198,7 +198,7 @@ class RobRetire extends Module {
   // Todo: Rename
   private val retireRetireInstValidVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
 
-  private val robCommitIid = Reg(Vec(NumCommitEntry, ValidIO(UInt(InstructionIdWidth.W))))
+  private val robCommitIid = RegInit(VecInit(Seq.fill(NumCommitEntry)(0.U.asTypeOf(ValidIO(UInt(InstructionIdWidth.W))))))
 
   private val robPcCurAddend0 = RegInit(0.U(PcWidth.W))
   private val robPcCurAddend1 = RegInit(0.U(PcAddend1Bits.W))

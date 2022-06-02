@@ -838,22 +838,25 @@ class Retire extends Module {
   //----------------------------------------------------------
   //                   Control Siganls
   //----------------------------------------------------------
-  io.out.toIfu.flush    := flushStateCur === FlushState.fe
-  io.out.toIdu.flushFe  := flushStateCur === FlushState.fe
-  io.out.toIdu.flushIs  := flushStateCur === FlushState.is
-  io.out.toIu.flushFe   := flushStateCur === FlushState.fe
+  val retire_flush_is = flushStateCur(1).asBool
+  val retire_flush_fe = flushStateCur(2).asBool
+  val retire_flush_be = flushStateCur(4).asBool
+  io.out.toIfu.flush    := retire_flush_fe
+  io.out.toIdu.flushFe  := retire_flush_fe
+  io.out.toIdu.flushIs  := retire_flush_is
+  io.out.toIu.flushFe   :=retire_flush_fe
 
-  io.out.yyXx.flush     := flushStateCur === FlushState.be
+  io.out.yyXx.flush     := retire_flush_be
   io.out.toRob.flush    := inst0flush || inst0mispred ||
-    flushStateCur === FlushState.is ||
-    flushStateCur === FlushState.fe
+    retire_flush_is ||
+    retire_flush_fe
 
   io.out.toRob.flushGateClk := inst0flushGateClk ||
-    flushStateCur === FlushState.is ||
-    flushStateCur === FlushState.fe
+    retire_flush_is ||
+    retire_flush_fe
 
   // Todo: move
-  private val flushStateNotIdle = flushStateCur =/= FlushState.idle
+  private val flushStateNotIdle = !flushStateCur(0).asBool
 
   io.out.toIdu.flushStall := flushStateNotIdle
   //mask iu change flow on wrong path during flush state machine

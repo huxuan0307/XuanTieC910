@@ -137,7 +137,7 @@ class Biq extends Module with BiqConfig {
 
   // find two empty entry
   private val enq0OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.map(!_)))
-  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)))
+  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)).reverse)
   io.out.entryEnqOHVec(0) := enq0OH.asUInt
   io.out.entryEnqOHVec(1) := enq1OH.asUInt
 
