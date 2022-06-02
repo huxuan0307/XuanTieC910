@@ -178,6 +178,7 @@ class IFU extends Module with Config {
   ibuf.io.in(0).bits.data := ip_out.h0_data
   ibuf.io.in(0).bits.is_inst32 := ip_out.inst_32_9(0)
   ibuf.io.in(0).valid := ip_out.h0_vld && ib_vld && reg_update//ip_out.bits.chgflw_vld_mask(0)
+  ibuf.io.idu_ifu_id_stall := io.idu_ifu_id_stall
 
   for(i <- 0 to 2){
     io.instData(i).vl_pred      := false.B

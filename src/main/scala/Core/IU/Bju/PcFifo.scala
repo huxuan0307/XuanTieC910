@@ -162,7 +162,7 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
 //
   // ptr to idu
   val assign_ptr = RegInit(PcFifoPtr(false.B, 0.U))
-  val to_idu_pid_vec = RegInit(VecInit(Seq.tabulate(4)(i => (i).U(PcFifoAddr.W))))
+  val to_idu_pid_vec = WireInit(VecInit(Seq.tabulate(4)(i => (i).U(PcFifoAddr.W))))
   when(io.bjuRw.iuYyXxCancel || io.rtuRw.rtuFlush.fe){
     assign_ptr := createPtr
   }.elsewhen(io.iduWrite.isIn.instVld){

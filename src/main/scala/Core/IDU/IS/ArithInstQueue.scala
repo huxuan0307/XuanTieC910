@@ -315,7 +315,7 @@ class ArithInstQueue extends Module with AiqConfig {
   private val entryAgeVec = Wire(Vec(this.NumAiqEntry, UInt((this.NumAiqEntry - 1).W)))
   private val olderEntryReadyVec = Wire(Vec(this.NumAiqEntry, Bool()))
   for (i <- 0 until this.NumAiqEntry) {
-    olderEntryReadyVec(i) := entryAgeVec(i) & DropBit(entryReadyVec.asUInt, i)
+    olderEntryReadyVec(i) := (entryAgeVec(i) & DropBit(entryReadyVec.asUInt, i)).orR
   }
 
   //------------------entry issue enable signals--------------

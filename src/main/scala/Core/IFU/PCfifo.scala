@@ -112,12 +112,12 @@ class PCfifo extends Module with Config {
   ))
 
   val vld_1 = PriorityMux(Seq(
-    pcoper(7) -> Mux(pcoper(6,0).andR,true.B,false.B),
-    pcoper(6) -> Mux(pcoper(5,0).andR,true.B,false.B),
-    pcoper(5) -> Mux(pcoper(4,0).andR,true.B,false.B),
-    pcoper(4) -> Mux(pcoper(3,0).andR,true.B,false.B),
-    pcoper(3) -> Mux(pcoper(2,0).andR,true.B,false.B),
-    pcoper(2) -> Mux(pcoper(1,0).andR,true.B,false.B),
+    pcoper(7) -> Mux(pcoper(6,0).orR,true.B,false.B),
+    pcoper(6) -> Mux(pcoper(5,0).orR,true.B,false.B),
+    pcoper(5) -> Mux(pcoper(4,0).orR,true.B,false.B),
+    pcoper(4) -> Mux(pcoper(3,0).orR,true.B,false.B),
+    pcoper(3) -> Mux(pcoper(2,0).orR,true.B,false.B),
+    pcoper(2) -> Mux(pcoper(1,0).orR,true.B,false.B),
     pcoper(1) -> Mux(pcoper(0),true.B,false.B),
     pcoper(0) -> false.B,
     true.B    -> false.B

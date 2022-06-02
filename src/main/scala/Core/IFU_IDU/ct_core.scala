@@ -201,7 +201,7 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe2.opcode := idu.io.out.RFData.toBju.opcode
   iu.io.pipe2.pid := idu.io.out.RFData.toBju.pid
   iu.io.pipe2.length := DontCare //////todo: complete in rf
-  iu.io.pipe2.offset := DontCare //////todo: complete in rf
+  iu.io.pipe2.offset := idu.io.out.RFData.toBju.offset //////todo: complete in rf
   iu.io.pipe2.pCall := DontCare //////todo: complete in rf
   iu.io.pipe2.rts := DontCare //////todo: complete in rf
   iu.io.cp0In := DontCare

@@ -256,3 +256,14 @@ class ct_idu_is_pipe_entry extends BlackBox {
     val x_read_data = Output(UInt(271.W))
   })
 }
+
+
+
+class ct_idu_rf_pipe2_decd extends BlackBox{
+  val io = IO(new Bundle{
+    val pipe2_decd_opcode = Input(UInt(32.W))
+    val pipe2_decd_func = Output(UInt(8.W))
+    val pipe2_decd_offset = Output(UInt(21.W))
+    val pipe2_decd_src1_imm = Output(UInt(64.W))
+  })
+}
