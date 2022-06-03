@@ -10,12 +10,12 @@ class PCGen extends Module with Config {
   val pcReg = RegInit(PcStart.U(VAddrBits.W))
   val pcWire = WireInit(PcStart.U(VAddrBits.W))
   val ifpc_chgflw_pre = Wire(UInt(VAddrBits.W))
-  val inc_pc = WireInit(0.U(VAddrBits.W))
-  val rtu_cur_pc = WireInit(0.U(VAddrBits.W))
+  val inc_pc = WireInit(PcStart.U(VAddrBits.W))
+  val rtu_cur_pc = WireInit(PcStart.U(VAddrBits.W))
   val rtu_cur_pc_load = WireInit(false.B)
   val ifu_rtu_cur_pcReg = RegInit(PcStart.U(VAddrBits.W))
   val ifu_rtu_cur_pc_loadReg = WireInit(false.B)
-  val pcgen_chgflw = io.redirect.map(_.valid).reduce(_||_) || io.rtu_ifu_chgflw_vld
+  val pcgen_chgflw = io.redirect.map(_.valid).reduce(_||_) //|| io.rtu_ifu_chgflw_vld
   // &Force("bus","ipctrl_pcgen_taken_pc",38,0); @28
   //==========================================================
   //                PC MUX of Change Flow
@@ -33,7 +33,7 @@ class PCGen extends Module with Config {
   //  PC Increase
   // &CombBeg; @43
   ifpc_chgflw_pre := PriorityMux(Seq(
-      io.rtu_ifu_chgflw_vld -> io.rtu_ifu_chgflw_pc,
+      //io.rtu_ifu_chgflw_vld -> io.rtu_ifu_chgflw_pc,//todo: complete it in future
       io.redirect(3).valid -> io.redirect(3).bits,//io.redirect(3).bits,
       io.redirect(2).valid -> io.redirect(2).bits,//io.redirect(2).bits,
       io.redirect(1).valid -> io.redirect(1).bits,//io.redirect(1).bits,

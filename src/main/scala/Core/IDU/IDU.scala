@@ -1,10 +1,9 @@
 package Core.IDU
 
 import Core.Config
-
 import Core.IDU.IS.AiqConfig.{NumAiqCreatePort, NumSrcArith}
 import Core.IDU.RF.PrfConfig.NumPregReadPort
-
+import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.{NumPhysicRegsBits, XLEN}
 import IS._
 import RF._
@@ -106,7 +105,7 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
     val wbPreg : Vec[ValidIO[UInt]] = Vec(WbNum, ValidIO(UInt(NumPhysicRegsBits.W)))
   }
   val ISfromIUsub = new Bundle{
-    val pcfifo_dis_inst_pid = Vec(4, UInt(5.W))
+    val pcfifo_dis_inst_pid = Vec(4, UInt(PcFifoAddr.W))
   }
   val PRFfromIU = new Bundle{
     val ex2_pipe0_wb_preg_data = UInt(XLEN.W)
@@ -654,7 +653,12 @@ class IDU extends Module with Config {
         cbundle.srcVec(j).ready := isstage.io.out.toAiq1.create_data(i).src_info(j).src_data.rdy
         cbundle.srcVec(j).lsuMatch := isstage.io.out.toAiq1.create_data(i).src_info(j).lsu_match
       }
-      cbundle.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+      cbundle.srcVec(2).preg     := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.preg
+      cbundle.srcVec(2).wb       := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.wb
+      cbundle.srcVec(2).ready    := isstage.io.out.toAiq1.create_data(i).SRC2_DATA.rdy
+      cbundle.srcVec(2).lsuMatch := isstage.io.out.toAiq1.create_data(i).SRC2_LSU_MATCH
+      //todo: aiq1_src2_mla_rdy
+      //cbundle.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
       cbundle.vl := isstage.io.out.toAiq1.create_data(i).VL
       cbundle.vlmul := isstage.io.out.toAiq1.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq1.create_data(i).VSEW
@@ -685,7 +689,12 @@ class IDU extends Module with Config {
     aiq1.io.in.data.bypassData.srcVec(j).ready := isstage.io.out.toAiq1.bypass_data.src_info(j).src_data.rdy
     aiq1.io.in.data.bypassData.srcVec(j).lsuMatch := isstage.io.out.toAiq1.bypass_data.src_info(j).lsu_match
   }
-  aiq1.io.in.data.bypassData.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
+  aiq1.io.in.data.bypassData.srcVec(2).preg     := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.preg
+  aiq1.io.in.data.bypassData.srcVec(2).wb       := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.wb
+  aiq1.io.in.data.bypassData.srcVec(2).ready    := isstage.io.out.toAiq1.bypass_data.SRC2_DATA.rdy
+  aiq1.io.in.data.bypassData.srcVec(2).lsuMatch := isstage.io.out.toAiq1.bypass_data.SRC2_LSU_MATCH
+  //todo: aiq1_src2_mla_rdy
+  //aiq1.io.in.data.bypassData.srcVec(2) := DontCare //////todo: check it: aiq1 src_info(j) only limit to 0,1
   aiq1.io.in.data.bypassData.vl := isstage.io.out.toAiq1.bypass_data.VL
   aiq1.io.in.data.bypassData.vlmul := isstage.io.out.toAiq1.bypass_data.VLMUL
   aiq1.io.in.data.bypassData.vsew := isstage.io.out.toAiq1.bypass_data.VSEW
@@ -733,9 +742,45 @@ class IDU extends Module with Config {
   biq.io.in.ctrl.rfPopValid := rfstage.io.ctrl.out.toIq(2).popValid
   biq.io.in.ctrl.rfAluRegFwdValid := DontCare//////todo: add rfstage.io.ctrl.out.alu_reg_fwd_vld
   biq.io.in.ctrl.rfLaunchFailValid := rfstage.io.ctrl.out.toIq(2).launchFailValid
-  biq.io.in.data.createData := isstage.io.out.toBiq.create_data.asTypeOf(biq.io.in.data.createData)
-  biq.io.in.data.bypassData := isstage.io.out.toBiq.bypass_data.asTypeOf(biq.io.in.data.bypassData)
-  biq.io.in.data.rfReadyClr := rfstage.io.data.out.toBiq.readyClr.asTypeOf(biq.io.in.data.rfReadyClr)
+  biq.io.in.data.createData.zipWithIndex.foreach {
+    case (c, i) =>
+      c.srcVec.zipWithIndex.foreach {
+        case (src, j) =>
+          src.ready := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.rdy
+          src.preg := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.preg
+          src.wb := isstage.io.out.toBiq.create_data(i).src_info(j).src_data.wb
+          src.lsuMatch := isstage.io.out.toBiq.create_data(i).src_info(j).lsu_match
+      }
+      c.iid := isstage.io.out.toBiq.create_data(i).IID
+      c.pid := isstage.io.out.toBiq.create_data(i).PID
+      c.length := isstage.io.out.toBiq.create_data(i).LENGTH
+      c.inst := isstage.io.out.toBiq.create_data(i).OPCODE
+      c.pcall := isstage.io.out.toBiq.create_data(i).PCALL
+      c.rts := isstage.io.out.toBiq.create_data(i).RTS
+      c.srcValid := isstage.io.out.toBiq.create_data(i).src_vld
+      c.vl := isstage.io.out.toBiq.create_data(i).VL
+      c.vlmul := isstage.io.out.toBiq.create_data(i).VLMUL
+      c.vsew := isstage.io.out.toBiq.create_data(i).VSEW
+  }
+  biq.io.in.data.bypassData.srcVec.zipWithIndex.foreach {
+    case (src, j) =>
+      src.ready := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.rdy
+      src.preg := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.preg
+      src.wb := isstage.io.out.toBiq.bypass_data.src_info(j).src_data.wb
+      src.lsuMatch := isstage.io.out.toBiq.bypass_data.src_info(j).lsu_match
+  }
+  biq.io.in.data.bypassData.iid      := isstage.io.out.toBiq.bypass_data.IID
+  biq.io.in.data.bypassData.pid      := isstage.io.out.toBiq.bypass_data.PID
+  biq.io.in.data.bypassData.length   := isstage.io.out.toBiq.bypass_data.LENGTH
+  biq.io.in.data.bypassData.inst     := isstage.io.out.toBiq.bypass_data.OPCODE
+  biq.io.in.data.bypassData.pcall    := isstage.io.out.toBiq.bypass_data.PCALL
+  biq.io.in.data.bypassData.rts      := isstage.io.out.toBiq.bypass_data.RTS
+  biq.io.in.data.bypassData.srcValid := isstage.io.out.toBiq.bypass_data.src_vld
+  biq.io.in.data.bypassData.vl       := isstage.io.out.toBiq.bypass_data.VL
+  biq.io.in.data.bypassData.vlmul    := isstage.io.out.toBiq.bypass_data.VLMUL
+  biq.io.in.data.bypassData.vsew     := isstage.io.out.toBiq.bypass_data.VSEW
+  biq.io.in.data.rfReadyClr(0) := rfstage.io.data.out.toBiq.readyClr(0)
+  biq.io.in.data.rfReadyClr(1) := rfstage.io.data.out.toBiq.readyClr(1)
   biq.io.in.data.rfLaunchEntry := rfstage.io.data.out.toBiq.launchEntryOH.asTypeOf(biq.io.in.data.rfLaunchEntry) //////todo: check it
   biq.io.in.data.srcReadyForBypass := isstage.io.out.toBiq.src_rdy_for_bypass
 

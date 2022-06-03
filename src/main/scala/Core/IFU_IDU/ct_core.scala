@@ -41,7 +41,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
   ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.chgflwPc //////todo: check it
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc// Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
@@ -64,7 +64,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IDfromIFUIB.instData := ifu.io.instData
   idu.io.in.IDfromIFUIB.instVld := ifu.io.instVld
   idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare  //todo: figure out Gateclk
-  idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.cancel
+  idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.yyXxCancel
   idu.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
   idu.io.in.fromRTU.flush_fe := rtu.io.out.toIdu.flushFe
   idu.io.in.fromRTU.flush_is := rtu.io.out.toIdu.flushIs
@@ -123,7 +123,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromPad := DontCare
   idu.io.in.fromLSU := DontCare //////todo: add LSU
   idu.io.in.ISfromVFPU := DontCare
-  idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := DontCare //////iu.io.bjuToIdu.allowPid todo: find out
+  idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
 
 
 
@@ -141,8 +141,8 @@ class SimTop extends Module with Config with ROBConfig {
     iu.io.ifuForward(i).jal := ifu.io.ifuForward(i).jal
     iu.io.ifuForward(i).en := ifu.io.ifuForward(i).en //////todo: add signal
   }
-  iu.io.rtuIn.flushFe := rtu.io.out.toIu.flushFe
-  iu.io.rtuIn.flush := false.B //////todo: find out
+  iu.io.rtuIn.rtuFlush.fe := rtu.io.out.toIu.flushFe
+  iu.io.rtuIn.rtuFlush.flush := rtu.io.out.yyXx.flush //////todo: find out
   iu.io.rtuIn.flushChgflwMask := rtu.io.out.toIu.flushChangeFlowMask
   iu.io.rtuIn.robReadPcfifovld := rtu.io.out.toIu.robReadPcFifoValid
   iu.io.rtuIn.robReadPcfifovldGateEn := rtu.io.out.toIu.robReadPcFifoGateClkValid
@@ -180,7 +180,7 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe0.src1 := idu.io.out.RFData.toIu0.src1
   iu.io.pipe0.src2 := idu.io.out.RFData.toIu0.src2
   iu.io.pipe0.src1NoImm := idu.io.out.RFData.toIu0.src1NoImm
-  iu.io.pipe0.func := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
+  iu.io.pipe0.opcode := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
   iu.io.pipe1.iid := idu.io.out.RFData.toIu1.iid
   iu.io.pipe1.dstVld := idu.io.out.RFData.toIu1.dstPreg.valid
   iu.io.pipe1.dstPreg := idu.io.out.RFData.toIu1.dstPreg.bits
@@ -194,14 +194,14 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe1.src1 := idu.io.out.RFData.toIu1.src1
   iu.io.pipe1.src2 := idu.io.out.RFData.toIu1.src2
   iu.io.pipe1.src1NoImm := idu.io.out.RFData.toIu1.src1NoImm
-  iu.io.pipe1.func := idu.io.out.RFData.toIu1.opcode
+  iu.io.pipe1.opcode := idu.io.out.RFData.toIu1.opcode
   iu.io.pipe2.iid := idu.io.out.RFData.toBju.iid
   iu.io.pipe2.src0 := idu.io.out.RFData.toBju.src0
   iu.io.pipe2.src1 := idu.io.out.RFData.toBju.src1
-  iu.io.pipe2.func := idu.io.out.RFData.toBju.opcode
+  iu.io.pipe2.opcode := idu.io.out.RFData.toBju.opcode
   iu.io.pipe2.pid := idu.io.out.RFData.toBju.pid
   iu.io.pipe2.length := DontCare //////todo: complete in rf
-  iu.io.pipe2.offset := DontCare //////todo: complete in rf
+  iu.io.pipe2.offset := idu.io.out.RFData.toBju.offset //////todo: complete in rf
   iu.io.pipe2.pCall := DontCare //////todo: complete in rf
   iu.io.pipe2.rts := DontCare //////todo: complete in rf
   iu.io.cp0In := DontCare
@@ -342,17 +342,17 @@ class SimTop extends Module with Config with ROBConfig {
       in1.vstart := DontCare
       in2.vstart := DontCare
       wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools //////todo: check it
-      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools
+      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95,0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
       pcFifoPop0.length := false.B //////todo: find it
-      pcFifoPop0.bhtPred := iu.io.bjuToRtu.bhtPred //////todo: popNum = 3
-      pcFifoPop0.bhtMispred := iu.io.bjuToRtu.bhtMispred
-      pcFifoPop0.jmp := iu.io.bjuToRtu.jmp
-      pcFifoPop0.pret := iu.io.bjuToRtu.pRet
-      pcFifoPop0.pcall := iu.io.bjuToRtu.pCall
-      pcFifoPop0.condBranch := iu.io.bjuToRtu.condBr
-      pcFifoPop0.pcNext := iu.io.bjuToRtu.pc
+      pcFifoPop0.bhtPred := iu.io.bjuToRtu(0).bhtPred //////todo: popNum = 3
+      pcFifoPop0.bhtMispred := iu.io.bjuToRtu(0).bhtMispred
+      pcFifoPop0.jmp := iu.io.bjuToRtu(0).jmp
+      pcFifoPop0.pret := iu.io.bjuToRtu(0).pret
+      pcFifoPop0.pcall := iu.io.bjuToRtu(0).pcall
+      pcFifoPop0.condBranch := iu.io.bjuToRtu(0).condBranch
+      pcFifoPop0.pcNext := iu.io.bjuToRtu(0).pcNext
       pcFifoPop0.lsb := false.B //////todo: add it
       pcFifoPop1 := 0.U.asTypeOf(pcFifoPop1)
       pcFifoPop2 := 0.U.asTypeOf(pcFifoPop2)
@@ -370,7 +370,7 @@ class SimTop extends Module with Config with ROBConfig {
 //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
 //  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
 //  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
-//  rtu.io.in.fromLsu.allCommitDataValid := 0.U.asTypeOf(rtu.io.in.fromLsu.allCommitDataValid)
+  rtu.io.in.fromLsu.allCommitDataValid := true.B
 //  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0.xxIntB := true.B //////_b

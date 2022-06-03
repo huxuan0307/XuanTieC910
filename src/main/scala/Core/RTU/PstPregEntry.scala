@@ -42,7 +42,9 @@ class PstPregEntryInterconnectOutput extends Bundle {
   val destRegOH         : Vec[Bool] = Vec(NumLogicRegs, Bool())
   val releasePregOH     : Vec[Bool] = Vec(NumPhysicRegs, Bool())
   val retiredReleasedWb : Bool      = Bool()
-  val retireValidVec    : Vec[Bool] = Vec(NumRetireEntry,Bool()) //////todo: only for difftest
+  val retireValidVecReg    : Vec[Bool] = Vec(NumRetireEntry,Bool()) //////todo: only for difftest
+  val destretireVld     : Bool      = Bool() //////todo: only for difftest
+  val retirePregVec     : Vec[UInt] = Vec(NumRetireEntry, UInt(NumPhysicRegsBits.W))
 }
 
 class PstPregEntryInterconnectBundle extends Bundle {
@@ -104,7 +106,7 @@ class PstPregEntry extends Module {
   //                           Regs
   //==========================================================
 
-  private val entryCreate = RegInit(0.U.asTypeOf(new PstPregEntryData))
+  private val entryCreate = WireInit(0.U.asTypeOf(new PstPregEntryData))
   private val entry   = RegInit(0.U.asTypeOf(new PstPregEntryData))
   private val retireIidMatchVec = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
   private val lifecycleStateCur   = RegInit(PregState.dealloc)
@@ -166,7 +168,7 @@ class PstPregEntry extends Module {
     is(PregState.alloc) {
       when(io.in.fromRtu.yyXxFlush) {
         lifecycleStateNext := PregState.dealloc
-      }.elsewhen(releaseValid && wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      }.elsewhen(releaseValid && wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.elsewhen(releaseValid) {
         lifecycleStateNext := PregState.release
@@ -177,7 +179,7 @@ class PstPregEntry extends Module {
       }
     }
     is(PregState.retire) {
-      when(releaseValid && wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      when(releaseValid && wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.elsewhen(releaseValid) {
         lifecycleStateNext := PregState.release
@@ -186,7 +188,7 @@ class PstPregEntry extends Module {
       }
     }
     is(PregState.release) {
-      when(wbStateCur === WbState.wb && io.x.in.deallocMask) {
+      when(wbStateCur === WbState.wb && !io.x.in.deallocMask) {
         lifecycleStateNext := PregState.dealloc
       }.otherwise{
         lifecycleStateNext := PregState.release
@@ -200,7 +202,7 @@ class PstPregEntry extends Module {
   //               Preg Write Back State Machine
   //==========================================================
 
-  private val wbStateNext   = RegInit(WbState.idle)
+  private val wbStateNext   = WireInit(WbState.idle)
   private val wbStateReset  = Mux(io.x.in.resetMapped, WbState.wb, WbState.idle)
 
   //----------------------------------------------------------
@@ -209,8 +211,8 @@ class PstPregEntry extends Module {
 
   private val wbValid = io.x.in.wbValid
 
-//  private val wb_cur_state_wb = Wire(Bool())
-//  private val wb_cur_state_wb_masked = Wire(Bool())
+  //  private val wb_cur_state_wb = Wire(Bool())
+  //  private val wb_cur_state_wb_masked = Wire(Bool())
 
   //----------------------------------------------------------
   //             Preg Write Back State Transfer
@@ -279,9 +281,10 @@ class PstPregEntry extends Module {
     // Only in alloc state, entry need to retire
     for (i <- 0 until NumRetireEntry) {
       // Todo: figure out why need gate clk valid
-      when(io.in.fromRob.bits(i).gateClkValid) {
-        retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
-      }
+//      when(io.in.fromRob.bits(i).gateClkValid) {
+//        retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
+//      }
+      retireIidMatchVec(i) := io.in.fromRob.bits(i).iidUpdate === entry.iid
     }
   }
 
@@ -324,8 +327,23 @@ class PstPregEntry extends Module {
   //==========================================================
   //          to Difftest
   //==========================================================
-  private val retireValidVecReg  = RegInit(VecInit(io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
+  private val destretireVld = (lifecycleStateCur === PregState.retire)
+
+  private val retireValidVecWire  = WireInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+  private val retireValidVecReg   = RegInit(VecInit(Seq.fill(NumRetireEntry)(false.B)))
+  retireValidVecWire := io.in.fromRetire.wbRetireInstPregValid.zip(retireIidMatchVec).map {
     case (wbValid, iidMatch) => wbValid && iidMatch
-  }))
-  io.x.out.retireValidVec := retireValidVecReg //////for difftest
+  }
+  io.x.out.destretireVld := destretireVld
+
+  val retirePregVec = Seq.fill(NumRetireEntry)(RegInit(0.U(NumPhysicRegsBits.W)))
+  when(retireValid){
+    retireValidVecReg := retireValidVecWire
+    retirePregVec.zipWithIndex.foreach {
+      case (r, i) =>
+        r := retireValidVecWire(i) & UIntToOH(entry.preg, NumPhysicRegs).asUInt
+    }
+  }
+  io.x.out.retireValidVecReg := retireValidVecReg //////for difftest
+  io.x.out.retirePregVec := retirePregVec
 }

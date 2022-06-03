@@ -2,7 +2,7 @@ package Core.IDU.RF
 
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
-import Core.IDU.FuncUnit
+import Core.IDU.{FuncUnit, ct_idu_rf_pipe2_decd}
 import Core.IDU.IS.AiqConfig.NumSrcArith
 import Core.IDU.IS.BiqConfig.NumSrcBr
 import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
@@ -240,6 +240,7 @@ class RFStageToFuDataBundle extends Bundle with RFStageConfig {
   val vl          : UInt = UInt(VlmaxBits.W)
   val vlmul       : UInt = UInt(VlmulBits.W)
   val vsew        : UInt = UInt(VsewBits.W)
+  val offset = UInt(21.W)
 }
 
 class RFStageDataOutput extends Bundle with RFStageConfig {
@@ -744,6 +745,9 @@ class RFStage extends Module with RFStageConfig {
   private val biqInst = Wire(UInt(32.W))
   private val biqFu :: biqOp :: biqRd :: biqRs1 :: biqRs2 :: Nil = ListLookup(biqInst, DefaultInst.inst, bjuDecodeTable)
 
+  private val pipe2_decd = Module(new ct_idu_rf_pipe2_decd)
+  pipe2_decd.io.pipe2_decd_opcode := biqInst
+
   private val aiq1Inst = Wire(UInt(32.W))
   private val aiq1FU :: aiq1Op :: aiq1RdVld :: aiq1Rs1Vld :: aiq1Rs2Vld :: Nil = ListLookup(aiq1Inst, DefaultInst.inst, aluDecodeTable)
 
@@ -769,31 +773,31 @@ class RFStage extends Module with RFStageConfig {
   // Gathered from ct_idu_rf_dp.v 8 sub-segment
 
   // launchEntryOH
-  io.data.out.toAiq0.launchEntryOH  := RegEnable(aiq0_data.issueEntryOH,  aiq0_data.issueEn)
-  io.data.out.toAiq1.launchEntryOH  := RegEnable(aiq1_data.issueEntryOH,  aiq1_data.issueEn)
-  io.data.out.toBiq.launchEntryOH   := RegEnable(biq_data.issueEntryOH,   biq_data.issueEn)
-  io.data.out.toLsiq0.launchEntryOH := RegEnable(lsiq0_data.issueEntryOH, lsiq0_data.issueEn)
-  io.data.out.toLsiq1.launchEntryOH := RegEnable(lsiq1_data.issueEntryOH, lsiq1_data.issueEn)
-  io.data.out.toSdiq.launchEntryOH  := RegEnable(sdiq_data.issueEntryOH,  sdiq_data.issueEn)
-  io.data.out.toVfiq0.launchEntryOH := RegEnable(vfiq0_data.issueEntryOH, vfiq0_data.issueEn)
-  io.data.out.toVfiq1.launchEntryOH := RegEnable(vfiq1_data.issueEntryOH, vfiq1_data.issueEn)
+  io.data.out.toAiq0.launchEntryOH  := RegEnable(aiq0_data.issueEntryOH, 0.U.asTypeOf(aiq0_data.issueEntryOH),  aiq0_data.issueEn)
+  io.data.out.toAiq1.launchEntryOH  := RegEnable(aiq1_data.issueEntryOH, 0.U.asTypeOf(aiq1_data.issueEntryOH),  aiq1_data.issueEn)
+  io.data.out.toBiq.launchEntryOH   := RegEnable(biq_data.issueEntryOH, 0.U.asTypeOf(biq_data.issueEntryOH),  biq_data.issueEn)
+  io.data.out.toLsiq0.launchEntryOH := RegEnable(lsiq0_data.issueEntryOH, 0.U.asTypeOf(lsiq0_data.issueEntryOH), lsiq0_data.issueEn)
+  io.data.out.toLsiq1.launchEntryOH := RegEnable(lsiq1_data.issueEntryOH, 0.U.asTypeOf(lsiq1_data.issueEntryOH), lsiq1_data.issueEn)
+  io.data.out.toSdiq.launchEntryOH  := RegEnable(sdiq_data.issueEntryOH, 0.U.asTypeOf(sdiq_data.issueEntryOH),  sdiq_data.issueEn)
+  io.data.out.toVfiq0.launchEntryOH := RegEnable(vfiq0_data.issueEntryOH, 0.U.asTypeOf(vfiq0_data.issueEntryOH), vfiq0_data.issueEn)
+  io.data.out.toVfiq1.launchEntryOH := RegEnable(vfiq1_data.issueEntryOH, 0.U.asTypeOf(vfiq1_data.issueEntryOH), vfiq1_data.issueEn)
 
   // update if issue enable
-  private val aiq0ReadData  = RegEnable(io.data.in.aiq0.issueReadData, io.data.in.aiq0.issueEn)
-  private val aiq1ReadData  = RegEnable(io.data.in.aiq1.issueReadData, io.data.in.aiq1.issueEn)
-  private val biqReadData   = RegEnable(io.data.in.biq.issueReadData, io.data.in.biq.issueEn)
-  private val lsiq0ReadData = RegEnable(io.data.in.lsiq0.issueReadData, io.data.in.lsiq0.issueEn)
-  private val lsiq1ReadData = RegEnable(io.data.in.lsiq1.issueReadData, io.data.in.lsiq1.issueEn)
-  private val sdiqReadData  = RegEnable(io.data.in.sdiq.issueReadData, io.data.in.sdiq.issueEn)
+  private val aiq0ReadData  = RegEnable(io.data.in.aiq0.issueReadData, 0.U.asTypeOf(io.data.in.aiq0.issueReadData), io.data.in.aiq0.issueEn)
+  private val aiq1ReadData  = RegEnable(io.data.in.aiq1.issueReadData, 0.U.asTypeOf(io.data.in.aiq1.issueReadData), io.data.in.aiq1.issueEn)
+  private val biqReadData   = RegEnable(io.data.in.biq.issueReadData, 0.U.asTypeOf(io.data.in.biq.issueReadData), io.data.in.biq.issueEn)
+  private val lsiq0ReadData = RegEnable(io.data.in.lsiq0.issueReadData, 0.U.asTypeOf(io.data.in.lsiq0.issueReadData), io.data.in.lsiq0.issueEn)
+  private val lsiq1ReadData = RegEnable(io.data.in.lsiq1.issueReadData, 0.U.asTypeOf(io.data.in.lsiq1.issueReadData), io.data.in.lsiq1.issueEn)
+  private val sdiqReadData  = RegEnable(io.data.in.sdiq.issueReadData, 0.U.asTypeOf(io.data.in.sdiq.issueReadData), io.data.in.sdiq.issueEn)
 
   aiq0Inst := aiq0ReadData.inst
   aiq1Inst := aiq1ReadData.inst
   biqInst  := biqReadData.inst
 
-  io.data.out.aluDstPregs(0) := RegEnable(aiq0_data.issueReadData.dstPreg, aiq0_data.issueEn)
-  io.data.out.aluDstPregs(1) := RegEnable(aiq1_data.issueReadData.dstPreg, aiq1_data.issueEn)
-  io.data.out.vfpuDstVregs(0) := RegEnable(vfiq0_data.issueReadData.dstVreg, vfiq0_data.issueEn)
-  io.data.out.vfpuDstVregs(1) := RegEnable(vfiq1_data.issueReadData.dstVreg, vfiq1_data.issueEn)
+  io.data.out.aluDstPregs(0) := RegEnable(aiq0_data.issueReadData.dstPreg, 0.U.asTypeOf(aiq0_data.issueReadData.dstPreg), aiq0_data.issueEn)
+  io.data.out.aluDstPregs(1) := RegEnable(aiq1_data.issueReadData.dstPreg, 0.U.asTypeOf(aiq1_data.issueReadData.dstPreg), aiq1_data.issueEn)
+  io.data.out.vfpuDstVregs(0) := RegEnable(vfiq0_data.issueReadData.dstVreg, 0.U.asTypeOf(vfiq0_data.issueReadData.dstVreg), vfiq0_data.issueEn)
+  io.data.out.vfpuDstVregs(1) := RegEnable(vfiq1_data.issueReadData.dstVreg, 0.U.asTypeOf(vfiq1_data.issueReadData.dstVreg), vfiq1_data.issueEn)
 
   private val issueEntriesOH = WireInit(VecInit(
     io.data.in.aiq0.issueEntryOH,
@@ -914,7 +918,7 @@ class RFStage extends Module with RFStageConfig {
   //                   Performance Monitor
   //==========================================================
   private val pipeInstValid : Bool = pipeInstValidVec.reduce(_||_)
-  private val pipeInstValidVecFF : Vec[Bool] = RegEnable(pipeInstValidVec, io.ctrl.in.fromHpcp.iduCntEn)
+  private val pipeInstValidVecFF : Vec[Bool] = RegEnable(pipeInstValidVec, 0.U.asTypeOf(pipeInstValidVec), io.ctrl.in.fromHpcp.iduCntEn)
   io.ctrl.out.toHpcp.instValid := RegNext(pipeInstValid)
   io.ctrl.out.toHpcp.pipeVec.zipWithIndex.foreach {
     case (signal, i) => signal.instValid := pipeInstValidVecFF(i)
@@ -1057,6 +1061,7 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu0.highHwExpt := aiq0ReadData.highHwExcept
   io.data.out.toIu0.specialImm := iu0_imm(19, 0)
   io.data.out.toIu0.pid := aiq0ReadData.pid
+  io.data.out.toIu0.offset := DontCare
   // output to cp0
   io.ctrl.out.toCp0.iid := aiq0ReadData.iid
   io.ctrl.out.toCp0.inst := aiq0ReadData.inst
@@ -1149,6 +1154,7 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu1.highHwExpt  := DontCare
   io.data.out.toIu1.specialImm  := DontCare
   io.data.out.toIu1.pid         := DontCare
+  io.data.out.toIu1.offset := DontCare
 
   //==========================================================
   //                    Pipe2 Data Path
@@ -1218,6 +1224,7 @@ class RFStage extends Module with RFStageConfig {
   // no alu
   io.data.out.toBju.aluShort    := DontCare
   io.data.out.toBju.rsltSel     := DontCare
+  io.data.out.toBju.offset := pipe2_decd.io.pipe2_decd_offset
 
   //==========================================================
   //                Source Pipeline Registers

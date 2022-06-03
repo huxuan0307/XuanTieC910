@@ -29,6 +29,7 @@ class ICacheIO extends Bundle with Config with CacheConfig {//todo:SimpleBus里d
   val cache_resp = ValidIO(new ICacheResp)
   val cohreq = ValidIO(UInt(XLEN.W)) //coh，缓存一致性，连到dcache的请求，输出
   val cohresp = Flipped(ValidIO(new cohResp)) //dcahce返回的响应数据，输入
+  val refill_sm_busy = Output(Bool())
 }
 
 class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with CacheConfig {
@@ -88,7 +89,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
 
 
   val refill_idx = indexReg
-  val Drefill_idx = DindexReg
+  val Drefill_idx = Cat(DindexReg(DIndexBits-1,2),0.U(2.W))
 
   //val validVec =  Seq.fill(Ways)(Wire(Bool()))
 
@@ -184,7 +185,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   }
 
   icache_refill.io.req.valid := RegNext(state===s_miss) && (state === s_refill) //|| (state === s_mmio)//
-  icache_refill.io.req.bits.paddr := Cat(paddrReg(39,4),0.U(4.W))//C910里一次读128bit数据，PC+1对应8bit，+16对应128，因而PC低4位在读128bit块时不需要考虑
+  icache_refill.io.req.bits.paddr := Cat(paddrReg(39,6),0.U(6.W))//C910里一次读128bit数据，PC+1对应8bit，+16对应128，因而PC低4位在读128bit块时不需要考虑
   refill_ready := icache_refill.io.resp.rvalid
 
   //侦听axi响应4次,从下级缓存或内存所读取
@@ -251,6 +252,7 @@ class ICache(cacheNum: Int =0, is_sim: Boolean) extends Module with Config with 
   val predecode_out = Mux(state===s_lookUp || idle_afterfill,reqreadPredecWire,reqreadPredecReg)
   io.cache_resp.bits.predecode := predecode_out.asTypeOf(io.cache_resp.bits.predecode)//移动Dindex*32位
   io.cache_resp.valid := (state===s_lookUp) || idle_afterfill
+  io.refill_sm_busy := !(state === s_idle || state === s_lookUp)
 
 
   //-------------------------------------状态机------------------------------------------------

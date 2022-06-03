@@ -72,7 +72,7 @@ class WTMultiplier extends Module {
   for(i <- 0 until 8){
     branch3(i) := Cat(branch2(2*i+1),0.U(4.W)) + Cat(0.U(4.W),branch2(2*i))
   }
-  val pip = RegEnable(branch3, branch3, io.in.valid)
+  val pip = RegEnable(branch3, 0.U.asTypeOf(branch3), io.in.valid)
   //level4
   val branch4 = Wire(Vec(4, UInt(80.W)))
   for(i <- 0 until 4){
@@ -99,13 +99,13 @@ class Mu extends Module with IUConfig {
   //               Pipe0 EX1 Instruction Data
   //----------------------------------------------------------
   val pipe1_en = io.sel.gateSel
-  val ex1_pipe = RegEnable(io.in, io.in, pipe1_en)
-  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.func)
+  val ex1_pipe = RegEnable(io.in, 0.U.asTypeOf(io.in), pipe1_en)
+  val (src1,src2,funcOpType) = (ex1_pipe.src0, ex1_pipe.src1, ex1_pipe.opcode)
   val src = new MDUbit(UInt(XLEN.W))
-  val lastOp = RegEnable(funcOpType, funcOpType, io.sel.sel)
+  val lastOp = RegEnable(funcOpType, 0.U.asTypeOf(funcOpType), io.sel.sel)
   //val isDiv = MDUOpType.isDiv(funcOpType)
   //val isDivSign = MDUOpType.isDivSign(funcOpType)
-  val isW = RegEnable(MDUOpType.isW(funcOpType), MDUOpType.isW(funcOpType), io.sel.sel)
+  val isW = RegEnable(MDUOpType.isW(funcOpType), 0.U.asTypeOf(MDUOpType.isW(funcOpType)), io.sel.sel)
   def isMinus(x:UInt):Bool = x(XLEN-1)  //通过补码判断是否为负数
   mul.io.in.valid   := io.sel.sel   //如果是乘法则进入
   mul.io.flush := io.flush

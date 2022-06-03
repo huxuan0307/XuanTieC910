@@ -7,7 +7,7 @@ trait AluOpcode extends Opcode {
   def ADD   : UInt = "b0000000".U
   def SUB   : UInt = "b0000001".U
   def SLT   : UInt = "b0000011".U
-  def LUI   : UInt = "b0001000".U
+  def LUI   : UInt = "b0101000".U
   def ADDW  : UInt = "b0100000".U
   def SUBW  : UInt = "b0100001".U
   def SLTU  : UInt = "b1000011".U

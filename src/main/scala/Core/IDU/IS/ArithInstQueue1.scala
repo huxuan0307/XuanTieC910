@@ -17,7 +17,7 @@ class ArithInstQueue1 extends Module with AiqConfig {
 
   // find two empty entry
   private val enq0OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.map(!_)))
-  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)))
+  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)).reverse)
   io.out.entryEnqOHVec(0) := enq0OH.asUInt
   io.out.entryEnqOHVec(1) := enq1OH.asUInt
 
@@ -187,7 +187,7 @@ class ArithInstQueue1 extends Module with AiqConfig {
   private val entryAgeVec = Wire(Vec(this.NumAiqEntry, UInt((this.NumAiqEntry - 1).W)))
   private val olderEntryReadyVec = Wire(Vec(this.NumAiqEntry, Bool()))
   for (i <- 0 until this.NumAiqEntry) {
-    olderEntryReadyVec(i) := entryAgeVec(i) & DropBit(entryReadyVec.asUInt, i)
+    olderEntryReadyVec(i) := (entryAgeVec(i) & DropBit(entryReadyVec.asUInt, i)).orR
   }
 
   //------------------entry issue enable signals--------------

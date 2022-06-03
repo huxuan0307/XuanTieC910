@@ -137,7 +137,7 @@ class Biq extends Module with BiqConfig {
 
   // find two empty entry
   private val enq0OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.map(!_)))
-  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)))
+  private val enq1OH : Vec[Bool] = VecInit(PriorityEncoderOH(entryValidVec.reverse.map(!_)).reverse)
   io.out.entryEnqOHVec(0) := enq0OH.asUInt
   io.out.entryEnqOHVec(1) := enq1OH.asUInt
 
@@ -225,9 +225,9 @@ class Biq extends Module with BiqConfig {
   private val entryCreatePortAgeVec = Wire(Vec(NumBiqCreatePort, Vec(NumBiqEntry, Bool())))
   for (i <- 0 until NumBiqEntry) {
     entryCreatePortAgeVec(0)(i) := entryValidVec(i) &&
-      !ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i)
+      !(ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i))
     entryCreatePortAgeVec(1)(i) := entryValidVec(i) &&
-      !ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i) || enq0OH(i)
+      !(ctrlBiq.rfPopValid && dataBiq.rfLaunchEntry(i)) || enq0OH(i)
   }
 
   //create 0/1 select:

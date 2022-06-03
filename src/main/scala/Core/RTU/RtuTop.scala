@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
 import Core.AddrConfig._
+import Core.Config.PcStart
 import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig._
@@ -475,6 +476,7 @@ class RtuTop extends Module {
   val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
   BoringUtils.addSink(diffcommitdestReg,"diffcommitdestReg")
   BoringUtils.addSink(diffcommitwdata,"diffcommitwdata")
+  dontTouch(diffcommitwdata)
   for (i <- 0 to 2) {
     val instrCommit = Module(new DifftestInstrCommit)
     instrCommit.io.clock := clock
@@ -485,7 +487,7 @@ class RtuTop extends Module {
 //    instrCommit.io.scFailed := false.B
 
     instrCommit.io.valid := rob.io.out.toRetire.commitValidVec(i)
-    instrCommit.io.pc    := rob.io.out.toRetire.instVec(i).pc
+    instrCommit.io.pc    := rob.io.out.toRetire.instVec(i).pc //todo: figure out
 
     instrCommit.io.instr := rob.io.out.toRetire.instVec(i).instr
 

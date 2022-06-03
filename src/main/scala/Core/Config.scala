@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3._
 
 object FuncOpType {
-  def width = 7.W
+  def width  = 7.W
   def uwidth = UInt(width)
 }
 
@@ -253,7 +253,7 @@ trait DCacheConfig {
   def OFFSET_WIDTH: Int = log2Up(LINE_SIZE) // 6
   def INDEX_WIDTH: Int = log2Up(SET) // 9
   def TAG_WIDTH: Int = LsuConfig.PA_WIDTH - OFFSET_WIDTH - INDEX_WIDTH // 25
-
+  // (Tag, Index, Offset)
   def PFU_ENTRY = 9
   def PFU_IDX = log2Up(PFU_ENTRY)
 

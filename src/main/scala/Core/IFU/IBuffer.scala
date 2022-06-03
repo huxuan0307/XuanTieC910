@@ -28,6 +28,7 @@ class IBufferIO extends CoreBundle {
   val out  = Vec(3, Valid(new IBuf2Decode))
   val allowEnq = Output(Bool())
   val flush = Input(Bool())
+  val idu_ifu_id_stall = Input(Bool())
 }
 
 class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
@@ -111,13 +112,17 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
 //    deq_num(2*i+1) := io.out(i).fire && is_inst32.read(deq_vec(i).value)//data(deq_vec(i).value).is_inst32
     deq_num(2*i+1) := io.out(i).fire && is_inst32(deq_vec(i))
   }
-  deqPtr := deqPtr + PopCount(deq_num)
+
+  when(!io.idu_ifu_id_stall){
+    deqPtr := deqPtr + PopCount(deq_num)
+  }
+  
 
   //flush
   when(io.flush){
     enqPtr := 0.U.asTypeOf(new IbufPtr)
     deqPtr := 0.U.asTypeOf(new IbufPtr)
-//    valid  := VecInit(Seq.fill(IBufSize)(false.B))
+    valid  := VecInit(Seq.fill(IBufSize)(false.B))
   }
 
   /////retire
@@ -125,7 +130,7 @@ class IBuffer extends Module with Config with HasCircularQueuePtrHelper {
   //deqptr always <= enqptr,
   //when deq valid, can retire directly
   for(i <- 0 until 3){
-    when(valid(deq_vec(i))){
+    when(valid(deq_vec(i)) && !io.idu_ifu_id_stall){
       valid(deq_vec(i)) := false.B
       when(is_inst32(deq_vec(i))){
         valid(deq_vec(i)+1.U) := false.B

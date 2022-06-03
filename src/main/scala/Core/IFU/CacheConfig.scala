@@ -26,6 +26,8 @@ trait CacheConfig extends Config {
   def IndexPCBits = 16
   def IndexHighdex = 14//13
   def IndexLowdex = 6//5 //目前暂假定就是实地址Index
+  // (0 5), (6 13)
+  // 1  6 , 7  14
   def DIndexLowdex = 4//3
   //def IndexBits = 9//todo:目前Icache和dcache存在共用定义，注意区分
   def DIndexBits = 11

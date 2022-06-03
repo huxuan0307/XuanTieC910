@@ -53,13 +53,13 @@ class Alu extends Module with IUConfig{
   //----------------------------------------------------------
   //                    add && shift TODO misc
   //----------------------------------------------------------
-  op := io.in.func
+  op := io.in.opcode
   src1 := io.in.src0
   src2 := io.in.src1
   val shamt = Mux(AluOpcode.isWordOp(op), src2(4, 0), src2(5, 0))
   when(pipe1_en) {
     ex1_pipe := io.in
-    opReg := io.in.func
+    opReg := io.in.opcode
     res := LookupTree(op, List(
       AluOpcode.ADD   -> (src1 + src2),
       AluOpcode.SLL   -> (src1 << shamt),
@@ -76,7 +76,7 @@ class Alu extends Module with IUConfig{
       AluOpcode.SLLW  -> (src1 << shamt),
       AluOpcode.SRLW  -> (src1(31, 0) >> shamt),
       AluOpcode.SRAW  -> (src1(31, 0).asSInt >> shamt).asUInt,
-      AluOpcode.LUI   -> src2
+      AluOpcode.LUI   -> (src2 << 12.U)
     ))
   }
   //==========================================================

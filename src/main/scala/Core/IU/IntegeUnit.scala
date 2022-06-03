@@ -1,11 +1,15 @@
 package Core.IU
 
 import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
+import Core.IDU.FuncUnit
+import Core.IDU.Opcode.Opcode
 import Core.{FuncOpType, FuncType, IUConfig}
-import Core.IU.Bju.{Bju, IduFeedbackSignal, IfuChangeFlow, IsuAllowFifo, RtuControl, RtuReadSignal, ifuDataForward}
+import Core.IU.Bju.{Bju, IduFeedbackSignal, IfuChangeFlow, IsuAlloFifo, RtuControl, ifuDataForward}
 import Core.IU.MDu.{Du, Mu}
 import Core.IUConfig.{IuPipeNum, PcFifoAddr, PcOffsetWidth}
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
+import Core.ROBConfig.NumRobReadEntry
+import Core.RTU.PcFifoData
 import Core.VectorUnitConfig._
 import chisel3._
 import chisel3.util._
@@ -60,10 +64,10 @@ class  cp0ToIu extends Bundle with IUConfig{
 class isIn extends Bundle with IUConfig{
   val gateClkIssue = Bool()
   val issue = Bool()
-  val isuToFifo = new IsuAllowFifo
+  val isuToFifo = new IsuAlloFifo
 }
 class CtrlSignalIO extends Bundle with IUConfig{
-  val func = FuncOpType.uwidth
+  val opcode = UInt(Opcode.width.W)
   val iid  = UInt(InstructionIdWidth.W) // ROB PTR
   val src0 = UInt(XLEN.W)
   val src1 = UInt(XLEN.W)
@@ -77,7 +81,6 @@ class CtrlSignalHasDestIO extends CtrlSignalIO{
   val imm       = UInt(7.W)
 }
 class IduRfPipe0 extends CtrlSignalHasDestIO{
-  val opcode     = FuncOpType.uwidth
   val specialImm = UInt(20.W)
   val exptVec    = UInt(ExceptionVecWidth.W)
   val exptVld    = Bool()
@@ -95,6 +98,10 @@ class IduRfPipe2 extends CtrlSignalIO{
   val pCall  = Bool()
   val pid    = UInt(PcFifoAddr.W)
   val rts    = Bool()
+
+//  input   [7 :0]  idu_iu_rf_pipe2_vl;
+//  input   [1 :0]  idu_iu_rf_pipe2_vlmul;
+//  input   [2 :0]  idu_iu_rf_pipe2_vsew;
 }
 class IuRslt extends Bundle {
   val cbusRslt = new CbusOut
@@ -122,7 +129,7 @@ class IntegerUnitIO extends Bundle{
   // out ifu
   val bjuToIfu      = Output(new IfuChangeFlow)
   val bjuToIdu      = Output(new IduFeedbackSignal)
-  val bjuToRtu      = Output(new RtuReadSignal)
+  val bjuToRtu      = Output(Vec(NumRobReadEntry,new PcFifoData))
 
   // out rtu
   val iuToRtu       = Output(new IuRslt)
@@ -137,7 +144,7 @@ class IntegeUnit extends Module{
   val special = Module(new Special)
   val du = Module(new Du)
  // alu0.io.in       := io.pipe0
-  alu0.io.in.func      := io.pipe0.func
+  alu0.io.in.opcode      := io.pipe0.opcode
   alu0.io.in.iid       := io.pipe0.iid
   alu0.io.in.src0      := io.pipe0.src0
   alu0.io.in.src1      := io.pipe0.src1
@@ -149,14 +156,14 @@ class IntegeUnit extends Module{
   alu0.io.in.imm       := io.pipe0.imm
 
   alu0.io.sel      := io.alu0Sel
-  alu0.io.flush    := io.rtuIn.flush
+  alu0.io.flush    := io.rtuIn.rtuFlush.flush
   special.io.in    := io.pipe0
   special.io.sel   := io.specialSel
-  special.io.flush := io.rtuIn.flush
+  special.io.flush := io.rtuIn.rtuFlush.flush
   special.io.cp0PrivMode := io.cp0In.cp0PrivMode
   du.io.in         := io.pipe0
   du.io.sel        := io.divSel
-  du.io.flush      := io.rtuIn.flush
+  du.io.flush      := io.rtuIn.rtuFlush.flush
   //==========================================================
   //                Pipeline 1 - alu1, mult
   //==========================================================
@@ -164,7 +171,7 @@ class IntegeUnit extends Module{
   val mu   = Module(new Mu)
  // alu1.io.in       := io.pipe1
 
-  alu1.io.in.func      := io.pipe1.func
+  alu1.io.in.opcode      := io.pipe1.opcode
   alu1.io.in.iid       := io.pipe1.iid
   alu1.io.in.src0      := io.pipe1.src0
   alu1.io.in.src1      := io.pipe1.src1
@@ -177,10 +184,10 @@ class IntegeUnit extends Module{
 
 
   alu1.io.sel      := io.alu1Sel
-  alu1.io.flush    := io.rtuIn.flush
+  alu1.io.flush    := io.rtuIn.rtuFlush.flush
   mu.io.in         := io.pipe1
   mu.io.sel        := io.mulSel
-  mu.io.flush      := io.rtuIn.flush
+  mu.io.flush      := io.rtuIn.rtuFlush.flush
   //==========================================================
   //                Pipeline 2 - bju
   //==========================================================
@@ -193,14 +200,14 @@ class IntegeUnit extends Module{
   bju.io.in.specialPid := io.specialPid
   io.bjuToIfu          := bju.io.out.toIfu
   io.bjuToIdu          := bju.io.out.toIdu
-  io.bjuToRtu          := bju.io.out.toRtu
+  io.bjuToRtu          := bju.io.out.rtuPopData
   // special pc io should be below Module 'bju' & 'special', because 'Suspicious forward reference'
   special.io.bjuSpecialPc := bju.io.out.specialPc
   //==========================================================
   //                Cbus - Iu pipes complete signal process
   //==========================================================
   val cbus = Module(new Cbus)
-  cbus.io.flush        := io.rtuIn.flush
+  cbus.io.flush        := io.rtuIn.rtuFlush.flush
   cbus.io.normIn.divSel   := io.divSel.sel
   cbus.io.normIn.pipe0Sel := io.alu0Sel.sel
   cbus.io.normIn.pipe0Iid := io.pipe0.iid
@@ -215,7 +222,7 @@ class IntegeUnit extends Module{
   //                Rbus - Iu pipes data process
   //==========================================================
   val rbus = Module(new Rbus)
-  rbus.io.flush        := io.rtuIn.flush
+  rbus.io.flush        := io.rtuIn.rtuFlush.flush
   rbus.io.in.aluIn(0)  := alu0.io.toRbus
   rbus.io.in.aluIn(1)  := alu1.io.toRbus
   rbus.io.in.muIn      := mu.io.out

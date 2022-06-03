@@ -389,7 +389,7 @@ class Rb extends Module with LsuConfig with BIUConfig{
   //| create_ptr |
   //+------------+
   val rb_create_ptr0 = VecInit(PriorityEncoderOH(rb_entry_out.map(!_.vld)))
-  val rb_create_ptr1 = VecInit(PriorityEncoderOH(rb_entry_out.map(!_.vld).reverse))
+  val rb_create_ptr1 = VecInit(PriorityEncoderOH(rb_entry_out.map(!_.vld).reverse).reverse)
 
   rb_entry_in.zip(rb_create_ptr0).foreach{case(entry_in, ptr0) => entry_in.create_ptr0 := ptr0}
 

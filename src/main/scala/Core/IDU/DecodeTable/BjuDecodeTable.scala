@@ -15,10 +15,10 @@ object BjuDecodeTable {
     jal   -> List(BJU, JAL , F, F, F),
     jalr  -> List(BJU, JALR, F, T, F),
     beq   -> List(BJU, BEQ , F, T, T),
-    bne   -> List(BJU, BEQ , F, T, T),
-    blt   -> List(BJU, BEQ , F, T, T),
-    bge   -> List(BJU, BEQ , F, T, T),
-    bltu  -> List(BJU, BEQ , F, T, T),
-    bgeu  -> List(BJU, BEQ , F, T, T),
+    bne   -> List(BJU, BNE , F, T, T),
+    blt   -> List(BJU, BLT , F, T, T),
+    bge   -> List(BJU, BGE , F, T, T),
+    bltu  -> List(BJU, BLTU , F, T, T),
+    bgeu  -> List(BJU, BGEU , F, T, T),
   )
 }

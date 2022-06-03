@@ -50,7 +50,8 @@ class icache_predec extends Module with Config with CacheConfig {
   val pre_code = WireInit(0.U(32.W))
 
   for( i<- 0 until  8){
-    hn_data(8-1-i) := io.din(16*(i+1) - 1, 16*i)
+    //////todo: origin code is reverse with now, be careful
+    hn_data(i) := io.din(16*(i+1) - 1, 16*i)
 
     val tem_brdata0 = hn_data(i)(6,0)
     val tem_brdata1 = Cat(hn_data(i)(14,12),hn_data(i)(6,0))
@@ -98,8 +99,9 @@ class icache_predec extends Module with Config with CacheConfig {
     hn_pre_code(i) := Cat(hn_ab_br(i).asUInt(),hn_br(i).asUInt(),hn_bry1(i).asUInt(),hn_bry0(i).asUInt())
   }
 
-  pre_code := Cat(hn_pre_code(0),hn_pre_code(1),hn_pre_code(2),hn_pre_code(3),
-    hn_pre_code(4),hn_pre_code(5),hn_pre_code(6),hn_pre_code(7))
+  pre_code := Cat(hn_pre_code(7),hn_pre_code(6),hn_pre_code(5),hn_pre_code(4),
+    hn_pre_code(3),hn_pre_code(2),hn_pre_code(1),hn_pre_code(0))
+  //////todo: origin code is reverse with now, be careful
 
   io.dout := pre_code
 }
