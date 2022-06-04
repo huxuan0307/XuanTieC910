@@ -1,6 +1,6 @@
 package Core.LSU.Lfb
 import Core.BiuID.BIU_LFB_ID_T
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LSU.Lfb.BiuResp._
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._

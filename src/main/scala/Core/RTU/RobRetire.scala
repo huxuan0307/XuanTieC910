@@ -4,8 +4,10 @@ import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
 import Core.AddrConfig._
+import Core.Config.XLEN
 import Core.IntConfig._
 import Core.ExceptionConfig._
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
 import Core.PipelineConfig.NumPipeline
 import Core.VectorUnitConfig._
 import difftest._
@@ -177,6 +179,14 @@ class RobRetire extends Module {
     val split           : Bool = Bool()
     val iid             : UInt = UInt(InstructionIdWidth.W)
     //
+    val debug = if (DifftestEnable) new Bundle() {
+      val pc    = Vec(NumFoldMax, UInt(XLEN.W))
+      val inst  = Vec(NumFoldMax, UInt(InstBits.W))
+      val RVC   = Vec(NumFoldMax, Bool())
+      val rfwen = Vec(NumFoldMax, Bool())
+      val wpdest= Vec(NumFoldMax, UInt(NumPhysicRegsBits.W))
+      val wdest = Vec(NumFoldMax, UInt(NumLogicRegsBits.W))
+    } else null
   }
 
   /**
@@ -647,6 +657,9 @@ class RobRetire extends Module {
     retireInstDataCreateVec(i).bju            := robReadDataVec(i).data.bju
     retireInstDataCreateVec(i).split          := robReadDataVec(i).data.split
     retireInstDataCreateVec(i).iid            := robReadIidVec(i)
+    if (DifftestEnable) {
+      retireInstDataCreateVec(i).debug          := robReadDataVec(i).data.debug
+    }
   }
 
   for (i <- 0 until NumRetireEntry) {
@@ -1171,28 +1184,10 @@ class RobRetire extends Module {
   io.out.toRetire.intSrtEn := DontCare
   io.out.toRetire.ssfIid := DontCare
 
-//  for (i <- 0 until NumCommitEntry) {
-//    val instrCommit = Module(new DifftestInstrCommit)
-//    instrCommit.io.clock    := clock
-//    instrCommit.io.coreid   := 0.U
-//    instrCommit.io.index    := i.U
-//
-//    instrCommit.io.valid    := robCommitIid(i).valid
-//    instrCommit.io.special  := 0.U
-//    instrCommit.io.skip     := false.B
-//    instrCommit.io.isRVC    := false.B
-//    instrCommit.io.rfwen    := false.B
-//    instrCommit.io.fpwen    := false.B
-//    instrCommit.io.wpdest   := 0.U
-//    instrCommit.io.wdest    := 0.U
-//    instrCommit.io.pc       := 0.U
-//    instrCommit.io.instr    := 0.U
-//  }
-
   val csrCommit = Module(new DifftestCSRState)
   csrCommit.io.clock          := clock
-  csrCommit.io.priviledgeMode := 0.U
-  csrCommit.io.mstatus        := 0.U
+  csrCommit.io.priviledgeMode := 3.U
+  csrCommit.io.mstatus        := BigInt("1800", 16).U
   csrCommit.io.sstatus        := 0.U
   csrCommit.io.mepc           := 0.U
   csrCommit.io.sepc           := 0.U
@@ -1200,7 +1195,7 @@ class RobRetire extends Module {
   csrCommit.io.stval          := 0.U
   csrCommit.io.mtvec          := 0.U
   csrCommit.io.stvec          := 0.U
-  csrCommit.io.mcause         := 0.U
+  csrCommit.io.mcause         := BigInt("2", 16).U
   csrCommit.io.scause         := 0.U
   csrCommit.io.satp           := 0.U
   csrCommit.io.mip            := 0.U
@@ -1210,5 +1205,9 @@ class RobRetire extends Module {
   csrCommit.io.mideleg        := 0.U
   csrCommit.io.medeleg        := 0.U
 
-
+  if (DifftestEnable) {
+    for (i <- 0 until NumRetireEntry) {
+      io.out.toRetire.instVec(i).debug := retireInstVec(i).bits.data.debug
+    }
+  }
 }

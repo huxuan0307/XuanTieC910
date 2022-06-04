@@ -1,6 +1,7 @@
 package Core.IU
 
 import Core.AddrConfig.PcWidth
+import Core.Config.XLEN
 import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
 import Core.IUConfig
 import Core.IUConfig.MPPWidth

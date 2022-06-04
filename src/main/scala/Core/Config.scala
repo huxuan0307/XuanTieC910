@@ -4,6 +4,11 @@ package Core
 import chisel3.util._
 import chisel3._
 
+object GlobalConfig {
+  def DifftestEnable: Boolean = true
+  def NumFoldMax = 3
+}
+
 object FuncOpType {
   def width  = 7.W
   def uwidth = UInt(width)
@@ -44,7 +49,6 @@ trait IntConfig {
   def NumEregsBits : Int = log2Up(NumEregs)
   def NumPhysicRegsBits : Int = log2Up(NumPhysicRegs)
   def InstructionIdWidth : Int = log2Up(NumInstructionId)
-  def XLEN = 64
 }
 
 trait ROBConfig {
@@ -139,8 +143,8 @@ trait FuTypeConfig {
   def PIPE7    = "b0100000000"
   def SPECIAL  = "b1000000000"
 }
+
 trait IUConfig {
-  def XLEN = 64
   def MPPWidth = 2
   def PcFifoLen = 32
   def PcFifoAddr: Int = log2Up(PcFifoLen)
@@ -283,7 +287,7 @@ abstract class CoreBundle extends Bundle with Config {}
 
 trait Config {
   val PcStart = "h80000000"
-  val XLEN = 64
+  def XLEN = 64
   val VAddrBits = 39
   val PAddrBits = 40
 

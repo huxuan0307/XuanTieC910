@@ -1,5 +1,6 @@
 package Core.IU.MDu
 
+import Core.Config.XLEN
 import Core.IU.Du.MDUbit
 import Core.IU.{IduRfPipe1, unitSel}
 import Core.IUConfig

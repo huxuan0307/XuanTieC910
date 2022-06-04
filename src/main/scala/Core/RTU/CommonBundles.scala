@@ -1,7 +1,9 @@
 package Core.RTU
 
 import Core.AddrConfig.PcWidth
+import Core.Config.XLEN
 import Core.ExceptionConfig._
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
 import chisel3._
 import chisel3.util._
 import Core.IntConfig._
@@ -130,6 +132,14 @@ class RobToRetireInstBundle extends Bundle {
   val vl : UInt = UInt(VlmaxBits.W)
   val vlmul : UInt = UInt(VlmulBits.W)
   val vsew : UInt = UInt(VsewBits.W)
+  val debug = if (DifftestEnable) new Bundle() {
+    val pc    = Vec(NumFoldMax, UInt(XLEN.W))
+    val inst  = Vec(NumFoldMax, UInt(InstBits.W))
+    val RVC   = Vec(NumFoldMax, Bool())
+    val rfwen = Vec(NumFoldMax, Bool())
+    val wpdest= Vec(NumFoldMax, UInt(NumPhysicRegsBits.W))
+    val wdest = Vec(NumFoldMax, UInt(NumLogicRegsBits.W))
+  } else null
 }
 
 class RobToRetireInstExtraBundle extends Bundle {

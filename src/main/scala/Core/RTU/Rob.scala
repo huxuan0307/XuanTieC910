@@ -1,15 +1,18 @@
 package Core.RTU
 
-import chisel3._
-import chisel3.util._
-import Core.ROBConfig._
 import Core.AddrConfig._
-import Core.IntConfig._
+import Core.Config.XLEN
 import Core.ExceptionConfig._
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
+import Core.IntConfig._
 import Core.PipelineConfig.NumPipeline
+import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Utils.Bits.RingShiftLeft
-import difftest.DifftestInstrCommit
+import chisel3._
+import chisel3.util._
+import chisel3.util.experimental.BoringUtils
+import difftest.{DifftestInstrCommit, DifftestTrapEvent}
 
 
 class RobInput extends Bundle {
@@ -813,5 +816,68 @@ class Rob extends Module {
   io.out.toIu               := retireOut.toIu
   io.out.toPad              := retireOut.toPad
   io.out.yyXx               := retireOut.yyXx
+
+  //==========================================================
+  //          to Difftest
+  //==========================================================
+  if (DifftestEnable) {
+    val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
+    val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
+    BoringUtils.addSink(diffcommitdestReg, "diffcommitdestReg")
+    BoringUtils.addSink(diffcommitwdata, "diffcommitwdata")
+    dontTouch(diffcommitwdata)
+
+//    val diffInstrCommitSignal = WireInit(
+//      VecInit(Seq.fill(NumCommitEntry * NumFoldMax)(0.U.asTypeOf(new DiffInstrCommitIO)))
+//    )
+//    BoringUtils.addSource(diffInstrCommitSignal, "diffInstrCommitSignal")
+
+    for (i <- 0 until NumCommitEntry) {
+      val commitValid = io.out.toRetire.instVec(i).valid
+      val instNum = io.out.toRetire.instVec(i).num
+      val pcVec = io.out.toRetire.instVec(i).debug.pc
+      val instVec = io.out.toRetire.instVec(i).debug.inst
+      val RVCVec = io.out.toRetire.instVec(i).debug.RVC
+      val rfwenVec = io.out.toRetire.instVec(i).debug.rfwen
+      val wpdestVec = io.out.toRetire.instVec(i).debug.wpdest
+      val wdestVec = io.out.toRetire.instVec(i).debug.wdest
+      for (j <- 0 until NumFoldMax) {
+        val instrCommit = Module(new DifftestInstrCommit)
+        instrCommit.io.clock   := clock
+        instrCommit.io.coreid  := 0.U
+        instrCommit.io.index   := (i * NumFoldMax + j).U
+        instrCommit.io.valid   := RegNext(commitValid && (j.U < instNum))
+        instrCommit.io.pc      := RegNext(Cat(pcVec(j), 0.U(1.W))(63, 0) | BigInt("80000000", 16).U)
+        instrCommit.io.instr   := RegNext(instVec(j))
+        instrCommit.io.special := RegNext(0.U)
+        instrCommit.io.skip    := RegNext(false.B)
+        instrCommit.io.isRVC   := RegNext(RVCVec(j))
+        instrCommit.io.rfwen   := RegNext(rfwenVec(j))
+        instrCommit.io.fpwen   := RegNext(false.B)
+        instrCommit.io.wdest   := RegNext(wdestVec(j))
+        instrCommit.io.wpdest  := RegNext(wpdestVec(j))
+      }
+    }
+    val cycleCnt = RegInit(0.U(64.W))
+    cycleCnt := cycleCnt + 1.U
+    val instrCnt = RegInit(0.U(64.W))
+    when(io.out.toRetire.commitValidVec(0) || io.out.toRetire.commitValidVec(1) || io.out.toRetire.commitValidVec(2)) {
+      instrCnt := instrCnt + io.out.toRetire.commitValidVec(0).asUInt + io.out.toRetire.commitValidVec(1).asUInt + io.out.toRetire.commitValidVec(2).asUInt
+    }
+
+//    val diffTrapEventSignal = WireInit(
+//      0.U.asTypeOf(Flipped(new DiffTrapEventIO))
+//    )
+//    BoringUtils.addSource(diffTrapEventSignal, "diffTrapEventSignal")
+    val trapEvent = Module(new DifftestTrapEvent)
+    trapEvent.io.clock     := clock
+    trapEvent.io.coreid    := 0.U
+    trapEvent.io.valid     := false.B
+    trapEvent.io.code      := RegNext(0.U)
+    trapEvent.io.pc        := RegNext(0.U)
+    trapEvent.io.cycleCnt  := RegNext(cycleCnt)
+    trapEvent.io.instrCnt  := RegNext(instrCnt)
+    trapEvent.io.hasWFI    := RegNext(false.B)
+  }
 
 }

@@ -1,5 +1,6 @@
 package Core.IU
 
+import Core.Config.XLEN
 import Core.IU.MDu.{DuRegData, MuRegData}
 import Core.IUConfig
 import chisel3._

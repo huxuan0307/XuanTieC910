@@ -1,5 +1,5 @@
 package Core.LSU.Lfb
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.{DCacheConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
