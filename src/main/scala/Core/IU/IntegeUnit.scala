@@ -1,5 +1,6 @@
 package Core.IU
 
+import Core.Config.XLEN
 import Core.ExceptionConfig.{ExceptionVecWidth, MtvalWidth}
 import Core.IDU.FuncUnit
 import Core.IDU.Opcode.Opcode

@@ -1,5 +1,6 @@
 package Core.IU.Du
 
+import Core.Config.XLEN
 import Core.IUConfig
 import Utils.ZeroExt
 import chisel3._

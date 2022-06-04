@@ -1,4 +1,8 @@
 package Core.IDU
+import Core.Config.XLEN
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
+import Core.IntConfig.{InstBits, NumLogicRegsBits, NumPhysicRegsBits}
+import Core.ROBConfig.NumCreateEntry
 import chisel3._
 import chisel3.util._
 
@@ -30,6 +34,14 @@ class ROBData extends Bundle{
   val CMPLT_CNT       = UInt(2.W) //3
   val CMPLT           = Bool() //1
   val VLD             = Bool() //0
+  val debug = if (DifftestEnable) new Bundle() {
+    val pc    = Vec(NumFoldMax, UInt(XLEN.W))
+    val inst  = Vec(NumFoldMax, UInt(InstBits.W))
+    val RVC   = Vec(NumFoldMax, Bool())
+    val rfwen = Vec(NumFoldMax, Bool())
+    val wpdest= Vec(NumFoldMax, UInt(NumPhysicRegsBits.W))
+    val wdest = Vec(NumFoldMax, UInt(NumLogicRegsBits.W))
+  } else null
 }
 
 class VFPU2IS extends Bundle {
@@ -575,6 +587,30 @@ class ISStage extends Module{
     //rob_create_data(i).CMPLT_CNT :=
     rob_create_data(i).CMPLT := false.B
     rob_create_data(i).VLD := true.B
+    if (DifftestEnable) {
+      val idx_offset = Wire(Vec(NumCreateEntry, UInt(2.W)))
+      idx_offset(0) := 0.U
+      for (j <- 1 until NumCreateEntry) {
+        idx_offset(j) := rob_create_data(j - 1).INST_NUM
+      }
+      for (j <- 0 until NumFoldMax) {
+        if (i + j < inst_read_data.length) {
+          rob_create_data(i).debug.pc(j)      := inst_read_data(idx_offset(i) + j.U).LSU_PC
+          rob_create_data(i).debug.inst(j)    := inst_read_data(idx_offset(i) + j.U).opcode
+          rob_create_data(i).debug.RVC(j)     := !inst_read_data(idx_offset(i) + j.U).LENGTH
+          rob_create_data(i).debug.rfwen(j)   := inst_read_data(idx_offset(i) + j.U).dst_vld
+          rob_create_data(i).debug.wdest(j)   := inst_read_data(idx_offset(i) + j.U).dst_reg
+          rob_create_data(i).debug.wpdest(j)  := inst_read_data(idx_offset(i) + j.U).dst_preg
+        } else {
+          rob_create_data(i).debug.pc(j)      := BigInt("ffffffff", 16).U
+          rob_create_data(i).debug.inst(j)    := BigInt("ffffffff", 16).U
+          rob_create_data(i).debug.RVC(j)     := BigInt("ffffffff", 16).U
+          rob_create_data(i).debug.rfwen(j)   := BigInt("ffffffff", 16).U
+          rob_create_data(i).debug.wdest(j)   := BigInt("ffffffff", 16).U
+          rob_create_data(i).debug.wpdest(j)  := BigInt("ffffffff", 16).U
+        }
+      }
+    }
   }
 
   val dis_inst01_pc_offset  = dis_inst_pc_offset(0) + dis_inst_pc_offset(1)

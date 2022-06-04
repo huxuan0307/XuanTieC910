@@ -1,6 +1,6 @@
 package Core.LSU.Sq
 import Core.IUConfig.MPPWidth
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LSU.RotData
 import Core.LSU.StoreExStage.SqToStDc
 import Core.LsuConfig

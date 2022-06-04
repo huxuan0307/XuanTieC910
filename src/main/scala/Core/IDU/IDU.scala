@@ -1,10 +1,11 @@
 package Core.IDU
 
 import Core.Config
+import Core.Config.XLEN
 import Core.IDU.IS.AiqConfig.{NumAiqCreatePort, NumSrcArith}
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IUConfig.PcFifoAddr
-import Core.IntConfig.{NumPhysicRegsBits, XLEN}
+import Core.IntConfig.NumPhysicRegsBits
 import IS._
 import RF._
 import chisel3._

@@ -1,5 +1,5 @@
 package Core.LSU.StoreExStage
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LsuConfig
 import chisel3._
 import chisel3.util._

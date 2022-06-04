@@ -1,5 +1,6 @@
 package Core.IU
 
+import Core.Config.XLEN
 import Core.FuncOpType.width
 import Core.IUConfig
 import Core.IntConfig.NumPhysicRegsBits

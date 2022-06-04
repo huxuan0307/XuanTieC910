@@ -7,7 +7,7 @@ Cache Clear   - MCOR[5]
 CLR - 1, Cache lines marked as dirty will be written out of chip
 CLR - 0, Cache lines marked as dirty will not be written out of chip
  */
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LSU.Sq.SqToIcc
 import Core.LSU.StoreExStage.StDaToIcc
 import Core.{DCacheConfig, LsuConfig}

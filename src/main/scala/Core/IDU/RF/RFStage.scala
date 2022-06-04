@@ -1,5 +1,6 @@
 package Core.IDU.RF
 
+import Core.Config.XLEN
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
 import Core.IDU.{FuncUnit, ct_idu_rf_pipe2_decd}

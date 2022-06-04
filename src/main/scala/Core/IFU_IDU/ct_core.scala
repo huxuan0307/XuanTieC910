@@ -221,7 +221,7 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.fromIr.ereg.allocGateClkValid := idu.io.out.IRtoRTU.ereg_alloc_gateclk_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocValidVec := idu.io.out.IRtoRTU.vreg_alloc_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocGateClkValid := idu.io.out.IRtoRTU.vreg_alloc_gateclk_vld
-  for(i <- 0 to (NumCreateEntry-1)) {
+  for(i <- 0 until NumCreateEntry) {
     rtu.io.in.fromIdu.robCreate(i).en := idu.io.out.IStoRTU.rob_create(i).en
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.hit := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_HIT
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.miss := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_MISS
@@ -252,6 +252,7 @@ class SimTop extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.robCreate(i).dpEn := idu.io.out.IStoRTU.rob_create(i).dp_en
     rtu.io.in.fromIdu.robCreate(i).gateClkEn := idu.io.out.IStoRTU.rob_create(i).gateclk_en
     rtu.io.in.fromIdu.robCreate(i).data.data.instr := idu.io.out.IStoRTU.rob_create(i).data.INSTR
+    rtu.io.in.fromIdu.robCreate(i).data.data.debug := idu.io.out.IStoRTU.rob_create(i).data.debug
   }
   for(i <- 0 to (NumCreateEntry-1)) {
     //////todo:check it

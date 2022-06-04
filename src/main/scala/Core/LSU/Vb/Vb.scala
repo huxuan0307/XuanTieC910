@@ -1,7 +1,7 @@
 package Core.LSU.Vb
 
 import Core.BiuID.BIU_VB_ID_T
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LSU.CacheRelated.IccToVb
 import Core.LSU.Lfb.{LfbToVb, VbToLfb}
 import Core.LSU.StoreExStage.StDaToVb
