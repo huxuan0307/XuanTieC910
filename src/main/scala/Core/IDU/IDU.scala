@@ -1,13 +1,13 @@
 package Core.IDU
 
 import Core.Config
-import Core.IDU.IS.AiqConfig._
-import Core.IDU.IS.LsiqConfig._
-import Core.IDU.RF.PrfConfig.NumPregReadPort
+import Core.Config.XLEN
+import Core.IDU.IS.AiqConfig.{NumAiqCreatePort, NumSrcArith}
+import Core.IDU.IS.LsiqConfig.NumLsiqCreatePort
+import Core.IDU.IS._
+import Core.IDU.RF._
 import Core.IUConfig.PcFifoAddr
-import Core.IntConfig.{NumPhysicRegsBits, XLEN}
-import IS._
-import RF._
+import Core.IntConfig.NumPhysicRegsBits
 import chisel3._
 import chisel3.util._
 
@@ -183,7 +183,7 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
       val wb_pipe3_wb_preg_dupx       = UInt(7.W)
       val wb_pipe3_wb_preg_vld_dupx   = Bool()
     }
-     */
+    */
     val ISfromLSU = new Bundle {
       val ag_pipe3_load_inst_vld = Bool()
       val ag_pipe3_preg_dupx = UInt(7.W)
@@ -355,7 +355,6 @@ class IDU extends Module with Config {
   val aiq1 = Module(new ArithInstQueue1)
   val biq = Module(new Biq)
   val lsiq = Module(new Lsiq)
-  //val sdiq = Module(new sdiq)
   val rfstage = Module(new RFStage)
   val prf = Module(new Prf)
   //////todo: add 1ereg, 2 vreg, 2freg

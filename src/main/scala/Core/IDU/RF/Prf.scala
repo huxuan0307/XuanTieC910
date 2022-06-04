@@ -1,5 +1,6 @@
 package Core.IDU.RF
 
+import Core.Config.XLEN
 import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
@@ -7,6 +8,7 @@ import Core.VectorUnitConfig._
 import Core.PipelineConfig._
 import Core.IntConfig._
 import chisel3.util.experimental.BoringUtils
+import difftest.DifftestArchIntRegState
 
 trait PrfConfig {
   def NumPregReadPort = 11
@@ -123,4 +125,18 @@ class Prf extends Module with PrfConfig{
     diffcommitwdata(i) := data(diffcommitpreg(i))
   }
   BoringUtils.addSource(diffcommitwdata,"diffcommitwdata")
+
+  val difftestIntPreg = WireInit(VecInit(Seq.fill(NumLogicRegs)(0.U(NumPhysicRegsBits.W))))
+  BoringUtils.addSink(difftestIntPreg, "difftestIntPreg")
+
+  val commitGpr = Wire(Vec(NumLogicRegs, UInt(XLEN.W)))
+  commitGpr.zipWithIndex.foreach {
+    case (rdata, i) =>
+      rdata := data(difftestIntPreg(i))
+  }
+
+  val difftestArchIntRegState = Module(new DifftestArchIntRegState)
+  difftestArchIntRegState.io.clock := clock
+  difftestArchIntRegState.io.coreid := 0.U
+  difftestArchIntRegState.io.gpr := commitGpr
 }

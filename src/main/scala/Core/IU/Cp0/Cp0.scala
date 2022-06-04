@@ -3,7 +3,7 @@ package Core.IU.Cp0
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IU.Cp0.Define.Exceptions._
 import Core.IU.{cp0ToIu, unitSel}
-import Core.IUConfig.XLEN
+import Core.Config.XLEN
 import Core.{Cp0Config, FuncType, VectorUnitConfig}
 import Core.IntConfig.{InstructionIdWidth, NumPhysicRegsBits}
 import chisel3._
@@ -75,7 +75,6 @@ object CsrOpType {
 
 
 trait Config{
-  def XLEN = 64
   def SV39Len = 39
   def SXLEN : Int = MXLEN
   def UXLEN : Int = SXLEN

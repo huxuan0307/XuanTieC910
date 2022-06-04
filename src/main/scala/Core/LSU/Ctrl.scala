@@ -1,5 +1,5 @@
 package Core.LSU
-import Core.IntConfig.XLEN
+import Core.Config.XLEN
 import Core.LSU.LoadExStage.LoadDA2Ctrl
 import Core.LSU.Sq.SqToCtrl
 import Core.LSU.StoreExStage.{StDaToCtrl, StDcToCtrl}

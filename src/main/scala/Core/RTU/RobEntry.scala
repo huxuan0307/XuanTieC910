@@ -1,10 +1,13 @@
 package Core.RTU
 
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
 import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
 import Core.VectorUnitConfig._
 import Core.PipelineConfig._
+import Core.IntConfig.{InstBits, NumLogicRegsBits, NumPhysicRegsBits}
+import Core.Config.XLEN
 
 class RobEntryCtrlPath extends Bundle {
   val valid       : Bool = Bool()
@@ -39,6 +42,15 @@ class RobEntryDataPath extends Bundle {
   val intMask         : Bool = Bool()
   val split           : Bool = Bool()
   val pcOffset        : UInt = UInt(RobPcOffsetBits.W)
+
+  val debug = if (DifftestEnable) new Bundle() {
+    val pc    = Vec(NumFoldMax, UInt(XLEN.W))
+    val inst  = Vec(NumFoldMax, UInt(InstBits.W))
+    val RVC   = Vec(NumFoldMax, Bool())
+    val rfwen = Vec(NumFoldMax, Bool())
+    val wpdest= Vec(NumFoldMax, UInt(NumPhysicRegsBits.W))
+    val wdest = Vec(NumFoldMax, UInt(NumLogicRegsBits.W))
+  } else null
 }
 
 class RobEntryData extends Bundle {

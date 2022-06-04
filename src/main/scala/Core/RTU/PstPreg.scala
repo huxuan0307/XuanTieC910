@@ -1,11 +1,11 @@
 package Core.RTU
 
-import chisel3._
-import chisel3.util._
-import Core.ROBConfig._
 import Core.IntConfig._
 import Core.PipelineConfig._
+import Core.ROBConfig._
 import Utils.ParallelXOR
+import chisel3._
+import chisel3.util._
 import chisel3.util.experimental.BoringUtils
 
 import scala.language.postfixOps
@@ -396,12 +396,12 @@ class PstPreg extends Module {
   //          to Difftest
   //==========================================================
   val temdestReg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
+  val tempreg0    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
   val temdestReg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
+  val tempreg1    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
   val temdestReg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
-  entries.zipWithIndex.foreach{
+  val tempreg2    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
+  entries.zipWithIndex.foreach {
     case (entries, i) =>
       val destReg = OHToUInt((entries.io.x.out.destRegOH).asUInt)
       val preg = entries.io.x.out.retirePregVec
@@ -424,4 +424,6 @@ class PstPreg extends Module {
 
   BoringUtils.addSource(diffcommitdestReg,"diffcommitdestReg")
   BoringUtils.addSource(diffcommitpreg,"diffcommitpreg")
+
+  BoringUtils.addSource(io.out.toIdu.rtRecoverPreg, "difftestIntPreg")
 }

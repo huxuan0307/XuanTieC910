@@ -1,6 +1,7 @@
 package Core.LSU.StoreExStage
 
-import Core.IUConfig.{MPPWidth, XLEN}
+import Core.Config.XLEN
+import Core.IUConfig.MPPWidth
 import Core.LsuAccessSize._
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
 import Core.RTU.CompareIid

@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
 import Core.AddrConfig._
+import Core.Config.XLEN
 import Core.IntConfig._
 import Core.ExceptionConfig._
 import Core.PipelineConfig.NumPipeline
