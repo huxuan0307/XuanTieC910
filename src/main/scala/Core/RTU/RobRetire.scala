@@ -202,7 +202,7 @@ class RobRetire extends Module {
 
   private val robPcCurAddend0 = RegInit(0.U(PcWidth.W))
   private val robPcCurAddend1 = RegInit(0.U(PcAddend1Bits.W))
-  private val robRead2PcCurAddend0 = RegInit(0.U(PcWidth.W))
+  private val robRead2PcCurAddend0 = WireInit(0.U(PcWidth.W))
 
   /**
    * Wires
@@ -964,7 +964,7 @@ class RobRetire extends Module {
     robPcCurAddend1 := robPcCurAddend1 + 2.U
   }.elsewhen(io.in.fromRetire.flush) {
     robPcCurAddend0 := robPcCurAddend0
-    robPcCurAddend1 := robPcCurAddend1 + 2.U
+    robPcCurAddend1 := robPcCurAddend1
   }.elsewhen(io.in.fromIfu.curPcLoad) {
     robPcCurAddend0 := io.in.fromIfu.curPc
     robPcCurAddend1 := 0.U

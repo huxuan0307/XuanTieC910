@@ -1,6 +1,7 @@
 package Core.IU.Bju
 
 import Core.AddrConfig.PcWidth
+import Core.Config.PcStart
 import Core.IUConfig.{PcFifoAddr, PcFifoLen}
 import Core.IntConfig.InstructionIdWidth
 import Core.ROBConfig.NumRobReadEntry
@@ -261,6 +262,10 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
   }
 
   io.rtuRw.rtuReadData := pop_data_vec
+  for(i <- 0 until NumRobReadEntry){
+    io.rtuRw.rtuReadData(i).pcNext := (pop_data_vec(i).pcNext - PcStart.U) >> 1.U
+  }
+
   //----------------------------------------------------------
   //         Speical read, to Special Unit, auipc inst
   //----------------------------------------------------------

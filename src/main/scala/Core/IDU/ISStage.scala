@@ -548,7 +548,7 @@ class ISStage extends Module{
   val rob_create_data = WireInit(VecInit(Seq.fill(4)(0.U.asTypeOf(new ROBData))))
 
   for(i <- 0 until 4){
-    rob_create_data(i).INSTR   := inst_read_data(i).opcode
+    //rob_create_data(0).INSTR :=
     rob_create_data(i).VL_PRED := inst_read_data(i).VL_PRED
     rob_create_data(i).VL := inst_read_data(i).VL
     //rob_create_data(i).VEC_DIRTY :=
@@ -567,8 +567,8 @@ class ISStage extends Module{
     rob_create_data(i).BKPTA_DATA := 0.U
     rob_create_data(i).STORE := inst_read_data(i).STADDR
     //rob_create_data(i).RAS :=
-    rob_create_data(i).PCFIFO := inst_read_data(i).PCFIFO
-    rob_create_data(i).BJU := inst_read_data(i).BJU
+    //rob_create_data(i).PCFIFO := inst_read_data(i).PCFIFO
+    //rob_create_data(i).BJU := inst_read_data(i).BJU
     rob_create_data(i).INTMASK := inst_read_data(i).INTMASK
     rob_create_data(i).SPLIT := inst_read_data(i).SPLIT
     //rob_create_data(i).PC_OFFSET :=
@@ -610,6 +610,9 @@ class ISStage extends Module{
   //                  Create Data for Port 0
   //----------------------------------------------------------
   when(dis_info.rob_create.sel0 === 0.U){//inst0
+    rob_create_data(0).INSTR      := inst_read_data(0).opcode
+    rob_create_data(0).PCFIFO     := inst_read_data(0).PCFIFO
+    rob_create_data(0).BJU        := inst_read_data(0).BJU
     rob_create_data(0).VEC_DIRTY  := dis_inst_vec_dirty(0)
     rob_create_data(0).FP_DIRTY   := dis_inst_fp_dirty(0)
     rob_create_data(0).INST_NUM   := 1.U
@@ -619,6 +622,9 @@ class ISStage extends Module{
     rob_create_data(0).PC_OFFSET  := dis_inst_pc_offset(0)
     rob_create_data(0).CMPLT_CNT  := 1.U
   }.elsewhen(dis_info.rob_create.sel0 === 1.U){//inst0 and inst1
+    rob_create_data(0).INSTR      := inst_read_data(0).opcode
+    rob_create_data(0).PCFIFO     := inst_read_data(0).PCFIFO
+    rob_create_data(0).BJU        := inst_read_data(0).BJU
     rob_create_data(0).VEC_DIRTY  := dis_inst01_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst01_fp_dirty
     rob_create_data(0).INST_NUM   := 2.U
@@ -628,6 +634,9 @@ class ISStage extends Module{
     rob_create_data(0).PC_OFFSET  := dis_inst01_pc_offset
     rob_create_data(0).CMPLT_CNT  := 2.U
   }.elsewhen(dis_info.rob_create.sel0 === 2.U){//inst0, inst1 and inst2
+    rob_create_data(0).INSTR      := inst_read_data(0).opcode
+    rob_create_data(0).PCFIFO     := inst_read_data(0).PCFIFO
+    rob_create_data(0).BJU        := inst_read_data(0).BJU
     rob_create_data(0).VEC_DIRTY  := dis_inst012_vec_dirty
     rob_create_data(0).FP_DIRTY   := dis_inst012_fp_dirty
     rob_create_data(0).INST_NUM   := 3.U
@@ -642,6 +651,9 @@ class ISStage extends Module{
   //                  Create Data for Port 1
   //----------------------------------------------------------
   when(dis_info.rob_create.sel1 === 0.U){//inst1
+    rob_create_data(1).INSTR      := inst_read_data(1).opcode
+    rob_create_data(1).PCFIFO     := inst_read_data(1).PCFIFO
+    rob_create_data(1).BJU        := inst_read_data(1).BJU
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(1)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(1)
     rob_create_data(1).INST_NUM   := 1.U
@@ -651,6 +663,9 @@ class ISStage extends Module{
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(1)
     rob_create_data(1).CMPLT_CNT  := 1.U
   }.elsewhen(dis_info.rob_create.sel1 === 1.U){//inst1 and inst2
+    rob_create_data(1).INSTR      := inst_read_data(1).opcode
+    rob_create_data(1).PCFIFO     := inst_read_data(1).PCFIFO
+    rob_create_data(1).BJU        := inst_read_data(1).BJU
     rob_create_data(1).VEC_DIRTY  := dis_inst12_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst12_fp_dirty
     rob_create_data(1).INST_NUM   := 2.U
@@ -660,6 +675,9 @@ class ISStage extends Module{
     rob_create_data(1).PC_OFFSET  := dis_inst12_pc_offset
     rob_create_data(1).CMPLT_CNT  := 2.U
   }.elsewhen(dis_info.rob_create.sel1 === 2.U){//inst2
+    rob_create_data(1).INSTR      := inst_read_data(2).opcode
+    rob_create_data(1).PCFIFO     := inst_read_data(2).PCFIFO
+    rob_create_data(1).BJU        := inst_read_data(2).BJU
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(1).INST_NUM   := 1.U
@@ -669,6 +687,9 @@ class ISStage extends Module{
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(1).CMPLT_CNT  := 1.U
   }.elsewhen(dis_info.rob_create.sel1 === 3.U){//inst3
+    rob_create_data(1).INSTR      := inst_read_data(3).opcode
+    rob_create_data(1).PCFIFO     := inst_read_data(3).PCFIFO
+    rob_create_data(1).BJU        := inst_read_data(3).BJU
     rob_create_data(1).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(1).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(1).INST_NUM   := 1.U
@@ -678,6 +699,9 @@ class ISStage extends Module{
     rob_create_data(1).PC_OFFSET  := dis_inst_pc_offset(3)
     rob_create_data(1).CMPLT_CNT  := 1.U
   }.elsewhen(dis_info.rob_create.sel1 === 4.U){//inst1, inst2 and inst3
+    rob_create_data(1).INSTR      := inst_read_data(1).opcode
+    rob_create_data(1).PCFIFO     := inst_read_data(1).PCFIFO
+    rob_create_data(1).BJU        := inst_read_data(1).BJU
     rob_create_data(1).VEC_DIRTY  := dis_inst123_vec_dirty
     rob_create_data(1).FP_DIRTY   := dis_inst123_fp_dirty
     rob_create_data(1).INST_NUM   := 3.U
@@ -692,6 +716,9 @@ class ISStage extends Module{
   //                  Create Data for Port 2
   //----------------------------------------------------------
   when(dis_info.rob_create.sel2 === 0.U){//inst2
+    rob_create_data(2).INSTR      := inst_read_data(2).opcode
+    rob_create_data(2).PCFIFO     := inst_read_data(2).PCFIFO
+    rob_create_data(2).BJU        := inst_read_data(2).BJU
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(2)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(2)
     rob_create_data(2).INST_NUM   := 1.U
@@ -701,6 +728,9 @@ class ISStage extends Module{
     rob_create_data(2).PC_OFFSET  := dis_inst_pc_offset(2)
     rob_create_data(2).CMPLT_CNT  := 1.U
   }.elsewhen(dis_info.rob_create.sel2 === 2.U){//inst2 and inst3
+    rob_create_data(2).INSTR      := inst_read_data(2).opcode
+    rob_create_data(2).PCFIFO     := inst_read_data(2).PCFIFO
+    rob_create_data(2).BJU        := inst_read_data(2).BJU
     rob_create_data(2).VEC_DIRTY  := dis_inst23_vec_dirty
     rob_create_data(2).FP_DIRTY   := dis_inst23_fp_dirty
     rob_create_data(2).INST_NUM   := 2.U
@@ -710,6 +740,9 @@ class ISStage extends Module{
     rob_create_data(2).PC_OFFSET  := dis_inst23_pc_offset
     rob_create_data(2).CMPLT_CNT  := 2.U
   }.elsewhen(dis_info.rob_create.sel2 === 3.U){//inst3
+    rob_create_data(2).INSTR      := inst_read_data(3).opcode
+    rob_create_data(2).PCFIFO     := inst_read_data(3).PCFIFO
+    rob_create_data(2).BJU        := inst_read_data(3).BJU
     rob_create_data(2).VEC_DIRTY  := dis_inst_vec_dirty(3)
     rob_create_data(2).FP_DIRTY   := dis_inst_fp_dirty(3)
     rob_create_data(2).INST_NUM   := 1.U
@@ -724,6 +757,9 @@ class ISStage extends Module{
   //                  Create Data for Port 3
   //----------------------------------------------------------
   //create port 3 is always from inst3
+  rob_create_data(3).INSTR      := inst_read_data(3).opcode
+  rob_create_data(3).PCFIFO     := inst_read_data(3).PCFIFO
+  rob_create_data(3).BJU        := inst_read_data(3).BJU
   rob_create_data(3).VEC_DIRTY  := dis_inst_vec_dirty(3)
   rob_create_data(3).FP_DIRTY   := dis_inst_fp_dirty(3)
   rob_create_data(3).INST_NUM   := 1.U
