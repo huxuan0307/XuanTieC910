@@ -269,7 +269,7 @@ class Bju extends Module{
   bju_write.pcall       := ex2_pipe2_pcall
   bju_write.pret        := ex2_pipe2_pret
   bju_write.condbr      := ex2_pipe_is_br
-  bju_write.pc          := Cat(ex2_pipe_tar_pc,1.U)
+  bju_write.pc          := ex2_pipe_tar_pc
   bju_write.instVld     := ex2_pipe_inst_vld
   bju_write.length      := ex2_pipe2_length
   bju_write.bhtPred     := ex2_pipe2_bht_pred
