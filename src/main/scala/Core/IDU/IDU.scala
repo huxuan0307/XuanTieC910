@@ -709,7 +709,7 @@ class IDU extends Module with Config {
   aiq1.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
   aiq1.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
   aiq1.io.in.fromIu := DontCare //////not use
-  aiq1.io.in.aiqEntryCreateVec := DontCare //////todo: add aiq1
+  aiq1.io.in.aiqEntryCreateVec := lsiq.io.out.entryEnqOHVec //////todo: add aiq1
   aiq1.io.in.biqEntryCreateVec := biq.io.out.entryEnqOHVec
   aiq1.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
   aiq1.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
@@ -728,7 +728,7 @@ class IDU extends Module with Config {
   biq.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
   biq.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
   biq.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
-  biq.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
+  biq.io.in.fromCp0.icgEn   := io.in.fromCp0.icgEn
   biq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
   biq.io.in.fromIu.div := io.in.biqfromIU.div
   biq.io.in.fromLsu := io.in.fromLSU.IQfromLSU
@@ -788,6 +788,50 @@ class IDU extends Module with Config {
   // &Instance("ct_idu_is_lsiq", "x_ct_idu_is_lsiq"); @61
 
   lsiq.io.in := DontCare ////todo: connect lsiq
+  lsiq.io.in.fromCp0.yyClkEn         := io.in.fromCp0.yyClkEn
+  lsiq.io.in.fromCp0.icgEn           := io.in.fromCp0.icgEn
+  lsiq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
+  for(i<-0 until (NumLsiqCreatePort)) {
+    lsiq.io.in.ctrl.createEnVec(i) := isstage.io.out.iqCreateEn(i)(3).en
+    lsiq.io.in.ctrl.createGateClkVec(i) := isstage.io.out.iqCreateEn(i)(3).gateclk_en
+    lsiq.io.in.ctrl.createDpEnVec(i) := isstage.io.out.iqCreateEn(i)(3).dp_en
+  }
+  lsiq.io.in.ctrl.fromIr.barInstValid := irstage.io.out.lsiq_ir_bar_inst_vld
+  lsiq.io.in.ctrl.fromIs.barInstValid := isstage.io.out.toLsiq.bar_inst_vld
+  lsiq.io.in.fwd.aluValid := DontCare// todo in rfstage.io.fwd do not exist
+  lsiq.io.in.ctrl.fromRf.launchFailValid(0) := rfstage.io.ctrl.out.toIq(3).launchFailValid
+  lsiq.io.in.ctrl.fromRf.launchFailValid(1) := rfstage.io.ctrl.out.toIq(4).launchFailValid
+  // todo rfstage.io.ctrl.out.toIq(4).lchVldDup
+  lsiq.io.in.data.bypassData := isstage.io.out.toLsiq.bypass_data // is bind bundle
+  lsiq.io.in.data.create.bar := isstage.io.out.toLsiq.create_bar
+  lsiq.io.in.data.create.load   := isstage.io.out.toLsiq.create_load
+  lsiq.io.in.data.create.noSpec := isstage.io.out.toLsiq.create_no_spec
+  lsiq.io.in.data.create.store  := isstage.io.out.toLsiq.create_store
+  lsiq.io.in.data.createData := isstage.io.out.toLsiq.create_data // is bind bundle
+  lsiq.io.in.data.create.srcReadyForBypass(0) := isstage.io.out.toLsiq.create0_src_rdy_for_bypass(0) //src0
+  lsiq.io.in.data.create.srcReadyForBypass(1) := isstage.io.out.toLsiq.create0_src_rdy_for_bypass(1) //src1
+  lsiq.io.in.data.create.srcReadyForBypass(2) := isstage.io.out.toLsiq.create0_srcvm_rdy_for_bypass //src_vm
+  lsiq.io.in.data.fromRf.launchEntry(0) := rfstage.io.data.out.toLsiq0.launchEntryOH
+  lsiq.io.in.data.fromRf.launchEntry(1) := rfstage.io.data.out.toLsiq1.launchEntryOH
+  lsiq.io.in.data.fromRf.readyClear(0) := rfstage.io.data.out.toLsiq0.readyClr
+  lsiq.io.in.data.fromRf.readyClear(1) := rfstage.io.data.out.toLsiq1.readyClr
+// todo did not find
+//  .dp_xx_rf_pipe0_dst_preg_dupx            (dp_xx_rf_pipe0_dst_preg_dup1           ),
+//  .dp_xx_rf_pipe1_dst_preg_dupx            (dp_xx_rf_pipe1_dst_preg_dup1           ),
+  lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
+  lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+  lsiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
+  lsiq.io.in.wbPreg(0).valid := io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx
+  lsiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
+  lsiq.io.in.fuDstPreg(2).bits := io.in.RTfromIU.ex2_pipe1_preg_dupx
+  lsiq.io.in.wbPreg(1).bits  := io.in.RTfromIU.ex2_pipe1_wb_preg_dupx
+  lsiq.io.in.wbPreg(1).valid := io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx
+
+  // todo ADD lsiq.io.in.fromLsu
+
+
+
+
 
   // &ConnRule(s/_dupx/_dup1/); @62
   // &Instance("ct_idu_is_sdiq", "x_ct_idu_is_sdiq"); @63
