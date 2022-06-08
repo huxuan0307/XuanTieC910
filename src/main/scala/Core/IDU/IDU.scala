@@ -1,7 +1,8 @@
 package Core.IDU
 
 import Core.Config
-import Core.IDU.IS.AiqConfig.{NumAiqCreatePort, NumSrcArith}
+import Core.IDU.IS.AiqConfig._
+import Core.IDU.IS.LsiqConfig._
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.{NumPhysicRegsBits, XLEN}
