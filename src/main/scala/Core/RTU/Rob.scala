@@ -821,17 +821,6 @@ class Rob extends Module {
   //          to Difftest
   //==========================================================
   if (DifftestEnable) {
-    val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
-    val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
-    BoringUtils.addSink(diffcommitdestReg, "diffcommitdestReg")
-    BoringUtils.addSink(diffcommitwdata, "diffcommitwdata")
-    dontTouch(diffcommitwdata)
-
-//    val diffInstrCommitSignal = WireInit(
-//      VecInit(Seq.fill(NumCommitEntry * NumFoldMax)(0.U.asTypeOf(new DiffInstrCommitIO)))
-//    )
-//    BoringUtils.addSource(diffInstrCommitSignal, "diffInstrCommitSignal")
-
     for (i <- 0 until NumCommitEntry) {
       val commitValid = io.out.toRetire.instVec(i).valid
       val instNum = io.out.toRetire.instVec(i).num
@@ -865,10 +854,6 @@ class Rob extends Module {
       instrCnt := instrCnt + io.out.toRetire.commitValidVec(0).asUInt + io.out.toRetire.commitValidVec(1).asUInt + io.out.toRetire.commitValidVec(2).asUInt
     }
 
-//    val diffTrapEventSignal = WireInit(
-//      0.U.asTypeOf(Flipped(new DiffTrapEventIO))
-//    )
-//    BoringUtils.addSource(diffTrapEventSignal, "diffTrapEventSignal")
     val trapEvent = Module(new DifftestTrapEvent)
     trapEvent.io.clock     := clock
     trapEvent.io.coreid    := 0.U
@@ -879,5 +864,4 @@ class Rob extends Module {
     trapEvent.io.instrCnt  := RegNext(instrCnt)
     trapEvent.io.hasWFI    := RegNext(false.B)
   }
-
 }

@@ -391,39 +391,8 @@ class PstPreg extends Module {
 
   io.out.toIdu.rtRecoverPreg := regPregVec
 
-
   //==========================================================
   //          to Difftest
   //==========================================================
-  val temdestReg0 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg0    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
-  val temdestReg1 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg1    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
-  val temdestReg2 = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumLogicRegsBits.W)))
-  val tempreg2    = Seq.fill(NumPhysicRegs)(WireInit(0.U(NumPhysicRegsBits.W)))
-  entries.zipWithIndex.foreach {
-    case (entries, i) =>
-      val destReg = OHToUInt((entries.io.x.out.destRegOH).asUInt)
-      val preg = entries.io.x.out.retirePregVec
-      val retireValidVec = entries.io.x.out.retireValidVecReg//destretireVld
-      temdestReg0(i) := retireValidVec(0) & destReg
-      tempreg0(i)  := preg(0)
-      temdestReg1(i) := retireValidVec(1) & destReg
-      tempreg1(i)  := preg(1)
-      temdestReg2(i) := retireValidVec(2) & destReg
-      tempreg2(i)  := preg(2)
-  }
-  val diffcommitdestReg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
-  val diffcommitpreg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
-  diffcommitdestReg(0) := ParallelXOR(temdestReg0)
-  diffcommitpreg(0) := ParallelXOR(tempreg0)
-  diffcommitdestReg(1) := ParallelXOR(temdestReg1)
-  diffcommitpreg(1) := ParallelXOR(tempreg1)
-  diffcommitdestReg(2) := ParallelXOR(temdestReg2)
-  diffcommitpreg(2) := ParallelXOR(tempreg2)
-
-  BoringUtils.addSource(diffcommitdestReg,"diffcommitdestReg")
-  BoringUtils.addSource(diffcommitpreg,"diffcommitpreg")
-
   BoringUtils.addSource(io.out.toIdu.rtRecoverPreg, "difftestIntPreg")
 }

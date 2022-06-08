@@ -118,14 +118,6 @@ class Prf extends Module with PrfConfig{
   //==========================================================
   //          to Difftest
   //==========================================================
-  val diffcommitpreg = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(NumLogicRegsBits.W))))
-  BoringUtils.addSink(diffcommitpreg,"diffcommitpreg")
-  val diffcommitwdata = WireInit(VecInit(Seq.fill(NumRetireEntry)(0.U(XLEN.W))))
-  for (i <- 0 until NumRetireEntry) {
-    diffcommitwdata(i) := data(diffcommitpreg(i))
-  }
-  BoringUtils.addSource(diffcommitwdata,"diffcommitwdata")
-
   val difftestIntPreg = WireInit(VecInit(Seq.fill(NumLogicRegs)(0.U(NumPhysicRegsBits.W))))
   BoringUtils.addSink(difftestIntPreg, "difftestIntPreg")
 
