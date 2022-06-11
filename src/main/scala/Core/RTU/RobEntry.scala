@@ -254,12 +254,34 @@ class RobEntry extends Module {
   when (io.in.x.cmpltValidVec.asUInt(4,3).orR) {
     entryData.data.breakpointData.a := breakpointADataUpdate
     entryData.data.breakpointData.b := breakpointBDataUpdate
-    entryData.data.noSpec.hit      := noSpecHitUpdate
-    entryData.data.noSpec.miss     := noSpecMissUpdate
-    entryData.data.noSpec.mispred  := noSpecMispredUpdate
+    entryData.data.noSpec.hit       := noSpecHitUpdate
+    entryData.data.noSpec.miss      := noSpecMissUpdate
+    entryData.data.noSpec.mispred   := noSpecMispredUpdate
     // other signals maintain themselves
   }.elsewhen (io.in.x.createDpEn) {
-    entryData.data := xCreateData.data
+    entryData.data.breakpointData   := xCreateData.data.breakpointData
+    entryData.data.noSpec           := xCreateData.data.noSpec
+  }
+
+  when (io.in.x.createDpEn) {
+    entryData.data.pcOffset         := xCreateData.data.pcOffset
+    entryData.data.split            := xCreateData.data.split
+    entryData.data.intMask          := xCreateData.data.intMask
+    entryData.data.bju              := xCreateData.data.bju
+    entryData.data.pcFifo           := xCreateData.data.pcFifo
+    entryData.data.ras              := xCreateData.data.ras
+    entryData.data.store            := xCreateData.data.store
+    entryData.data.breakpointInst   := xCreateData.data.breakpointInst
+    entryData.data.instNum          := xCreateData.data.instNum
+    entryData.data.fpDirty          := xCreateData.data.fpDirty
+    entryData.data.load             := xCreateData.data.load
+    entryData.data.vlmul            := xCreateData.data.vlmul
+    entryData.data.vsew             := xCreateData.data.vsew
+    entryData.data.vsetvli          := xCreateData.data.vsetvli
+    entryData.data.vecDirty         := xCreateData.data.vecDirty
+    entryData.data.vl               := xCreateData.data.vl
+    entryData.data.vlPred           := xCreateData.data.vlPred
+    entryData.data.debug            := xCreateData.data.debug
   }
 
   io.out.readData := entryData
