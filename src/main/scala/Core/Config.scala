@@ -7,6 +7,7 @@ import chisel3._
 object GlobalConfig {
   def DifftestEnable: Boolean = true
   def NumFoldMax = 3
+  def RobFoldEnable: Boolean = false  // Todo: enable it
 }
 
 object FuncOpType {

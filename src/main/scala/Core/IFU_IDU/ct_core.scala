@@ -1,5 +1,6 @@
 package Core.IFU_IDU
 
+import Core.GlobalConfig.RobFoldEnable
 import Core.IDU._
 import Core.IFU._
 import Core.IU._
@@ -105,7 +106,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.IDfromHad := DontCare
   idu.io.in.IDfromFence := DontCare
-  idu.io.in.IRfromCp0Sub.robFoldDisable := true.B // Todo: enable it
+  idu.io.in.IRfromCp0Sub.robFoldDisable := !RobFoldEnable.B
   idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
