@@ -149,8 +149,10 @@ class LSUInput extends Bundle {
       val l2PrefDist     = UInt(CACHE_DIST_SELECT.W)
     }
   }
-  val rfPipeIn = new Bundle() {
-    val toCtrl = new IduRfSelToCtrl
+  val ctrl = new Bundle{
+    val rfPipeIn = new IduRfSelToCtrl
+    val idu_lsu_vmb_create_gateclk_enVec = Vec(2, Bool())
+    val mmu_lsu_tlb_wakeup = UInt(LSIQ_ENTRY.W)
   }
 }
 
@@ -407,6 +409,9 @@ class LSU extends Module {
   loadag.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loadag.io.in.st_ag_iid := storeag.io.out.toDc.iid
   loadag.io.in.pipe3 := io.in.ld_ag.fromRF_pipe3
+  io.out.ld_ag.toMMU := loadag.io.out.toMMU
+  io.out.ld_ag.toIDU := loadag.io.out.toIDU
+  io.out.ld_ag.toHpcp := loadag.io.out.toHpcp
 
   //&Instance("ct_lsu_cmit_monitor","x_ct_lsu_cmit_monitor");
   // &Instance("ct_lsu_st_ag","x_ct_lsu_st_ag"); @87
@@ -418,6 +423,9 @@ class LSU extends Module {
   storeag.io.in.dcacheIn.addr := dcachearb.io.out.dcache_arb_st_ag_addr
   storeag.io.in.dcacheIn.borrowAddrVld := dcachearb.io.out.dcache_arb_st_ag_borrow_addr_vld
   storeag.io.in.lmIn := 0.U.asTypeOf(storeag.io.in.lmIn) //////todo: complete lm
+  io.out.st_ag.toMmu := storeag.io.out.toMmu
+  io.out.st_ag.toIdu := storeag.io.out.toIdu
+  io.out.st_ag.rfVld := storeag.io.out.rfVld
 
   // &Instance("ct_lsu_sd_ex1","x_ct_lsu_sd_ex1"); @88
   storeex1.io.in := io.in.sd_ex1
@@ -426,6 +434,7 @@ class LSU extends Module {
   //mcic //todo: complete mcic
 
   // &Instance("ct_lsu_dcache_arb","x_ct_lsu_dcache_arb"); @91
+  dcachearb.io.in := DontCare
   dcachearb.io.in.cp0_lsu_icg_en := io.in.ld_ag.fromCp0.lsu_icg_en
   dcachearb.io.in.pad_yy_icg_scan_en := io.in.ld_ag.fromPad.yy_icg_scan_en
   dcachearb.io.in.vb_rcl_sm_data_id := vb.io.out.toSdb.rclSmDataId
@@ -440,6 +449,7 @@ class LSU extends Module {
   dcachearb.io.in.fromIcc.ld_data_low_idx := icc.io.out.toArb.ld.dataLowIdx
   dcachearb.io.in.fromIcc.ld_data_req := icc.io.out.toArb.ld.dataReq
   dcachearb.io.in.fromIcc.ld_tag_gateclk_en := icc.io.out.toArb.ld.tagGateclkEn
+  dcachearb.io.in.fromIcc.ld_tag_idx := icc.io.out.toArb.ld.tagIdx
   dcachearb.io.in.fromIcc.st_borrow_req := icc.io.out.toArb.st.borrowReq
   dcachearb.io.in.fromIcc.st_dirty_din := icc.io.out.toArb.st.dirtyDin
   dcachearb.io.in.fromIcc.st_dirty_gateclk_en := icc.io.out.toArb.st.dirtyGateclkEn
@@ -451,6 +461,7 @@ class LSU extends Module {
   dcachearb.io.in.fromIcc.st_tag_gateclk_en := icc.io.out.toArb.st.tagGateclkEn
   dcachearb.io.in.fromIcc.st_tag_idx := icc.io.out.toArb.st.tagIdx
   dcachearb.io.in.fromIcc.st_tag_req := icc.io.out.toArb.st.tagReq
+  dcachearb.io.in.fromIcc.way := icc.io.out.toArb.way
   dcachearb.io.in.fromLfb.ld_data_gateclk_en := lfb.io.out.toArb.ld_data_gateclk_en
   dcachearb.io.in.fromLfb.ld_data_high_din := lfb.io.out.toArb.ld_data_high_din
   dcachearb.io.in.fromLfb.ld_data_idx := lfb.io.out.toArb.ld_data_idx
@@ -498,6 +509,7 @@ class LSU extends Module {
   dcachearb.io.in.fromVb.st_tag_gateclk_en := vb.io.out.toDcacheArb.st_tag_gateclk_en
   dcachearb.io.in.fromVb.st_tag_idx := vb.io.out.toDcacheArb.st_tag_idx
   dcachearb.io.in.fromVb.st_tag_req := vb.io.out.toDcacheArb.st_tag_req
+  dcachearb.io.in.vb_rcl_sm_data_id := 0.U.asTypeOf(dcachearb.io.in.vb_rcl_sm_data_id)
   //dcachearb.io.in.fromVb.rcl_sm_data_id //todo: have not this signal???
   dcachearb.io.in.fromWmb.data_way := wmb.io.out.toDcacheArb.data_way
   dcachearb.io.in.fromWmb.ld_borrow_req := wmb.io.out.toDcacheArb.ld_borrow_req
@@ -677,19 +689,26 @@ class LSU extends Module {
   sq.io.in.cp0In.lsuIcgEn := io.in.ld_ag.fromCp0.lsu_icg_en
   sq.io.in.cp0In.clkEn := io.in.ld_ag.fromCp0.yy_clk_en
   sq.io.in.cp0In.privMode := io.in.sq.fromCp0.privMode
-  sq.io.in.dcacheIn.dirtyDin := dcachearb.io.out.dcache_dirty_din
+  sq.io.in.dcacheIn.dirtyDin.valid := dcachearb.io.out.dcache_dirty_din(6).asBool
+  sq.io.in.dcacheIn.dirtyDin.bits(1) := dcachearb.io.out.dcache_dirty_din(5,3).asTypeOf(sq.io.in.dcacheIn.dirtyDin.bits(1))
+  sq.io.in.dcacheIn.dirtyDin.bits(0) := dcachearb.io.out.dcache_dirty_din(2,0).asTypeOf(sq.io.in.dcacheIn.dirtyDin.bits(0))
   sq.io.in.dcacheIn.dirtyGwen := dcachearb.io.out.dcache_dirty_gwen
-  sq.io.in.dcacheIn.dirtyWen := dcachearb.io.out.dcache_dirty_wen
+  sq.io.in.dcacheIn.dirtyWen.valid := dcachearb.io.out.dcache_dirty_wen(6).asBool
+  sq.io.in.dcacheIn.dirtyWen.bits(1) := dcachearb.io.out.dcache_dirty_wen(5,3).asTypeOf(sq.io.in.dcacheIn.dirtyWen.bits(1))
+  sq.io.in.dcacheIn.dirtyWen.bits(0) := dcachearb.io.out.dcache_dirty_wen(2,0).asTypeOf(sq.io.in.dcacheIn.dirtyWen.bits(0))
   sq.io.in.dcacheIn.idx := dcachearb.io.out.dcache_idx
-  sq.io.in.dcacheIn.tagDin := dcachearb.io.out.dcache_tag_din
+  sq.io.in.dcacheIn.tagDin(1).valid := dcachearb.io.out.dcache_tag_din(51) //////todo: check it
+  sq.io.in.dcacheIn.tagDin(0).valid := dcachearb.io.out.dcache_tag_din(25)
+  sq.io.in.dcacheIn.tagDin(1).bits := dcachearb.io.out.dcache_tag_din(50,26)
+  sq.io.in.dcacheIn.tagDin(0).bits := dcachearb.io.out.dcache_tag_din(24,0)
   sq.io.in.dcacheIn.tagGwen := dcachearb.io.out.dcache_tag_gwen
-  sq.io.in.dcacheIn.tagWen := dcachearb.io.out.dcache_tag_wen
+  sq.io.in.dcacheIn.tagWen := VecInit(dcachearb.io.out.dcache_tag_wen.asBools)
   //sq.io.in.had //todo: add signals had
   sq.io.in.iccIn.idle := icc.io.out.iccIdle
   sq.io.in.iccIn.sqGrnt := icc.io.out.sqGrnt
-  sq.io.in.ldDaIn.lsid := loadda.io.out.ld_da_lsid
+  sq.io.in.ldDaIn.lsid := loadda.io.out.ld_da_lsid.asUInt //////todo: may cause bits error, check it
   sq.io.in.ldDaIn.sqDataDiscardVld := loadda.io.out.toSQ.data_discard_vld
-  sq.io.in.ldDaIn.sqFwdId := loadda.io.out.toSQ.fwd_id
+  sq.io.in.ldDaIn.sqFwdId := loadda.io.out.toSQ.fwd_id.asUInt
   sq.io.in.ldDaIn.sqFwdMultiVld := loadda.io.out.toSQ.fwd_multi_vld
   sq.io.in.ldDaIn.sqGlobalDiscardVld := loadda.io.out.toSQ.global_discard_vld
   sq.io.in.ldDcIn.addr0 := loaddc.io.out.toDA.addr0
@@ -709,6 +728,7 @@ class LSU extends Module {
   //sq.io.in.pad_yy_icg_scan_en todo: add pad
   sq.io.in.rbIn.sqPopHitIdx := rb.io.out.rb_sq_pop_hit_idx
   sq.io.in.rtuIn := io.in.sq.rtuIn
+  sq.io.in.sdEx1In.sd_ex1_data_bypass := storeex1.io.out.sdEx1DataBypass.asTypeOf(sq.io.in.sdEx1In.sd_ex1_data_bypass)
   sq.io.in.sdEx1In.sd_ex1_data := storeex1.io.out.sdEx1Data
   sq.io.in.sdEx1In.toSqEntry.ex1InstVld := storeex1.io.out.sdEx1InstVld
   sq.io.in.sdEx1In.toSqEntry.rfEx1Sdid := storeex1.io.out.rfEx1Sdid
@@ -724,7 +744,7 @@ class LSU extends Module {
   sq.io.in.wmbIn.addr := wmbce.io.out.toWmb.addr
   //////todo: can not find some signal wmbin, bkptab, data128,...
   sq.io.in.wmbIn.dcacheSwInst := wmbce.io.out.toWmb.dcache_sw_inst
-  sq.io.in.wmbIn.sqPtr := wmbce.io.out.wmb_ce_sq_ptr
+  sq.io.in.wmbIn.sqPtr := wmbce.io.out.wmb_ce_sq_ptr.asUInt
   sq.io.in.wmbIn.ceVld := wmbce.io.out.toWmb.vld
   sq.io.in.wmbIn.popGrnt := wmb.io.out.toSQ.pop_grnt
   sq.io.in.wmbIn.popToCeGrnt := wmb.io.out.toSQ.pop_to_ce_grnt
@@ -766,7 +786,7 @@ class LSU extends Module {
   loadda.io.in.fromSQ.data_discard_req := sq.io.out.toLdDc.dataDiscardReq
   loadda.io.in.fromSQ.fwd_bypass_multi := sq.io.out.toLdDc.fwdBypassMulti
   loadda.io.in.fromSQ.fwd_bypass_req := sq.io.out.toLdDc.fwdBypassReq
-  loadda.io.in.fromSQ.fwd_id := sq.io.out.toLdDc.fwdId
+  loadda.io.in.fromSQ.fwd_id := sq.io.out.toLdDc.fwdId.asBools
   loadda.io.in.fromSQ.fwd_multi := sq.io.out.toLdDc.fwdMulti
   loadda.io.in.fromSQ.fwd_multi_mask := sq.io.out.toLdDc.fwdMultiMask
   loadda.io.in.fromSQ.newest_fwd_data_vld_req := sq.io.out.toLdDc.newestFwdDataVldReq
@@ -782,13 +802,20 @@ class LSU extends Module {
   storeda.io.in.cp0In.lsuL2StPrefEn := io.in.st_dc.fromCp0.l2StPrefEn
   storeda.io.in.cp0In.lsuNsfe := io.in.ld_da.fromCp0.lsu_nsfe
   storeda.io.in.cp0In.yyClkEn := io.in.ld_ag.fromCp0.yy_clk_en
-  storeda.io.in.dcacheIn.dirtyDin := dcachearb.io.out.dcache_dirty_din
+  storeda.io.in.dcacheIn.dirtyDin.valid := dcachearb.io.out.dcache_dirty_din(6).asBool
+  storeda.io.in.dcacheIn.dirtyDin.bits(1) := dcachearb.io.out.dcache_dirty_din(5,3).asTypeOf(storeda.io.in.dcacheIn.dirtyDin.bits(1))
+  storeda.io.in.dcacheIn.dirtyDin.bits(0) := dcachearb.io.out.dcache_dirty_din(2,0).asTypeOf(storeda.io.in.dcacheIn.dirtyDin.bits(0))
   storeda.io.in.dcacheIn.dirtyGwen := dcachearb.io.out.dcache_dirty_gwen
-  storeda.io.in.dcacheIn.dirtyWen := dcachearb.io.out.dcache_dirty_wen
+  storeda.io.in.dcacheIn.dirtyWen.valid := dcachearb.io.out.dcache_dirty_wen(6)
+  storeda.io.in.dcacheIn.dirtyWen.bits(1) := dcachearb.io.out.dcache_dirty_wen(5,3).asTypeOf(storeda.io.in.dcacheIn.dirtyWen.bits(1))
+  storeda.io.in.dcacheIn.dirtyWen.bits(0) := dcachearb.io.out.dcache_dirty_wen(2,0).asTypeOf(storeda.io.in.dcacheIn.dirtyWen.bits(0))
   storeda.io.in.dcacheIn.idx := dcachearb.io.out.dcache_idx
-  storeda.io.in.dcacheIn.tagDin := dcachearb.io.out.dcache_tag_din
+  storeda.io.in.dcacheIn.tagDin(1).valid := dcachearb.io.out.dcache_tag_din(51) ////
+  storeda.io.in.dcacheIn.tagDin(0).valid := dcachearb.io.out.dcache_tag_din(25)
+  storeda.io.in.dcacheIn.tagDin(1).bits := dcachearb.io.out.dcache_tag_din(50,26)
+  storeda.io.in.dcacheIn.tagDin(0).bits := dcachearb.io.out.dcache_tag_din(24,0)
   storeda.io.in.dcacheIn.tagGwen := dcachearb.io.out.dcache_tag_gwen
-  storeda.io.in.dcacheIn.tagWen := dcachearb.io.out.dcache_tag_wen
+  storeda.io.in.dcacheIn.tagWen := dcachearb.io.out.dcache_tag_wen.asBools
   storeda.io.in.ldDaIn.hitIdx := loadda.io.out.ld_da_st_da_hit_idx
   storeda.io.in.lfbhitIdx := lfb.io.out.stDaHitIdx
   storeda.io.in.lmHitIdx := 0.U.asTypeOf(storeda.io.in.lmHitIdx)//////todo: complete lm
@@ -915,14 +942,21 @@ class LSU extends Module {
   wmb.io.in.fromCp0.lsu_wr_burst_dis := io.in.wmb.fromCp0.lsu_wr_burst_dis
   wmb.io.in.fromCp0.yy_clk_en := io.in.ld_ag.fromCp0.yy_clk_en
   wmb.io.in.fromDcache.arb_wmb_ld_grnt := dcachearb.io.out.dcache_arb_wmb_ld_grnt
-  wmb.io.in.fromDcache.dirty_din := dcachearb.io.out.dcache_dirty_din
+  wmb.io.in.fromDcache.dirty_din.valid := dcachearb.io.out.dcache_dirty_din(6)
+  wmb.io.in.fromDcache.dirty_din.bits(1) := dcachearb.io.out.dcache_dirty_din(5,3).asTypeOf(wmb.io.in.fromDcache.dirty_din.bits(1))
+  wmb.io.in.fromDcache.dirty_din.bits(0) := dcachearb.io.out.dcache_dirty_din(2,0).asTypeOf(wmb.io.in.fromDcache.dirty_din.bits(0))
   wmb.io.in.fromDcache.dirty_gwen := dcachearb.io.out.dcache_dirty_gwen
-  wmb.io.in.fromDcache.dirty_wen := dcachearb.io.out.dcache_dirty_wen
+  wmb.io.in.fromDcache.dirty_wen.valid := dcachearb.io.out.dcache_dirty_wen(6)
+  wmb.io.in.fromDcache.dirty_wen.bits(1) := dcachearb.io.out.dcache_dirty_wen(5,3).asTypeOf(wmb.io.in.fromDcache.dirty_wen.bits(1))
+  wmb.io.in.fromDcache.dirty_wen.bits(0) := dcachearb.io.out.dcache_dirty_wen(2,0).asTypeOf(wmb.io.in.fromDcache.dirty_wen.bits(0))
   wmb.io.in.fromDcache.idx := dcachearb.io.out.dcache_idx
   wmb.io.in.fromDcache.snq_st_sel := dcachearb.io.out.dcache_snq_st_sel
-  wmb.io.in.fromDcache.tag_din := dcachearb.io.out.dcache_tag_din
+  wmb.io.in.fromDcache.tag_din(1).valid := dcachearb.io.out.dcache_tag_din(51) ////
+  wmb.io.in.fromDcache.tag_din(0).valid := dcachearb.io.out.dcache_tag_din(25)
+  wmb.io.in.fromDcache.tag_din(1).bits := dcachearb.io.out.dcache_tag_din(50,26)
+  wmb.io.in.fromDcache.tag_din(0).bits := dcachearb.io.out.dcache_tag_din(24,0)
   wmb.io.in.fromDcache.tag_gwen := dcachearb.io.out.dcache_tag_gwen
-  wmb.io.in.fromDcache.tag_wen := dcachearb.io.out.dcache_tag_wen
+  wmb.io.in.fromDcache.tag_wen := dcachearb.io.out.dcache_tag_wen.asBools
   wmb.io.in.fromDcache.vb_snq_gwen := dcachearb.io.out.dcache_vb_snq_gwen
   wmb.io.in.icc_wmb_write_imme := icc.io.out.wmbWriteImme
   wmb.io.in.ld_ag_inst_vld := loadag.io.out.toDC.inst_vld
@@ -958,7 +992,7 @@ class LSU extends Module {
   wmb.io.in.st_wb_wmb_cmplt_grnt := storewb.io.out.wmbCmpltGrnt
   wmb.io.in.fromVB.create_grnt := vb.io.out.toWmb.create_grnt
   wmb.io.in.fromVB.empty := vb.io.out.toWmb.empty
-  wmb.io.in.fromVB.entry_rcl_done := vb.io.out.toWmb.entry_rcl_done
+  wmb.io.in.fromVB.entry_rcl_done := vb.io.out.toWmb.entry_rcl_done.asBools
   wmb.io.in.fromVB.write_req_hit_idx := vb.io.out.toWmb.write_req_hit_idx
   wmb.io.in.fromWmbCe.addr := wmbce.io.out.toWmb.addr
   wmb.io.in.fromWmbCe.atomic := wmbce.io.out.toWmb.atomic
@@ -1034,7 +1068,7 @@ class LSU extends Module {
   wmbce.io.in.SQPop.page_so := sq.io.out.toWmb.ce.popPageSo
   wmbce.io.in.SQPop.page_wa := sq.io.out.toWmb.ce.popPageWa
   wmbce.io.in.SQPop.priv_mode := sq.io.out.toWmb.ce.popPrivMode
-  wmbce.io.in.SQPop.sq_ptr := sq.io.out.toWmb.ce.popPtr
+  wmbce.io.in.SQPop.sq_ptr := sq.io.out.toWmb.ce.popPtr.asBools
   wmbce.io.in.SQPop.sync_fence := sq.io.out.toWmb.ce.popSyncFence
   wmbce.io.in.SQPop.wo_st := sq.io.out.toWmb.ce.popWoSt
   wmbce.io.in.fromSQ.wmb_ce_dcache_valid := sq.io.out.toWmb.dcacheValid
@@ -1089,6 +1123,7 @@ class LSU extends Module {
   loadwb.io.in.fromRB.vreg_sign_sel := rb.io.out.toLoadWB.vreg_sign_sel
   loadwb.io.in.fromRTU.yy_xx_flush := io.in.ld_ag.fromRTU.yy_xx_flush
   loadwb.io.in.vmb_ld_wb_data_req := false.B
+  loadwb.io.in.fromWmb := wmb.io.out.toLoadWB
   //////todo: check it, vmb
 
   // &Instance("ct_lsu_st_wb","x_ct_lsu_st_wb"); @115
@@ -1130,14 +1165,12 @@ class LSU extends Module {
   lfb.io.in.ldDaIn.idx             := loadda.io.out.ld_da_idx
   lfb.io.in.ldDaIn.discardGrnt     := loadda.io.out.toLfb.discard_grnt
   lfb.io.in.ldDaIn.setWakeupQueue  := loadda.io.out.toLfb.set_wakeup_queue
-  lfb.io.in.ldDaIn.wakeupQueueNext := loadda.io.out.toLfb.wakeup_queue_next
+  lfb.io.in.ldDaIn.wakeupQueueNext.valid := loadda.io.out.toLfb.wakeup_queue_next(12)
+  lfb.io.in.ldDaIn.wakeupQueueNext.bits := loadda.io.out.toLfb.wakeup_queue_next(11,0)
   // todo pfu
-  lfb.io.in.pfuIn.reqAddr          := DontCare
-  lfb.io.in.pfuIn.createDpVld      := DontCare
-  lfb.io.in.pfuIn.createGateclkEn  := DontCare
-  lfb.io.in.pfuIn.createReq        := DontCare
-  lfb.io.in.pfuIn.createVld        := DontCare
-  lfb.io.in.pfuIn.id               := DontCare
+  lfb.io.in.lmIn := 0.U.asTypeOf(lfb.io.in.lmIn) //////todo: add lm
+  lfb.io.in.pfuIn := 0.U.asTypeOf(lfb.io.in.pfuIn) //////todo: add pfu
+  lfb.io.in.snqIn := 0.U.asTypeOf(lfb.io.in.snqIn) //////todo: add snq
   lfb.io.in.rbIn.biuReqAddr           := rb.io.out.toLfb.reqAddr
   lfb.io.in.rbIn.addrTto4             := rb.io.out.toLfb.addr_tto4
   lfb.io.in.rbIn.atomic               := rb.io.out.toLfb.atomic
@@ -1168,10 +1201,13 @@ class LSU extends Module {
   vb.io.in.iccIn := icc.io.out.toVb
   vb.io.in.ldDaSnqDataReissue := loadda.io.out.ld_da_vb_snq_data_reissue
   vb.io.in.lfbIn := lfb.io.out.toVb
+  vb.io.in.padYyIcgScanEn := io.in.ld_ag.fromPad.yy_icg_scan_en
   // todo lsu_special_clk
   // todo pfu
   // todo snq = vb.io.out.toSnq
-  vb.io.in.snqIn := DontCare
+  vb.io.in.snqIn := 0.U.asTypeOf(vb.io.in.snqIn)
+  vb.io.in.pfuBiuReqAddr := 0.U.asTypeOf(vb.io.in.pfuBiuReqAddr)
+  vb.io.in.vbSdbIn := 0.U.asTypeOf(vb.io.in.vbSdbIn) //////todo: add sdb
 
   vb.io.in.stDaIn.dirty        := storeda.io.out.toVb.dirty
   vb.io.in.stDaIn.miss         := storeda.io.out.toVb.miss
@@ -1194,6 +1230,8 @@ class LSU extends Module {
   vb.io.in.wmbIn.createGateclkEn := wmb.io.out.toVB.create_gateclk_en
   vb.io.in.wmbIn.createReq       := wmb.io.out.toVB.create_req
   vb.io.in.wmbIn.createVld       := wmb.io.out.toVB.create_vld
+  vb.io.in.rbBiuReqAddr := rb.io.out.toBiu.req_addr
+
 
   // todo sdb data @5486 ct_lsu_vb_sdb_data, is VB DATA ENTRY INST
   // &Instance("ct_lsu_amr","x_ct_lsu_amr"); @140
@@ -1219,12 +1257,14 @@ class LSU extends Module {
   icc.io.in.ldDaIn.snqBorrow := loadda.io.out.ld_da_snq_borrow_icc
   icc.io.in.empty.lfb := lfb.io.out.lfbEmpty
   icc.io.in.empty.rb  := rb.io.out.rb_empty
-  icc.io.in.empty.snq := DontCare
+  icc.io.in.empty.snq := 0.U.asTypeOf(icc.io.in.empty.snq)
   icc.io.in.empty.sq  := sq.io.out.toCtrl.empty
   icc.io.in.sqIn := sq.io.out.toIcc
   icc.io.in.empty.vb  := vb.io.out.vbEmpty
   icc.io.in.empty.wmb := wmb.io.out.wmb_empty
-  icc.io.in.sqIn := DontCare
+  icc.io.in.pfuReady := 0.U.asTypeOf(icc.io.in.pfuReady) //////todo: add pfu
+  icc.io.in.vbCreateGrnt := vb.io.out.iccCreateGrnt
+  icc.io.in.stDaIn := storeda.io.out.toIcc
 
   // &Instance("ct_lsu_ctrl","x_ct_lsu_ctrl"); @142
   ctrl.io.in.cp0In.dcachePrefDist := io.in.cp0In.toCtrl.dcachePrefDist
@@ -1233,7 +1273,8 @@ class LSU extends Module {
   ctrl.io.in.cp0In.yyClkEn        := io.in.ld_ag.fromCp0.yy_clk_en
   ctrl.io.in.dcacheArbIn.ldDcBorrowGate := dcachearb.io.out.toLoadDC.borrow_vld_gate
   ctrl.io.in.dcacheArbIn.stDcBorrowGate := dcachearb.io.out.toStoreDC.borrow_vld_gate
-  ctrl.io.in.rfPipeSel := io.in.rfPipeIn.toCtrl
+  ctrl.io.in.rfPipeSel := io.in.ctrl.rfPipeIn
+  ctrl.io.in.vmbCreateGateEn := io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec
   ctrl.io.in.ldDaIn.instVld                 := loadda.io.out.toCB.ld_inst_vld
   ctrl.io.in.ldDaIn.borrow_vld              := loadda.io.out.toCtrl.borrow_vld
   ctrl.io.in.ldDaIn.ecc_wakeup              := loadda.io.out.toCtrl.ecc_wakeup
@@ -1252,9 +1293,9 @@ class LSU extends Module {
   ctrl.io.in.ldDaIn.wait_fence_gateclk_en   := loadda.io.out.toCtrl.wait_fence_gateclk_en
 
   ctrl.io.in.ldDcIn.borrowVld         := loaddc.io.out.toDA.borrow_vld
-  ctrl.io.in.ldDcIn.iduLqFull         := loaddc.io.out.ld_dc_idu_lq_full
-  ctrl.io.in.ldDcIn.iduTlbBusy        := loaddc.io.out.ld_dc_idu_tlb_busy
-  ctrl.io.in.ldDcIn.immeWakeup        := loaddc.io.out.ld_dc_imme_wakeup
+  ctrl.io.in.ldDcIn.iduLqFull         := loaddc.io.out.ld_dc_idu_lq_full.asUInt
+  ctrl.io.in.ldDcIn.iduTlbBusy        := loaddc.io.out.ld_dc_idu_tlb_busy.asUInt
+  ctrl.io.in.ldDcIn.immeWakeup        := loaddc.io.out.ld_dc_imme_wakeup.asUInt
   ctrl.io.in.ldDcIn.instVld           := loaddc.io.out.toDA.inst_vld
   ctrl.io.in.ldDcIn.lqFullGateclkEn   := loaddc.io.out.toLQ.full_gateclk_en
   ctrl.io.in.ldDcIn.tlbBusyGateclkEn  := loaddc.io.out.ld_dc_tlb_busy_gateclk_en
@@ -1300,21 +1341,38 @@ class LSU extends Module {
   ctrl.io.in.stDcIn.sqFullGateclkEn  := storedc.io.out.toSq.sqFullGateclkEn
   ctrl.io.in.stDcIn.tlbBusyGateclkEn := storedc.io.out.toCtrl.tlbBusyGateclkEn
   ctrl.io.in.stDcIn.immeWakeup       := storedc.io.out.toCtrl.immeWakeup
-  ctrl.io.in.stWbInstVld := storewb.st_wb_inst_vld
+  ctrl.io.in.stWbInstVld := storewb.io.out.instVld
 
   ctrl.io.in.vbEmpty := vb.io.out.vbEmpty
 
   ctrl.io.in.vmbIn := DontCare // todo
 
-  ctrl.io.in.wmbIn.depdWakeup   := wmb.io.out.wmb_depd_wakeup
+  ctrl.io.in.wmbIn.depdWakeup   := wmb.io.out.wmb_depd_wakeup.asUInt
   ctrl.io.in.wmbIn.empty        := wmb.io.out.wmb_empty
   ctrl.io.in.wmbIn.ldWbDataReq  := wmb.io.out.toLoadWB.data_req
   ctrl.io.in.wmbIn.noOp         := wmb.io.out.wmb_no_op
   ctrl.io.in.wmbIn.stWbCmpltReq := wmb.io.out.toStoreWB.cmplt_req
   ctrl.io.in.wmbIn.writeReqIcc  := wmb.io.out.wmb_write_req_icc
 
+  ctrl.io.in.lsuExWait.ldAg.old := loadag.io.out.toIDU.ag_wait_old.asUInt
+  ctrl.io.in.lsuExWait.ldAg.oldGateEn := loadag.io.out.toIDU.ag_wait_old_gateclk_en
+  ctrl.io.in.lsuExWait.ldDa.old := loadda.io.out.toIDU.ld_da_wait_old
+  ctrl.io.in.lsuExWait.ldDa.oldGateEn := loadda.io.out.toIDU.ld_da_wait_old_gateclk_en
+  ctrl.io.in.lsuExWait.stAg.old := storeag.io.out.toIdu.waitOld
+  ctrl.io.in.lsuExWait.stAg.oldGateEn := storeag.io.out.toIdu.waitOldGateclkEn
+  ctrl.io.in.lsuHasFence := rb.io.out.lsu_has_fence
+  ctrl.io.in.sqIn := sq.io.out.toCtrl
+  ctrl.io.in.lbfDepdWakeUp := lfb.io.out.lfbDepdWakeup
+  ctrl.io.in.iccVbCreateGateEn := icc.io.out.toVb.createGateclkEn  //////gateclken
+  ctrl.io.in.ldAgIn.instVld := loadag.io.out.toDC.inst_vld
+  ctrl.io.in.ldAgIn.stallOri := loadag.io.out.toDC.stall_ori ////// wrong to in loadag?
+  ctrl.io.in.ldAgIn.stallRestartEntry := loadag.io.out.toDC.stall_restart_entry.asUInt
+  ctrl.io.in.mmuTlbWakep := io.in.ctrl.mmu_lsu_tlb_wakeup
+  ctrl.io.in.pfuIn := 0.U.asTypeOf(ctrl.io.in.pfuIn) //////todo: add pfu
+
   // &Instance("ct_lsu_bus_arb","x_ct_lsu_bus_arb"); @143
 
   // todo bus arb
-
+  busarb.io.in := DontCare
+  io.out := DontCare
 }

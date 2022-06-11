@@ -588,7 +588,7 @@ class Sq extends Module with LsuConfig{
     }
   }
   val sq_pe_sel_age_vec_surplus1_entry_vld = Wire(Bool())
-  sq_pe_sel_age_vec_zero_entry_vld := (VecInit(sq_entry_age_vec_zero_ptr).asUInt & (~VecInit(sq_entry_dcache_info_vld).asUInt)).orR
+  sq_pe_sel_age_vec_zero_entry_vld := (VecInit(sq_entry_age_vec_zero_ptr).asUInt & (~VecInit(sq_entry_dcache_info_vld).asUInt).asUInt).orR
   sq_pe_sel_age_vec_surplus1_entry_vld := io.in.wmbIn.popToCeGrnt
   when(sq_pe_sel_age_vec_zero_entry_vld){
     io.out.toWmb.ce.popAddr       := sq_pe_age_vec_zero_addr
@@ -663,6 +663,16 @@ class Sq extends Module with LsuConfig{
   //dcache all request icc success and wait for idle
   //index not hit include dcache write port not hit
   val sq_req_icc_success = RegInit(false.B)
+
+  //==========================================================
+  //                request icc
+  //==========================================================
+  //-----------------register---------------------------------
+  when(io.in.iccIn.sqGrnt){
+    sq_req_icc_success := true.B
+  }.elsewhen(io.in.wmbIn.popToCeGrnt){
+    sq_req_icc_success := false.B
+  }
   val sq_pop_to_ce_req_unmask = sq_pop_req_unmask && (!sq_pop_dcache_all_inst || sq_req_icc_success && io.in.iccIn.idle)
   //because change mechanism, cache miss atomic can write, so must wait for hit_idx
   val sq_pop_to_ce_req = sq_pop_to_ce_req_unmask  && io.in.rtuIn.flush
@@ -678,15 +688,6 @@ class Sq extends Module with LsuConfig{
   io.out.toWmb.popToCeGateclkEn := sq_pop_to_ce_req_unmask
   //if hit rb idx, then cannot merge
   io.out.toWmb.createHitRbIdx := io.in.rbIn.sqPopHitIdx && (sq_pop_dcache_1line_inst || io.out.toWmb.ce.popAtomic || io.out.toWmb.ce.popWoSt)
-  //==========================================================
-  //                request icc
-  //==========================================================
-  //-----------------register---------------------------------
-  when(io.in.iccIn.sqGrnt){
-    sq_req_icc_success := true.B
-  }.elsewhen(io.in.wmbIn.popToCeGrnt){
-    sq_req_icc_success := false.B
-  }
   //-----------------wires-----------------------------------
   io.out.toIcc.req := sq_pop_req_unmask && sq_pop_dcache_all_inst && (!io.in.wmbIn.ceVld) && !sq_req_icc_success
   io.out.toIcc.clr := io.out.toWmb.ce.popInstSize(0)
