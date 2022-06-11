@@ -1,7 +1,6 @@
 package Core.RTU
 
 import Core.AddrConfig._
-import Core.Config.XLEN
 import Core.ExceptionConfig._
 import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
 import Core.IntConfig._
@@ -11,7 +10,6 @@ import Core.VectorUnitConfig._
 import Utils.Bits.RingShiftLeft
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 import difftest.{DifftestInstrCommit, DifftestTrapEvent}
 
 
@@ -133,7 +131,7 @@ class Rob extends Module {
   private val robCreatePtr = RegInit(1.U(RobPtrWidth.W))
   private val robCreateIidVec = RegInit(VecInit((0 until  NumCreateEntry).map(_.U(InstructionIdWidth.W))))
 
-  private val robEntryNum = RegInit(0.U(NumRobEntry.W))
+  private val robEntryNum = RegInit(0.U(NumRobEntryBits.W))
   private val robFull = RegInit(false.B)
   private val robPopIidVec = RegInit(VecInit((0 until  NumPopEntry).map(_.U(InstructionIdWidth.W))))
 
@@ -332,8 +330,8 @@ class Rob extends Module {
   //----------------------------------------------------------
   private val robPopPtrAdd = Wire(Vec(RobPtrNum, Bool()))
 
-  robEntryNumAdd := OHToUInt(PriorityEncoderOH(robCreatePtrAdd))
-  robEntryNumSub := OHToUInt(PriorityEncoderOH(robPopPtrAdd.asUInt(RobPtrNum-1,0)))
+  robEntryNumAdd := OHToUInt(PriorityEncoderOH(robCreatePtrAdd.reverse).reverse)
+  robEntryNumSub := OHToUInt(PriorityEncoderOH(robPopPtrAdd.reverse).reverse)
 
   // Create or pop at least 1 entry
   private val robEntryNumUpdateValid = robCreatePtrAdd(1) || robPopPtrAdd(1)
@@ -729,7 +727,7 @@ class Rob extends Module {
   exceptIn.fromRtu.yyXxFlush          := io.in.fromRtu.yyXxFlush
 
   exceptOutEntry                            := exceptOut.except
-  val retireOutInstExtra = Wire(Output(new RobToRetireInstExtraBundle))
+  private val retireOutInstExtra = Wire(Output(new RobToRetireInstExtraBundle))
   io.out.toRetire.instExtra       := retireOutInstExtra
   io.out.toRetire.instExtra.bhtMispred      := exceptOut.toRetire.inst0.bhtMispred
   io.out.toRetire.instExtra.breakPoint      := exceptOut.toRetire.inst0.breakpoint
