@@ -195,7 +195,8 @@ class RbOutput extends Bundle with LsuConfig {
     val vreg_sign_sel = UInt(2.W)
   }
   val toLfb = new Bundle{
-    val addr_tto4 = UInt(36.W)
+    val reqAddr = UInt(PA_WIDTH.W)
+    val addr_tto4 = UInt((PA_WIDTH-4).W)
     val atomic = Bool()
     val boundary_depd_wakeup = Bool()
     val create_dp_vld = Bool()
@@ -483,7 +484,7 @@ class Rb extends Module with LsuConfig with BIUConfig{
     rb_biu_req_create_lfb :=  io.in.fromLoadDA.rb_create_lfb
     rb_biu_req_addr       :=  io.in.fromLoadDA.addr
   }
-
+  io.out.toLfb.reqAddr := rb_biu_req_addr
   //-----------------------biu req ptr------------------------
   rb_biu_pe_req_gateclk_en := VecInit(rb_entry_out.map(_.biu_pe_req_gateclk_en)).asUInt.orR
   rb_biu_pe_req := VecInit(rb_entry_out.map(_.biu_pe_req)).asUInt.orR
@@ -755,7 +756,7 @@ class Rb extends Module with LsuConfig with BIUConfig{
   io.out.toLfb.depd            := VecInit(rb_entry_out.zip(rb_biu_req_ptr).map(x => x._2 && (x._1.depd || x._1.discard_vld))).asUInt.orR
   io.out.toLfb.atomic          := rb_biu_req_atomic
   io.out.toLfb.ldamo           := rb_biu_req_ldamo
-  io.out.toLfb.addr_tto4       := rb_biu_req_addr
+  io.out.toLfb.addr_tto4       := rb_biu_req_addr(PA_WIDTH-1,4)
 
   //create req signal is used for artribute
   io.out.toLfb.create_req           := rb_lfb_create_vld_unmask

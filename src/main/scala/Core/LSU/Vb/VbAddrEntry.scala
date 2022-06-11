@@ -31,9 +31,9 @@ class VbAddrCtrl extends Bundle with LsuConfig {
   val rcl_sm_done_x = Bool()
 }
 class WmbToVbAddrEntry extends Bundle with LsuConfig with DCacheConfig {
-  val addrTto6     =  UInt((PA_WIDTH-OFFSET_WIDTH).W)
-  val inv           = Bool()
-  val setWayMode  = Bool()
+  val addrTto6       =  UInt((PA_WIDTH-OFFSET_WIDTH).W)
+  val inv            = Bool()
+  val setWayMode     = Bool()
   val writePtrEncode = UInt(VB_DATA_ENTRY.W)
   val writeReqAddr   = UInt(PA_WIDTH.W)
 }

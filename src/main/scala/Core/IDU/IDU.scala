@@ -206,6 +206,21 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
     val aiq0fromLSUsub = new Bundle {
       val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
     }
+
+    val LSIQfromLSU = new Bundle() {
+//      /**
+//       * LSU reg Bypass
+//       * lsu_idu_ag_pipe3_load_inst_vld
+//       * lsu_idu_ag_pipe3_preg_dupx
+//       */
+//      val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
+//      /**
+//       * load : lsu_idu_dc_pipe3_load_inst_vld_dupx <br>
+//       *        lsu_idu_dc_pipe3_preg_dupx <br>
+//       */
+//      val fuDstPregLoad = ValidIO(UInt(NumPhysicRegsBits.W))
+      val lsiqCtrl = new LsiqFromLsuBundle
+    }
   }
   val ISfromVFPU = Vec(2, new VFPU2IS)
 }
@@ -788,21 +803,35 @@ class IDU extends Module with Config {
   // &ConnRule(s/_dupx/_dup1/); @60
   // &Instance("ct_idu_is_lsiq", "x_ct_idu_is_lsiq"); @61
 
-  lsiq.io.in := DontCare ////todo: connect lsiq
   lsiq.io.in.fromCp0.yyClkEn         := io.in.fromCp0.yyClkEn
   lsiq.io.in.fromCp0.icgEn           := io.in.fromCp0.icgEn
   lsiq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
   for(i<-0 until (NumLsiqCreatePort)) {
-    lsiq.io.in.ctrl.createEnVec(i) := isstage.io.out.iqCreateEn(i)(3).en
-    lsiq.io.in.ctrl.createGateClkVec(i) := isstage.io.out.iqCreateEn(i)(3).gateclk_en
-    lsiq.io.in.ctrl.createDpEnVec(i) := isstage.io.out.iqCreateEn(i)(3).dp_en
+    lsiq.io.in.ctrl.createEnVec(i)      := isstage.io.out.iqCreateEn(3)(i).en
+    lsiq.io.in.ctrl.createGateClkVec(i) := isstage.io.out.iqCreateEn(3)(i).gateclk_en
+    lsiq.io.in.ctrl.createDpEnVec(i)    := isstage.io.out.iqCreateEn(3)(i).dp_en
   }
   lsiq.io.in.ctrl.fromIr.barInstValid := irstage.io.out.lsiq_ir_bar_inst_vld
   lsiq.io.in.ctrl.fromIs.barInstValid := isstage.io.out.toLsiq.bar_inst_vld
-  lsiq.io.in.fwd.aluValid := DontCare// todo in rfstage.io.fwd do not exist
+  lsiq.io.in.fwd.aluValid := 0.U.asTypeOf(lsiq.io.in.fwd.aluValid)// todo in rfstage.io.fwd do not exist?
   lsiq.io.in.ctrl.fromRf.launchFailValid(0) := rfstage.io.ctrl.out.toIq(3).launchFailValid
   lsiq.io.in.ctrl.fromRf.launchFailValid(1) := rfstage.io.ctrl.out.toIq(4).launchFailValid
-  // todo rfstage.io.ctrl.out.toIq(4).lchVldDup
+  // Todo: Add launch valid dup
+  //  e.g. ctrl_xx_rf_pipe0_preg_lch_vld_dup0
+
+  // Todo: add forward signal
+  //  e.g. ctrl_aiq0_rf_pipe0_alu_reg_fwd_vld ctrl_viq1_rf_pipe7_vmla_vreg_fwd_vld
+
+  //  lsiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).valid)
+  //  lsiq.io.in.fuDstPreg(0).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).valid)
+  //  lsiq.io.in.fuDstPreg(0).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).bits)
+  //  lsiq.io.in.fwd.loadValid       := 0.U.asTypeOf(lsiq.io.in.fwd.loadValid)
+  //  lsiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).valid)
+  //  lsiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).valid)
+  //  lsiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).bits)
+  //  lsiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).bits)
+  //  lsiq.io.in.fuDstPreg(1).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).bits)
+
   lsiq.io.in.data.bypassData := isstage.io.out.toLsiq.bypass_data // is bind bundle
   lsiq.io.in.data.create.bar := isstage.io.out.toLsiq.create_bar
   lsiq.io.in.data.create.load   := isstage.io.out.toLsiq.create_load
@@ -812,13 +841,11 @@ class IDU extends Module with Config {
   lsiq.io.in.data.create.srcReadyForBypass(0) := isstage.io.out.toLsiq.create0_src_rdy_for_bypass(0) //src0
   lsiq.io.in.data.create.srcReadyForBypass(1) := isstage.io.out.toLsiq.create0_src_rdy_for_bypass(1) //src1
   lsiq.io.in.data.create.srcReadyForBypass(2) := isstage.io.out.toLsiq.create0_srcvm_rdy_for_bypass //src_vm
-  lsiq.io.in.data.fromRf.launchEntry(0) := rfstage.io.data.out.toLsiq0.launchEntryOH
-  lsiq.io.in.data.fromRf.launchEntry(1) := rfstage.io.data.out.toLsiq1.launchEntryOH
+  lsiq.io.in.data.fromRf.launchEntry(0) := VecInit(rfstage.io.data.out.toLsiq0.launchEntryOH.asBools)
+  lsiq.io.in.data.fromRf.launchEntry(1) := VecInit(rfstage.io.data.out.toLsiq1.launchEntryOH.asBools)
   lsiq.io.in.data.fromRf.readyClear(0) := rfstage.io.data.out.toLsiq0.readyClr
   lsiq.io.in.data.fromRf.readyClear(1) := rfstage.io.data.out.toLsiq1.readyClr
-// todo did not find
-//  .dp_xx_rf_pipe0_dst_preg_dupx            (dp_xx_rf_pipe0_dst_preg_dup1           ),
-//  .dp_xx_rf_pipe1_dst_preg_dupx            (dp_xx_rf_pipe1_dst_preg_dup1           ),
+
   lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
   lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
   lsiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
@@ -828,11 +855,18 @@ class IDU extends Module with Config {
   lsiq.io.in.wbPreg(1).bits  := io.in.RTfromIU.ex2_pipe1_wb_preg_dupx
   lsiq.io.in.wbPreg(1).valid := io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx
 
-  // todo ADD lsiq.io.in.fromLsu
+  lsiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx
+  lsiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
+  lsiq.io.in.loadPreg.bits      := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+  lsiq.io.in.loadPreg.valid     := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
+  lsiq.io.in.wbPreg(2).bits    := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx
+  lsiq.io.in.wbPreg(2).valid   := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx
 
-
-
-
+  lsiq.io.in.fromLsu      := io.in.fromLSU.LSIQfromLSU.lsiqCtrl
+  lsiq.io.in.fromRtu.yyXXFlush  := io.in.fromRTU.yy_xx_flush
+  lsiq.io.in.fromRtu.flushFe    := io.in.fromRTU.flush_fe
+  lsiq.io.in.fromRtu.flushIs    := io.in.fromRTU.flush_is
+  lsiq.io.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
 
   // &ConnRule(s/_dupx/_dup1/); @62
   // &Instance("ct_idu_is_sdiq", "x_ct_idu_is_sdiq"); @63
