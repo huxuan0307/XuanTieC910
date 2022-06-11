@@ -1,15 +1,13 @@
 package Core.IFU_IDU
 
-import Core.AddrConfig.PcWidth
+import Core.IDU._
+import Core.IFU._
+import Core.IU._
+import Core.RTU._
 import Core.{Config, ROBConfig}
 import chisel3._
 import chisel3.util._
-import Core.IDU._
-import Core.IU._
-import Core.IFU._
-import Core.RTU._
 import difftest._
-import firrtl.transforms.DontTouchAnnotation
 
 class ct_coreBundle extends Bundle {
   val logCtrl = new LogCtrlIO
@@ -105,7 +103,8 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.IDfromHad := DontCare
   idu.io.in.IDfromFence := DontCare
-  idu.io.in.IRfromCp0Sub := DontCare
+  idu.io.in.IRfromCp0Sub.robFoldDisable := true.B // Todo: enable it
+  idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
   idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg//DontCare //////todo: check it, and compare with PRFfromIU
