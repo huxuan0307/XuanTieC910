@@ -325,9 +325,9 @@ class RenameTable extends Module{
     io.in.rt_req.instInfo(0).bits.dst_reg =/= 0.U
 
   when(io.in.rt_req.instInfo(1).bits.dst_reg(5)){
-    io.out.instInfo(1).rel_preg := io.in.rt_req.instInfo(1).bits.dst_reg
+    io.out.instInfo(1).rel_preg := io.in.rt_req.instInfo(1).bits.dst_preg
   }.elsewhen(inst1_dst_match_inst0){
-    io.out.instInfo(1).rel_preg := io.in.rt_req.instInfo(0).bits.dst_reg
+    io.out.instInfo(1).rel_preg := io.in.rt_req.instInfo(0).bits.dst_preg
   }.otherwise{
     io.out.instInfo(1).rel_preg := inst_dst_read_data(1).preg
   }
@@ -542,11 +542,11 @@ class RenameTable extends Module{
     io.in.rt_req.instInfo(1).bits.dst_reg =/= 0.U
 
   when(io.in.rt_req.instInfo(2).bits.dst_reg(5)){
-    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(2).bits.dst_reg
+    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(2).bits.dst_preg
   }.elsewhen(inst2_dst_match_inst1){
-    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(1).bits.dst_reg
+    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(1).bits.dst_preg
   }.elsewhen(inst2_dst_match_inst0){
-    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(0).bits.dst_reg
+    io.out.instInfo(2).rel_preg := io.in.rt_req.instInfo(0).bits.dst_preg
   }.otherwise{
     io.out.instInfo(2).rel_preg := inst_dst_read_data(2).preg
   }
@@ -733,13 +733,13 @@ class RenameTable extends Module{
     io.in.rt_req.instInfo(2).bits.dst_reg =/= 0.U
 
   when(io.in.rt_req.instInfo(3).bits.dst_reg(5)){
-    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(3).bits.dst_reg
+    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(3).bits.dst_preg
   }.elsewhen(inst3_dst_match_inst2){
-    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(2).bits.dst_reg
+    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(2).bits.dst_preg
   }.elsewhen(inst3_dst_match_inst1){
-    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(1).bits.dst_reg
+    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(1).bits.dst_preg
   }.elsewhen(inst3_dst_match_inst0){
-    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(0).bits.dst_reg
+    io.out.instInfo(3).rel_preg := io.in.rt_req.instInfo(0).bits.dst_preg
   }.otherwise{
     io.out.instInfo(3).rel_preg := inst_dst_read_data(3).preg
   }
