@@ -590,9 +590,10 @@ class ISStage extends Module{
     if (DifftestEnable) {
       val idx_offset = Wire(Vec(NumCreateEntry, UInt(2.W)))
       idx_offset(0) := 0.U
-      for (j <- 1 until NumCreateEntry) {
-        idx_offset(j) := rob_create_data(j - 1).INST_NUM
-      }
+      idx_offset(1) := rob_create_data(0).INST_NUM
+      idx_offset(2) := rob_create_data(0).INST_NUM + rob_create_data(1).INST_NUM
+      idx_offset(3) := rob_create_data(0).INST_NUM + rob_create_data(1).INST_NUM + rob_create_data(2).INST_NUM
+
       for (j <- 0 until NumFoldMax) {
         if (i + j < inst_read_data.length) {
           rob_create_data(i).debug.pc(j)      := inst_read_data(idx_offset(i) + j.U).LSU_PC
