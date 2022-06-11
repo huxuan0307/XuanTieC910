@@ -2,7 +2,7 @@ package Core.RTU
 
 import Core.AddrConfig._
 import Core.ExceptionConfig._
-import Core.GlobalConfig.{DifftestEnable, NumFoldMax}
+import Core.GlobalConfig.{DifftestEnable, NumFoldMax, RobFoldEnable}
 import Core.IntConfig._
 import Core.PipelineConfig.NumPipeline
 import Core.ROBConfig._
@@ -818,6 +818,7 @@ class Rob extends Module {
   //==========================================================
   //          to Difftest
   //==========================================================
+  private val NumFoldInstMax = if (RobFoldEnable) NumFoldMax else 1
   if (DifftestEnable) {
     for (i <- 0 until NumCommitEntry) {
       val commitValid = io.out.toRetire.instVec(i).valid
@@ -828,11 +829,11 @@ class Rob extends Module {
       val rfwenVec = io.out.toRetire.instVec(i).debug.rfwen
       val wpdestVec = io.out.toRetire.instVec(i).debug.wpdest
       val wdestVec = io.out.toRetire.instVec(i).debug.wdest
-      for (j <- 0 until NumFoldMax) {
+      for (j <- 0 until NumFoldInstMax) {
         val instrCommit = Module(new DifftestInstrCommit)
         instrCommit.io.clock   := clock
         instrCommit.io.coreid  := 0.U
-        instrCommit.io.index   := (i * NumFoldMax + j).U
+        instrCommit.io.index   := (i * NumFoldInstMax + j).U
         instrCommit.io.valid   := RegNext(commitValid && (j.U < instNum))
         instrCommit.io.pc      := RegNext(Cat(pcVec(j), 0.U(1.W))(63, 0) | BigInt("80000000", 16).U)
         instrCommit.io.instr   := RegNext(instVec(j))
