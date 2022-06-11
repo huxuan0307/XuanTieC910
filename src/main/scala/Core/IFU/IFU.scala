@@ -20,8 +20,8 @@ class IFU extends Module with Config {
   val backend_redirect = io.bru_redirect.valid
   val bru_redirect_pc = RegInit(0.U(VAddrBits.W))
   val bru_redirect_valid = RegInit(false.B)
-  bru_redirect_pc := io.bru_redirect.bits
   when(backend_redirect && icache.io.refill_sm_busy){
+    bru_redirect_pc := io.bru_redirect.bits
     bru_redirect_valid := true.B
   }.elsewhen(bru_redirect_valid && !icache.io.refill_sm_busy){
     bru_redirect_valid := false.B
@@ -63,7 +63,6 @@ class IFU extends Module with Config {
   //  }
   io.pc := if_pc
   val if_data_valid = !(pc_gen.io.redirect(1).valid || pc_gen.io.redirect(2).valid || pc_gen.io.redirect(3).valid)
-
 
   ubtb.io.pc := if_pc
   btb.io.pc  := if_pc
