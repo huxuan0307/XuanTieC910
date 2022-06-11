@@ -38,7 +38,7 @@ class WmbCeToAmr extends Bundle with LsuConfig{
   val bytesVld = UInt(BYTES_ACCESS_WIDTH.W)
   val caStInst = Bool()
   val popVld   = Bool()
-  val vld = Bool()
+  val vld       = Bool()
 }
 //----------------------------------------------------------
 class AmrIn extends Bundle with LsuConfig{

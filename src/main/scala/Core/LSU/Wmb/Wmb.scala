@@ -292,18 +292,18 @@ class WmbOutput extends Bundle with LsuConfig{
   }
   val wmb_sync_fence_biu_req_success = Bool()
   val toVB = new Bundle {
-    val addr_tto6 = UInt(34.W)
-    val create_dp_vld = Bool()
+    val addr_tto6         = UInt(34.W)
+    val create_dp_vld     = Bool()
     val create_gateclk_en = Bool()
-    val create_req = Bool()
-    val create_vld = Bool()
-    val inv = Bool()
-    val set_way_mode = Bool()
+    val create_req        = Bool()
+    val create_vld        = Bool()
+    val inv               = Bool()
+    val set_way_mode      = Bool()
   }
-  val wmb_write_ptr = Vec(WMB_ENTRY, Bool())
-  val wmb_write_ptr_encode = UInt(3.W)
-  val wmb_write_req_addr = UInt(40.W)
-  val wmb_write_req_icc = Bool()
+  val wmb_write_ptr         = Vec(WMB_ENTRY, Bool())
+  val wmb_write_ptr_encode  = UInt(3.W)
+  val wmb_write_req_addr    = UInt(40.W)
+  val wmb_write_req_icc     = Bool()
 }
 
 class WmbIO extends Bundle{

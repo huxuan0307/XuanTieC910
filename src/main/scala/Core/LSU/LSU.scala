@@ -13,9 +13,10 @@ import Core.LSU.Vb._
 import Core.LSU.Wmb._
 import Core.LSU._
 import Core.LsuConfig
-import Core.LsuConfig.LSIQ_ENTRY
+import Core.LsuConfig.{CACHE_DIST_SELECT, LSIQ_ENTRY}
 import chisel3._
 import chisel3.util._
+import firrtl.backends.experimental.smt.BVNot
 
 class LSUInput extends Bundle {
   val ld_ag = new Bundle{
@@ -26,6 +27,9 @@ class LSUInput extends Bundle {
       val lsu_icg_en = Bool()
       val lsu_mm = Bool()
       val yy_clk_en = Bool()
+      val amr   = Bool()
+      val amr2  = Bool()
+      val noOpReq   = Bool()
     }
     val fromMMU = new Bundle{
       val buf0 = Bool()
@@ -116,6 +120,7 @@ class LSUInput extends Bundle {
       val r_id = UInt(5.W)
       val r_resp = UInt(4.W)
       val r_vld = Bool()
+      val r_last = Bool()
     }
     val fromRTU = new Bundle{
       val lsu_async_flush = Bool()
@@ -135,6 +140,17 @@ class LSUInput extends Bundle {
       val bus_trace_en = Bool()
       val dbg_en = Bool()
     }
+  }
+
+  val cp0In = new Bundle() {
+    val toIcc = new Cp0ToIcc
+    val toCtrl = new Bundle() {
+      val dcachePrefDist = UInt(CACHE_DIST_SELECT.W)
+      val l2PrefDist     = UInt(CACHE_DIST_SELECT.W)
+    }
+  }
+  val rfPipeIn = new Bundle() {
+    val toCtrl = new IduRfSelToCtrl
   }
 }
 
@@ -388,7 +404,7 @@ class LSU extends Module {
   loadag.io.in.fromDcacheArb.ag_ld_sel := dcachearb.io.out.dcache_arb_ag_ld_sel
   loadag.io.in.fromDcacheArb.ld_ag_addr := dcachearb.io.out.dcache_arb_ld_ag_addr
   loadag.io.in.fromDcacheArb.ld_ag_borrow_addr_vld := dcachearb.io.out.dcache_arb_ld_ag_borrow_addr_vld
-  loadag.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk
+  loadag.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loadag.io.in.st_ag_iid := storeag.io.out.toDc.iid
   loadag.io.in.pipe3 := io.in.ld_ag.fromRF_pipe3
 
@@ -559,7 +575,7 @@ class LSU extends Module {
   loaddc.io.in.fromCp0.lsu_dcache_en := io.in.ld_ag.fromCp0.lsu_dcache_en
   loaddc.io.in.fromCp0.lsu_icg_en := io.in.ld_ag.fromCp0.lsu_icg_en
   loaddc.io.in.fromCp0.yy_clk_en := io.in.ld_ag.fromCp0.yy_clk_en
-  loaddc.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk
+  loaddc.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loaddc.io.in.fromDcacheArb.ld_dc_borrow_db := dcachearb.io.out.toLoadDC.borrow_vb
   loaddc.io.in.fromDcacheArb.ld_dc_borrow_icc := dcachearb.io.out.toLoadDC.borrow_icc
   loaddc.io.in.fromDcacheArb.ld_dc_borrow_mmu := dcachearb.io.out.toLoadDC.borrow_mmu
@@ -569,7 +585,7 @@ class LSU extends Module {
   loaddc.io.in.fromDcacheArb.ld_dc_borrow_vld_gate := dcachearb.io.out.toLoadDC.borrow_vld_gate
   loaddc.io.in.fromDcacheArb.ld_dc_settle_way := dcachearb.io.out.toLoadDC.settle_way
   loaddc.io.in.fromDcacheArb.idx := dcachearb.io.out.dcache_idx
-  loaddc.io.in.dcache_lsu_ld_tag_dout := dcachetop.io.out.ld_tag_dout
+  loaddc.io.in.dcache_lsu_ld_tag_dout := dcachetop.io.out.ld_tag_dout.asTypeOf(loaddc.io.in.dcache_lsu_ld_tag_dout)
   loaddc.io.in.fromHad := io.in.ld_dc.fromHad
   loaddc.io.in.icc_dcache_arb_ld_tag_read := icc.io.out.toArb.ld.tagRead
   loaddc.io.in.fromAG := loadag.io.out.toDC
@@ -724,7 +740,7 @@ class LSU extends Module {
   loadda.io.in.fromCp0.lsu_nsfe := io.in.ld_da.fromCp0.lsu_nsfe
   loadda.io.in.fromCp0.yy_clk_en := io.in.ld_ag.fromCp0.yy_clk_en
   loadda.io.in.fromCp0.yy_dcache_pref_en := io.in.ld_da.fromCp0.yy_dcache_pref_en
-  loadda.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk
+  loadda.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loadda.io.in.dcache_lsu_ld_data_bank_dout := dcachetop.io.out.ld_data_bank_dout
   loadda.io.in.fromDC := loaddc.io.out.toDA
   loadda.io.in.ld_hit_prefetch := lfb.io.out.ldHitPrefetch
@@ -1040,7 +1056,7 @@ class LSU extends Module {
   // &Instance("ct_lsu_ld_wb","x_ct_lsu_ld_wb"); @114
   loadwb.io.in.fromCp0.lsu_icg_en := io.in.ld_ag.fromCp0.lsu_icg_en
   loadwb.io.in.fromCp0.yy_clk_en := io.in.ld_ag.fromCp0.yy_clk_en
-  loadwb.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk
+  loadwb.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loadwb.io.in.fromHad := io.in.ld_wb.fromHad
   loadwb.io.in.ld_da_addr := loadda.io.out.ld_da_addr
   loadwb.io.in.ld_da_bkpta_data := loadda.io.out.ld_da_bkpta_data
@@ -1078,7 +1094,7 @@ class LSU extends Module {
   // &Instance("ct_lsu_st_wb","x_ct_lsu_st_wb"); @115
   storewb.io.in.cp0In.icgEn := io.in.ld_ag.fromCp0.lsu_icg_en
   storewb.io.in.cp0In.clkEn := io.in.ld_ag.fromCp0.yy_clk_en
-  storewb.io.in.ctrlStClk := ctrl.io.out.ctrlClk  //////todo: distinguish stclk and ldclk in future
+  storewb.io.in.ctrlStClk := ctrl.io.out.ctrlClk.stClk  //////todo: distinguish stclk and ldclk in future
   io.out.st_wb.toRTU := storewb.io.out.toRtu
   //storewb.io.in.pad todo: add it
   storewb.io.in.rtuFlush := io.in.ld_ag.fromRTU.yy_xx_flush
@@ -1098,4 +1114,207 @@ class LSU extends Module {
   //                Linefill/Victim buffer
   //==========================================================
   // &Instance("ct_lsu_lfb","x_ct_lsu_lfb"); @120
+  lfb.io.in.biuIn.rData  := io.in.rb.fromBiu.r_data
+  lfb.io.in.biuIn.rLast  := io.in.rb.fromBiu.r_last
+  lfb.io.in.biuIn.rVld   := io.in.rb.fromBiu.r_vld
+  lfb.io.in.biuIn.rId    := io.in.rb.fromBiu.r_id
+  lfb.io.in.biuIn.rResp  := io.in.rb.fromBiu.r_resp
+  // todo shared input bundle delete module name prefix
+  lfb.io.in.busArbIn.rb_ar_sel  := busarb.io.out.bus_arb_rb_ar_sel
+  lfb.io.in.busArbIn.pfu_ar_sel := busarb.io.out.bus_arb_pfu_ar_sel
+
+  lfb.io.in.cp0In.lsuDcacheEn  := io.in.ld_ag.fromCp0.lsu_dcache_en
+  lfb.io.in.cp0In.lsuIcgEn     := io.in.ld_ag.fromCp0.lsu_icg_en
+  lfb.io.in.cp0In.yyClkEn      := io.in.ld_ag.fromCp0.yy_clk_en
+  lfb.io.in.dcache_arb_lfb_ld_grnt := dcachearb.io.out.dcache_arb_lfb_ld_grnt
+  lfb.io.in.ldDaIn.idx             := loadda.io.out.ld_da_idx
+  lfb.io.in.ldDaIn.discardGrnt     := loadda.io.out.toLfb.discard_grnt
+  lfb.io.in.ldDaIn.setWakeupQueue  := loadda.io.out.toLfb.set_wakeup_queue
+  lfb.io.in.ldDaIn.wakeupQueueNext := loadda.io.out.toLfb.wakeup_queue_next
+  // todo pfu
+  lfb.io.in.pfuIn.reqAddr          := DontCare
+  lfb.io.in.pfuIn.createDpVld      := DontCare
+  lfb.io.in.pfuIn.createGateclkEn  := DontCare
+  lfb.io.in.pfuIn.createReq        := DontCare
+  lfb.io.in.pfuIn.createVld        := DontCare
+  lfb.io.in.pfuIn.id               := DontCare
+  lfb.io.in.rbIn.biuReqAddr           := rb.io.out.toLfb.reqAddr
+  lfb.io.in.rbIn.addrTto4             := rb.io.out.toLfb.addr_tto4
+  lfb.io.in.rbIn.atomic               := rb.io.out.toLfb.atomic
+  lfb.io.in.rbIn.boundaryDepdWakeup   := rb.io.out.toLfb.boundary_depd_wakeup
+  lfb.io.in.rbIn.createDpVld          := rb.io.out.toLfb.create_dp_vld
+  lfb.io.in.rbIn.createGateclkEn      := rb.io.out.toLfb.create_gateclk_en
+  lfb.io.in.rbIn.createReq            := rb.io.out.toLfb.create_req
+  lfb.io.in.rbIn.createVld            := rb.io.out.toLfb.create_vld
+  lfb.io.in.rbIn.depd                 := rb.io.out.toLfb.depd
+  lfb.io.in.rbIn.ldamo                := rb.io.out.toLfb.ldamo
+  lfb.io.in.rtuFlush := io.in.lq.fromRTU.yy_xx_flush
+  lfb.io.in.stDaAddr := storeda.io.out.addr
+  lfb.io.in.vbIn := vb.io.out.toLfb
+  lfb.io.in.wmbIn.readAddr := wmb.io.out.wmb_read_req_addr
+  lfb.io.in.wmbIn.writeAddr := wmb.io.out.wmb_write_req_addr
+
+
+  // Victim Buffer: decide Dcache line replace
+  // &Instance("ct_lsu_vb","x_ct_lsu_vb"); @121
+  vb.io.in.biuIn.bId   := io.in.rb.fromBiu. b_id
+  vb.io.in.biuIn.bVld  := io.in.rb.fromBiu. b_vld
+  vb.io.in.busArbIn.wGrnt := busarb.io.out.bus_arb_vb_w_grnt
+  vb.io.in.busArbIn.awGrnt := busarb.io.out.bus_arb_vb_aw_grnt
+  vb.io.in.cp0In.lsuIcgEn := io.in.ld_ag.fromCp0.lsu_icg_en
+  vb.io.in.cp0In.yyClkEn  := io.in.ld_ag.fromCp0.yy_clk_en
+  vb.io.in.dcacheArbIn.ldGrnt := dcachearb.io.out.dcache_arb_vb_ld_grnt
+  vb.io.in.dcacheArbIn.stGrnt := dcachearb.io.out.dcache_arb_vb_st_grnt
+  vb.io.in.iccIn := icc.io.out.toVb
+  vb.io.in.ldDaSnqDataReissue := loadda.io.out.ld_da_vb_snq_data_reissue
+  vb.io.in.lfbIn := lfb.io.out.toVb
+  // todo lsu_special_clk
+  // todo pfu
+  // todo snq = vb.io.out.toSnq
+  vb.io.in.snqIn := DontCare
+
+  vb.io.in.stDaIn.dirty        := storeda.io.out.toVb.dirty
+  vb.io.in.stDaIn.miss         := storeda.io.out.toVb.miss
+  vb.io.in.stDaIn.replaceDirty := storeda.io.out.toVb.replaceDirty
+  vb.io.in.stDaIn.replaceValid := storeda.io.out.toVb.replaceValid
+  vb.io.in.stDaIn.replaceWay   := storeda.io.out.toVb.replaceWay
+  vb.io.in.stDaIn.way          := storeda.io.out.toVb.way
+  vb.io.in.stDaIn.eccErr             :=  storeda.io.out.toSq.vbEccErr
+  vb.io.in.stDaIn.eccStall           :=  storeda.io.out.toSq.vbEccStall
+  vb.io.in.stDaIn.feedbackDddrTto14  :=  storeda.io.out.toSq.vbFeedbackDddrTto14
+  vb.io.in.stDaIn.tagReissue         :=  storeda.io.out.toSq.vbTagReissue
+  vb.io.in.stDaIn.hit                :=  storeda.io.out.toRb.dcacheHit
+
+  vb.io.in.wmbIn.toEntry.addrTto6        := wmb.io.out.toVB.addr_tto6
+  vb.io.in.wmbIn.toEntry.inv             := wmb.io.out.toVB.inv
+  vb.io.in.wmbIn.toEntry.setWayMode      := wmb.io.out.toVB.set_way_mode
+  vb.io.in.wmbIn.toEntry.writePtrEncode  := wmb.io.out.wmb_write_ptr_encode
+  vb.io.in.wmbIn.toEntry.writeReqAddr    := wmb.io.out.wmb_write_req_addr
+  vb.io.in.wmbIn.createDpVld     := wmb.io.out.toVB.create_dp_vld
+  vb.io.in.wmbIn.createGateclkEn := wmb.io.out.toVB.create_gateclk_en
+  vb.io.in.wmbIn.createReq       := wmb.io.out.toVB.create_req
+  vb.io.in.wmbIn.createVld       := wmb.io.out.toVB.create_vld
+
+  // todo sdb data @5486 ct_lsu_vb_sdb_data, is VB DATA ENTRY INST
+  // &Instance("ct_lsu_amr","x_ct_lsu_amr"); @140
+
+  amr.io.in.cp0In.amr       := io.in.ld_ag.fromCp0.amr
+  amr.io.in.cp0In.amr2      := io.in.ld_ag.fromCp0.amr2
+  amr.io.in.cp0In.icgEn     := io.in.ld_ag.fromCp0.lsu_icg_en
+  amr.io.in.cp0In.noOpReq   := io.in.ld_ag.fromCp0.noOpReq
+  amr.io.in.cp0In.clkEn     := io.in.ld_ag.fromCp0.yy_clk_en
+  amr.io.in.iccIdle         := icc.io.out.iccIdle
+  amr.io.in.wmbIn.addr      := wmbce.io.out.toWmb.addr
+  amr.io.in.wmbIn.bytesVld  := wmbce.io.out.toWmb.bytes_vld
+  amr.io.in.wmbIn.caStInst  := wmbce.io.out.toWmb.ca_st_inst
+  amr.io.in.wmbIn.popVld    := wmb.io.out.toWmbCe.pop_vld
+  amr.io.in.wmbIn.vld       := wmbce.io.out.toWmb.vld
+
+  // &Instance("ct_lsu_icc","x_ct_lsu_icc"); @141
+
+  icc.io.in.cp0In        := io.in.cp0In.toIcc
+  icc.io.in.cp0In.icgEn  := io.in.ld_ag.fromCp0.lsu_icg_en
+  icc.io.in.dcacheArbIccLdGrnt := dcachearb.io.out.dcache_arb_icc_ld_grnt
+  icc.io.in.ldDaIn.readData  := loadda.io.out.ld_da_icc_read_data
+  icc.io.in.ldDaIn.snqBorrow := loadda.io.out.ld_da_snq_borrow_icc
+  icc.io.in.empty.lfb := lfb.io.out.lfbEmpty
+  icc.io.in.empty.rb  := rb.io.out.rb_empty
+  icc.io.in.empty.snq := DontCare
+  icc.io.in.empty.sq  := sq.io.out.toCtrl.empty
+  icc.io.in.sqIn := sq.io.out.toIcc
+  icc.io.in.empty.vb  := vb.io.out.vbEmpty
+  icc.io.in.empty.wmb := wmb.io.out.wmb_empty
+  icc.io.in.sqIn := DontCare
+
+  // &Instance("ct_lsu_ctrl","x_ct_lsu_ctrl"); @142
+  ctrl.io.in.cp0In.dcachePrefDist := io.in.cp0In.toCtrl.dcachePrefDist
+  ctrl.io.in.cp0In.l2PrefDist     := io.in.cp0In.toCtrl.l2PrefDist
+  ctrl.io.in.cp0In.icgEn          := io.in.ld_ag.fromCp0.lsu_icg_en
+  ctrl.io.in.cp0In.yyClkEn        := io.in.ld_ag.fromCp0.yy_clk_en
+  ctrl.io.in.dcacheArbIn.ldDcBorrowGate := dcachearb.io.out.toLoadDC.borrow_vld_gate
+  ctrl.io.in.dcacheArbIn.stDcBorrowGate := dcachearb.io.out.toStoreDC.borrow_vld_gate
+  ctrl.io.in.rfPipeSel := io.in.rfPipeIn.toCtrl
+  ctrl.io.in.ldDaIn.instVld                 := loadda.io.out.toCB.ld_inst_vld
+  ctrl.io.in.ldDaIn.borrow_vld              := loadda.io.out.toCtrl.borrow_vld
+  ctrl.io.in.ldDaIn.ecc_wakeup              := loadda.io.out.toCtrl.ecc_wakeup
+  ctrl.io.in.ldDaIn.idu_already_da          := loadda.io.out.toCtrl.idu_already_da
+  ctrl.io.in.ldDaIn.idu_bkpta_data          := loadda.io.out.toCtrl.idu_bkpta_data
+  ctrl.io.in.ldDaIn.idu_bkptb_data          := loadda.io.out.toCtrl.idu_bkptb_data
+  ctrl.io.in.ldDaIn.idu_boundary_gateclk_en := loadda.io.out.toCtrl.idu_boundary_gateclk_en
+  ctrl.io.in.ldDaIn.idu_pop_entry           := loadda.io.out.toCtrl.idu_pop_entry
+  ctrl.io.in.ldDaIn.idu_pop_vld             := loadda.io.out.toCtrl.idu_pop_vld
+  ctrl.io.in.ldDaIn.idu_rb_full             := loadda.io.out.toCtrl.idu_rb_full
+  ctrl.io.in.ldDaIn.idu_secd                := loadda.io.out.toCtrl.idu_secd
+  ctrl.io.in.ldDaIn.idu_spec_fail           := loadda.io.out.toCtrl.idu_spec_fail
+  ctrl.io.in.ldDaIn.idu_wait_fence          := loadda.io.out.toCtrl.idu_wait_fence
+  ctrl.io.in.ldDaIn.rb_full_gateclk_en      := loadda.io.out.toCtrl.rb_full_gateclk_en
+  ctrl.io.in.ldDaIn.special_gateclk_en      := loadda.io.out.toCtrl.special_gateclk_en
+  ctrl.io.in.ldDaIn.wait_fence_gateclk_en   := loadda.io.out.toCtrl.wait_fence_gateclk_en
+
+  ctrl.io.in.ldDcIn.borrowVld         := loaddc.io.out.toDA.borrow_vld
+  ctrl.io.in.ldDcIn.iduLqFull         := loaddc.io.out.ld_dc_idu_lq_full
+  ctrl.io.in.ldDcIn.iduTlbBusy        := loaddc.io.out.ld_dc_idu_tlb_busy
+  ctrl.io.in.ldDcIn.immeWakeup        := loaddc.io.out.ld_dc_imme_wakeup
+  ctrl.io.in.ldDcIn.instVld           := loaddc.io.out.toDA.inst_vld
+  ctrl.io.in.ldDcIn.lqFullGateclkEn   := loaddc.io.out.toLQ.full_gateclk_en
+  ctrl.io.in.ldDcIn.tlbBusyGateclkEn  := loaddc.io.out.ld_dc_tlb_busy_gateclk_en
+
+  ctrl.io.in.ldWbIn.dataVld := loadwb.io.out.ld_wb_data_vld
+  ctrl.io.in.ldWbIn.instVld := loadwb.io.out.ld_wb_inst_vld
+
+  ctrl.io.in.lfbIn.depdWakeUp := lfb.io.out.lfbDepdWakeup
+  ctrl.io.in.lfbIn.empty      := lfb.io.out.lfbEmpty
+  ctrl.io.in.lfbIn.popDepdFf  := lfb.io.out.popDepdFf
+
+  ctrl.io.in.rbIn.ldWbCmpltReq := rb.io.out.toLoadWB.cmplt_req
+  ctrl.io.in.rbIn.empty        := rb.io.out.rb_empty
+  ctrl.io.in.rbIn.ldWbDataReq  := rb.io.out.toLoadWB.data_req
+
+  ctrl.io.in.stEx1InstVld := storeex1.io.out.sdEx1InstVld
+
+  ctrl.io.in.stAgIn.instVld           := storeag.io.out.toDc.instVld
+  ctrl.io.in.stAgIn.stallOri          := storeag.io.out.toDc.stallOri
+  ctrl.io.in.stAgIn.stallRestartEntry := storeag.io.out.toDc.stallRestartEntry
+
+  ctrl.io.in.stDaIn.instVld              := storeda.io.out.instVld
+  ctrl.io.in.stDaIn.rbcreateGateclkEn    := storeda.io.out.toRb.createGateclkEn
+  ctrl.io.in.stDaIn.waitFenceGateclkEn   := storeda.io.out.toSq.waitFenceGateclkEn
+  ctrl.io.in.stDaIn.eccWakeup            := storeda.io.out.toCtrl. eccWakeup
+  ctrl.io.in.stDaIn.alreadyDa            := storeda.io.out.toCtrl. alreadyDa
+  ctrl.io.in.stDaIn.bkptaData            := storeda.io.out.toCtrl. bkptaData
+  ctrl.io.in.stDaIn.bkptbData            := storeda.io.out.toCtrl. bkptbData
+  ctrl.io.in.stDaIn.boundaryGateclkEn    := storeda.io.out.toCtrl. boundaryGateclkEn
+  ctrl.io.in.stDaIn.popEntry             := storeda.io.out.toCtrl. popEntry
+  ctrl.io.in.stDaIn.popVld               := storeda.io.out.toCtrl. popVld
+  ctrl.io.in.stDaIn.rbFull               := storeda.io.out.toCtrl. rbFull
+  ctrl.io.in.stDaIn.secd                 := storeda.io.out.toCtrl. secd
+  ctrl.io.in.stDaIn.specFail             := storeda.io.out.toCtrl. specFail
+  ctrl.io.in.stDaIn.waitFence            := storeda.io.out.toCtrl. waitFence
+  ctrl.io.in.stDaIn.rbFullGateclkEn      := storeda.io.out.toCtrl. rbFullGateclkEn
+  ctrl.io.in.stDaIn.borrowVld            := storeda.io.out.toCtrl. borrowVld
+
+  ctrl.io.in.stDcIn.borrowVld        := storedc.io.out.toDa.toSqDa.borrowVld
+  ctrl.io.in.stDcIn.iduSqFull        := storedc.io.out.toDa.iduSqFull
+  ctrl.io.in.stDcIn.iduTlbBusy       := storedc.io.out.toDa.iduTlbBusy
+  ctrl.io.in.stDcIn.instVld          := storedc.io.out.toDa.instVld
+  ctrl.io.in.stDcIn.sqFullGateclkEn  := storedc.io.out.toSq.sqFullGateclkEn
+  ctrl.io.in.stDcIn.tlbBusyGateclkEn := storedc.io.out.toCtrl.tlbBusyGateclkEn
+  ctrl.io.in.stDcIn.immeWakeup       := storedc.io.out.toCtrl.immeWakeup
+  ctrl.io.in.stWbInstVld := storewb.st_wb_inst_vld
+
+  ctrl.io.in.vbEmpty := vb.io.out.vbEmpty
+
+  ctrl.io.in.vmbIn := DontCare // todo
+
+  ctrl.io.in.wmbIn.depdWakeup   := wmb.io.out.wmb_depd_wakeup
+  ctrl.io.in.wmbIn.empty        := wmb.io.out.wmb_empty
+  ctrl.io.in.wmbIn.ldWbDataReq  := wmb.io.out.toLoadWB.data_req
+  ctrl.io.in.wmbIn.noOp         := wmb.io.out.wmb_no_op
+  ctrl.io.in.wmbIn.stWbCmpltReq := wmb.io.out.toStoreWB.cmplt_req
+  ctrl.io.in.wmbIn.writeReqIcc  := wmb.io.out.wmb_write_req_icc
+
+  // &Instance("ct_lsu_bus_arb","x_ct_lsu_bus_arb"); @143
+
+  // todo bus arb
+
 }
