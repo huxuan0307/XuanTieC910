@@ -245,6 +245,9 @@ class Icc extends Module with LsuConfig with IccStateConfig{
   // @159
   // assign icc_cnt_add1[9:0]  = {1'b0,icc_cnt[8:0]}  + 10'b1;
   // assign icc_cnt_add_vld    = dcache_arb_icc_ld_grnt  ||  vb_icc_create_grnt  &&  (icc_state[2:0]  ==  REQ_VB_WAY1);
+  val icc_cnt_add1 = WireInit(0.U(10.W))
+  icc_cnt_add1 := Cat(0.U(1.W),icc_cnt) + 1.U(10.W)
+  icc_cnt_overflow := icc_cnt_add1(9)
   //==========================================================
   //                  State 5 : wait vb empty
   //==========================================================
