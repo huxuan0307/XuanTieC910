@@ -68,8 +68,9 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare  //todo: figure out Gateclk
   idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.yyXxCancel
   idu.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
-  idu.io.in.fromRTU.flush_fe := rtu.io.out.toIdu.flushFe
-  idu.io.in.fromRTU.flush_is := rtu.io.out.toIdu.flushIs
+  idu.io.in.fromRTU.flush.fe := rtu.io.out.toIdu.flushFe
+  idu.io.in.fromRTU.flush.is := rtu.io.out.toIdu.flushIs
+  idu.io.in.fromRTU.flush.be := rtu.io.out.yyXx.flush
   idu.io.in.fromRTU.flush_stall := rtu.io.out.toIdu.flushStall
   idu.io.in.fromRTU.freg := rtu.io.out.toIdu.fregAlloc.map(_.bits)
   idu.io.in.fromRTU.preg := rtu.io.out.toIdu.pregAlloc.map(_.bits)
@@ -80,7 +81,6 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromRTU.ereg_vld := rtu.io.out.toIdu.eregAlloc.map(_.valid)
   idu.io.in.fromRTU.vreg_vld := rtu.io.out.toIdu.vregAlloc.map(_.valid)
   idu.io.in.fromRTU.srt_en := rtu.io.out.toIdu.srtEn
-  idu.io.in.fromRTU.yy_xx_flush := rtu.io.out.yyXx.flush
   idu.io.in.RTfromRTUsub.rt_recover_preg := rtu.io.out.toIdu.rtRecoverPreg
   idu.io.in.ISfromRTUsub.rob_full := rtu.io.out.toIdu.robFull
   idu.io.in.ISfromRTUsub.rob_inst_idd := rtu.io.out.toIdu.robInstIidVec

@@ -105,7 +105,7 @@ class SdiqEntry extends Module with SdiqConfig {
   //==========================================================
   //                      Entry Valid
   //==========================================================
-  when(rtu.yyXXFlush) {
+  when(rtu.flush.be) {
     valid := false.B
   }.elsewhen(create.en) {
     valid := true.B
@@ -238,8 +238,9 @@ class SdiqEntry extends Module with SdiqConfig {
       in.fuDstPreg      := io.in.fuDstPreg
       in.wbPreg         := io.in.wbPreg
       in.loadPreg       := io.in.loadPreg
-      in.flush.is       := rtu.flushIs
-      in.flush.fe       := rtu.flushFe
+      in.flush.is       := rtu.flush.be // Todo: Figure out why use flush backend signal
+      in.flush.fe       := rtu.flush.be
+      in.flush.be       := rtu.flush.be
       in.createData     := create.data.src0
       in.gateClkIdxWen  := createSrcGateClkEn
       in.gateClkWen     := create.gateClkEn
@@ -247,7 +248,6 @@ class SdiqEntry extends Module with SdiqConfig {
       in.wen            := create.dpEn
 
       srcReadData       := out.readData
-
   }
 
   // Todo: src entry for vector

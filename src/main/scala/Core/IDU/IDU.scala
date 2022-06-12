@@ -11,6 +11,12 @@ import RF._
 import chisel3._
 import chisel3.util._
 
+class IduFromRtuFlushBundle extends Bundle {
+  val fe = Bool()
+  val is = Bool()
+  val be = Bool() // replace yy_xx_flush with flush.be
+}
+
 class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
   val fromCp0 = new Bundle{
     val icgEn = Bool()
@@ -124,10 +130,8 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
   //    val flushFe = Bool()
   //  }
   val fromRTU = new Bundle{
-    val flush_fe = Bool()
-    val flush_is = Bool()
+    val flush = new IduFromRtuFlushBundle
     val flush_stall = Bool()
-    val yy_xx_flush = Bool()
     val srt_en = Bool()
 
     val ereg_vld = Vec(4, Bool())
@@ -430,7 +434,7 @@ class IDU extends Module with Config {
   idstage.io.in.fromFence := io.in.IDfromFence
   idstage.io.in.fromHad := io.in.IDfromHad
   idstage.io.in.fromHpcp := io.in.fromHpcp
-  idstage.io.in.fromRTU.flushFe := io.in.fromRTU.flush_fe
+  idstage.io.in.fromRTU.flushFe := io.in.fromRTU.flush.fe
 
   //////todo: id_fence
   // &Instance("ct_idu_id_fence", "x_ct_idu_id_fence"); @34
@@ -461,9 +465,7 @@ class IDU extends Module with Config {
   // &Instance("ct_idu_ir_rt", "x_ct_idu_ir_rt"); @42
 
   rt.io.in.rt_req := irstage.io.out.rt_req
-  rt.io.in.fromRTU.flush_fe := io.in.fromRTU.flush_fe
-  rt.io.in.fromRTU.flush_is := io.in.fromRTU.flush_is
-  rt.io.in.fromRTU.yy_xx_flush := io.in.fromRTU.yy_xx_flush
+  rt.io.in.fromRTU.flush := io.in.fromRTU.flush
   rt.io.in.fromRTU.rt_recover_preg := io.in.RTfromRTUsub.rt_recover_preg
   rt.io.in.fromIU := io.in.RTfromIU
   rt.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
@@ -502,9 +504,7 @@ class IDU extends Module with Config {
   isstage.io.in.fromIU.ex2_pipe1_mult_inst_vld_dupx := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
   isstage.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
   isstage.io.in.fromCp0.icgEn := io.in.fromCp0.icgEn
-  isstage.io.in.fromRTU.flush_fe := io.in.fromRTU.flush_fe
-  isstage.io.in.fromRTU.flush_is := io.in.fromRTU.flush_is
-  isstage.io.in.fromRTU.yy_xx_flush := io.in.fromRTU.yy_xx_flush
+  isstage.io.in.fromRTU.flush := io.in.fromRTU.flush
   isstage.io.in.fromRTU.flush_stall := io.in.fromRTU.flush_stall
   isstage.io.in.fromRTU.rob_full := io.in.ISfromRTUsub.rob_full
   isstage.io.in.fromRTU.retire_int_vld := io.in.ISfromRTUsub.retire_int_vld
@@ -620,9 +620,7 @@ class IDU extends Module with Config {
   aiq0.io.in.fromIu := io.in.aiq0fromIU
   aiq0.io.in.aiqEntryCreateVec := DontCare //////todo: add aiq1
   aiq0.io.in.biqEntryCreateVec := biq.io.out.entryEnqOHVec
-  aiq0.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
-  aiq0.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
-  aiq0.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  aiq0.io.in.fromRtu.flush := io.in.fromRTU.flush
   aiq0.io.in.fuResultDstPreg := DontCare ////todo: complete rf: rf.io.data.out.dp_xx_rf_pipe0_dst_preg_dup0
   aiq0.io.in.wbPreg := io.in.IQfromIUsub.wbPreg//iu_idu_ex2_pipe0_wb_preg_vld_dupx
   aiq0.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg
@@ -728,9 +726,7 @@ class IDU extends Module with Config {
   aiq1.io.in.fromIu := DontCare //////not use
   aiq1.io.in.aiqEntryCreateVec := lsiq.io.out.entryEnqOHVec //////todo: add aiq1
   aiq1.io.in.biqEntryCreateVec := biq.io.out.entryEnqOHVec
-  aiq1.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
-  aiq1.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
-  aiq1.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  aiq1.io.in.fromRtu.flush := io.in.fromRTU.flush
   aiq1.io.in.fuResultDstPreg := DontCare ////todo: complete rf: rf.io.data.out.dp_xx_rf_pipe0_dst_preg_dup0
   aiq1.io.in.wbPreg := io.in.IQfromIUsub.wbPreg//iu_idu_ex2_pipe0_wb_preg_vld_dupx
   aiq1.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg //////same with aiq0
@@ -741,9 +737,7 @@ class IDU extends Module with Config {
   biq.io.in.fuResultDstPreg := DontCare
   biq.io.in.wbPreg := io.in.IQfromIUsub.wbPreg
   biq.io.in.loadPreg := io.in.fromLSU.aiq0fromLSUsub.loadPreg
-  biq.io.in.fromRtu.flushFe := io.in.fromRTU.flush_fe
-  biq.io.in.fromRtu.flushIs := io.in.fromRTU.flush_is
-  biq.io.in.fromRtu.yyXXFlush := io.in.fromRTU.yy_xx_flush
+  biq.io.in.fromRtu.flush := io.in.fromRTU.flush
   biq.io.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn
   biq.io.in.fromCp0.icgEn   := io.in.fromCp0.icgEn
   biq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
@@ -864,9 +858,7 @@ class IDU extends Module with Config {
   lsiq.io.in.wbPreg(2).valid   := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx
 
   lsiq.io.in.fromLsu      := io.in.fromLSU.LSIQfromLSU.lsiqCtrl
-  lsiq.io.in.fromRtu.yyXXFlush  := io.in.fromRTU.yy_xx_flush
-  lsiq.io.in.fromRtu.flushFe    := io.in.fromRTU.flush_fe
-  lsiq.io.in.fromRtu.flushIs    := io.in.fromRTU.flush_is
+  lsiq.io.in.fromRtu.flush  := io.in.fromRTU.flush
   lsiq.io.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
 
   // &ConnRule(s/_dupx/_dup1/); @62
@@ -887,9 +879,7 @@ class IDU extends Module with Config {
   //==========================================================
   // &Instance("ct_idu_rf_ctrl", "x_ct_idu_rf_ctrl"); @80
 
-  rfstage.io.ctrl.in.fromRtu.flush.fe := io.in.fromRTU.flush_fe
-  rfstage.io.ctrl.in.fromRtu.flush.is := io.in.fromRTU.flush_is
-  rfstage.io.ctrl.in.fromRtu.yyXxFlush := io.in.fromRTU.yy_xx_flush
+  rfstage.io.ctrl.in.fromRtu.flush := io.in.fromRTU.flush
   rfstage.io.ctrl.in.fromIu.stall := io.in.RFfromIU.stall
   rfstage.io.ctrl.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
   rfstage.io.ctrl.in.fromCp0.yyClkEn := io.in.fromCp0.yyClkEn

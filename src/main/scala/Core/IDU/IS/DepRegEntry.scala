@@ -1,5 +1,6 @@
 package Core.IDU.IS
 
+import Core.IDU.IduFromRtuFlushBundle
 import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
@@ -64,10 +65,7 @@ class DepRegEntryInput extends Bundle with DepRegEntryConfig {
 
   val loadPreg = ValidIO(UInt(NumPhysicRegsBits.W))
 
-  val flush = new Bundle {
-    val fe : Bool = Bool()
-    val is : Bool = Bool()
-  }
+  val flush = new IduFromRtuFlushBundle
 
   val createData = new DepRegEntryCreateData
   val gateClkIdxWen : Bool = Bool()
