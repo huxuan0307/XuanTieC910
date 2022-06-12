@@ -154,6 +154,15 @@ class LSUInput extends Bundle {
     val idu_lsu_vmb_create_gateclk_enVec = Vec(2, Bool())
     val mmu_lsu_tlb_wakeup = UInt(LSIQ_ENTRY.W)
   }
+  val bus_arb = new Bundle{
+    val fromBiu = new Bundle{
+      val ar_ready = Bool()
+      val aw_vb_grnt = Bool()
+      val aw_wmb_grnt = Bool()
+      val w_vb_grnt = Bool()
+      val w_wmb_grnt = Bool()
+    }
+  }
 }
 
 class LSUOutput extends Bundle with LsuConfig{
@@ -247,6 +256,21 @@ class LSUOutput extends Bundle with LsuConfig{
   }
   val st_wb = new Bundle{
     val toRTU = new StWbToRtu
+  }
+  val bus_arb = new Bundle{
+    val toBiu = new Bundle{
+      val ar = new biu_ar
+      val lsu_biu_ar_req_gate = Bool()
+
+      val lsu_biu_aw_req_gate = Bool()
+      val st_aw = new biu_aw
+      val lsu_biu_aw_st_unique = Bool()
+      val vict_aw = new biu_aw
+      val lsu_biu_aw_vict_unique = Bool()
+
+      val st_w = new biu_w
+      val vict_w = new biu_w
+    }
   }
 }
 
@@ -1373,6 +1397,95 @@ class LSU extends Module {
   // &Instance("ct_lsu_bus_arb","x_ct_lsu_bus_arb"); @143
 
   // todo bus arb
-  busarb.io.in := DontCare
-  io.out := DontCare
+  busarb.io.in.fromBiu := io.in.bus_arb.fromBiu
+  busarb.io.in.fromCp0.lsu_icg_en := io.in.ld_ag.fromCp0.lsu_icg_en
+  busarb.io.in.fromCp0.yy_clk_en := io.in.ld_ag.fromCp0.yy_clk_en
+  io.out.bus_arb.toBiu.ar := busarb.io.out.ar
+  io.out.bus_arb.toBiu.st_aw := busarb.io.out.st_aw
+  io.out.bus_arb.toBiu.st_w := busarb.io.out.st_w
+  io.out.bus_arb.toBiu.lsu_biu_ar_req_gate := busarb.io.out.lsu_biu_ar_req_gate
+  io.out.bus_arb.toBiu.lsu_biu_aw_req_gate := busarb.io.out.lsu_biu_aw_req_gate
+  io.out.bus_arb.toBiu.lsu_biu_aw_st_unique := busarb.io.out.lsu_biu_aw_st_unique
+  io.out.bus_arb.toBiu.lsu_biu_aw_vict_unique := busarb.io.out.lsu_biu_aw_vict_unique
+  io.out.bus_arb.toBiu.vict_aw := busarb.io.out.vict_aw
+  io.out.bus_arb.toBiu.vict_w := busarb.io.out.vict_w
+  busarb.io.in.pad_yy_icg_scan_en := io.in.ld_ag.fromPad.yy_icg_scan_en
+  busarb.io.in.pfu_ar := 0.U.asTypeOf(busarb.io.in.pfu_ar) //////todo: add pfu
+  busarb.io.in.pfu_biu_ar_req_gateclk_en := 0.U.asTypeOf(busarb.io.in.pfu_biu_ar_req_gateclk_en) //////todo: add pfu
+  busarb.io.in.rb_ar.addr := rb.io.out.toBiu.ar_addr
+  busarb.io.in.rb_ar.bar := rb.io.out.toBiu.ar_bar
+  busarb.io.in.rb_ar.burst := rb.io.out.toBiu.ar_burst
+  busarb.io.in.rb_ar.cache := rb.io.out.toBiu.ar_cache
+  busarb.io.in.rb_ar.domain := rb.io.out.toBiu.ar_domain
+  busarb.io.in.rb_ar.dp_req := rb.io.out.toBiu.ar_dp_req
+  busarb.io.in.rb_ar.id := rb.io.out.toBiu.ar_id
+  busarb.io.in.rb_ar.len := rb.io.out.toBiu.ar_len
+  busarb.io.in.rb_ar.lock := rb.io.out.toBiu.ar_lock
+  busarb.io.in.rb_ar.prot := rb.io.out.toBiu.ar_prot
+  busarb.io.in.rb_ar.req := rb.io.out.toBiu.ar_req
+  busarb.io.in.rb_biu_ar_req_gateclk_en := rb.io.out.toBiu.ar_req_gateclk_en
+  busarb.io.in.rb_ar.size := rb.io.out.toBiu.ar_size
+  busarb.io.in.rb_ar.snoop := rb.io.out.toBiu.ar_snoop
+  busarb.io.in.rb_ar.user := rb.io.out.toBiu.ar_user
+  busarb.io.in.vb_aw.addr := vb.io.out.toBiu.aw_addr
+  busarb.io.in.vb_aw.bar := vb.io.out.toBiu.aw_bar
+  busarb.io.in.vb_aw.burst := vb.io.out.toBiu.aw_burst
+  busarb.io.in.vb_aw.cache := vb.io.out.toBiu.aw_cache
+  busarb.io.in.vb_aw.domain := vb.io.out.toBiu.aw_domain
+  busarb.io.in.vb_aw.dp_req := vb.io.out.toBiu.aw_dp_req
+  busarb.io.in.vb_aw.id := vb.io.out.toBiu.aw_id
+  busarb.io.in.vb_aw.len := vb.io.out.toBiu.aw_len
+  busarb.io.in.vb_aw.lock := vb.io.out.toBiu.aw_lock
+  busarb.io.in.vb_aw.prot := vb.io.out.toBiu.aw_prot
+  busarb.io.in.vb_aw.req := vb.io.out.toBiu.aw_req
+  busarb.io.in.vb_biu_aw_req_gateclk_en := vb.io.out.toBiu.aw_req_gateclk_en
+  busarb.io.in.vb_aw.size := vb.io.out.toBiu.aw_size
+  busarb.io.in.vb_aw.snoop := vb.io.out.toBiu.aw_snoop
+  busarb.io.in.vb_biu_aw_unique := vb.io.out.toBiu.aw_unique
+  busarb.io.in.vb_aw.user := vb.io.out.toBiu.aw_user
+  busarb.io.in.vb_w.data := vb.io.out.toBiu.w_data
+  busarb.io.in.vb_biu_w_id := vb.io.out.toBiu.w_id
+  busarb.io.in.vb_w.last := vb.io.out.toBiu.w_last
+  busarb.io.in.vb_biu_w_req := vb.io.out.toBiu.w_req
+  busarb.io.in.vb_w.strb := vb.io.out.toBiu.w_strb
+  busarb.io.in.vb_w.vld := vb.io.out.toBiu.w_vld
+  busarb.io.in.vb_w.wns := 0.U.asTypeOf(busarb.io.in.vb_w.wns) //////todo: this signal is not exist in C910
+  busarb.io.in.wmb_ar.addr := wmb.io.out.toBiu.ar_addr
+  busarb.io.in.wmb_ar.bar := wmb.io.out.toBiu.ar_bar
+  busarb.io.in.wmb_ar.burst := wmb.io.out.toBiu.ar_burst
+  busarb.io.in.wmb_ar.cache := wmb.io.out.toBiu.ar_cache
+  busarb.io.in.wmb_ar.domain := wmb.io.out.toBiu.ar_domain
+  busarb.io.in.wmb_ar.dp_req := wmb.io.out.toBiu.ar_dp_req
+  busarb.io.in.wmb_ar.id := wmb.io.out.toBiu.ar_id
+  busarb.io.in.wmb_ar.len := wmb.io.out.toBiu.ar_len
+  busarb.io.in.wmb_ar.lock := wmb.io.out.toBiu.ar_lock
+  busarb.io.in.wmb_ar.prot := wmb.io.out.toBiu.ar_prot
+  busarb.io.in.wmb_ar.req := wmb.io.out.toBiu.ar_req
+  busarb.io.in.wmb_biu_ar_req_gateclk_en := wmb.io.out.toBiu.ar_req_gateclk_en
+  busarb.io.in.wmb_ar.size := wmb.io.out.toBiu.ar_size
+  busarb.io.in.wmb_ar.snoop := wmb.io.out.toBiu.ar_snoop
+  busarb.io.in.wmb_ar.user := wmb.io.out.toBiu.ar_user
+  busarb.io.in.wmb_aw.addr := wmb.io.out.toBiu.aw_addr
+  busarb.io.in.wmb_aw.bar := wmb.io.out.toBiu.aw_bar
+  busarb.io.in.wmb_aw.burst := wmb.io.out.toBiu.aw_burst
+  busarb.io.in.wmb_aw.cache := wmb.io.out.toBiu.aw_cache
+  busarb.io.in.wmb_aw.domain := wmb.io.out.toBiu.aw_domain
+  busarb.io.in.wmb_aw.dp_req := wmb.io.out.toBiu.aw_dp_req
+  busarb.io.in.wmb_aw.id := wmb.io.out.toBiu.aw_id
+  busarb.io.in.wmb_aw.len := wmb.io.out.toBiu.aw_len
+  busarb.io.in.wmb_aw.lock := wmb.io.out.toBiu.aw_lock
+  busarb.io.in.wmb_aw.prot := wmb.io.out.toBiu.aw_prot
+  busarb.io.in.wmb_aw.req := wmb.io.out.toBiu.aw_req
+  busarb.io.in.wmb_biu_aw_req_gateclk_en := wmb.io.out.toBiu.aw_req_gateclk_en
+  busarb.io.in.wmb_aw.size := wmb.io.out.toBiu.aw_size
+  busarb.io.in.wmb_aw.snoop := wmb.io.out.toBiu.aw_snoop
+  busarb.io.in.wmb_aw.user := wmb.io.out.toBiu.aw_user
+  busarb.io.in.wmb_w.data := wmb.io.out.toBiu.w_data
+  busarb.io.in.wmb_biu_w_id := wmb.io.out.toBiu.w_id
+  busarb.io.in.wmb_w.last := wmb.io.out.toBiu.w_last
+  busarb.io.in.wmb_biu_w_req := wmb.io.out.toBiu.w_req
+  busarb.io.in.wmb_w.strb := wmb.io.out.toBiu.w_strb
+  busarb.io.in.wmb_w.vld := wmb.io.out.toBiu.w_vld
+  busarb.io.in.wmb_w.wns := wmb.io.out.toBiu.w_wns
+
 }

@@ -351,6 +351,7 @@ class IDU extends Module with Config {
   val aiq1 = Module(new ArithInstQueue1)
   val biq = Module(new Biq)
   val lsiq = Module(new Lsiq)
+  //val sdiq = Module(new sdiq)
   val rfstage = Module(new RFStage)
   val prf = Module(new Prf)
   //////todo: add 1ereg, 2 vreg, 2freg
@@ -871,7 +872,7 @@ class IDU extends Module with Config {
   // &ConnRule(s/_dupx/_dup1/); @62
   // &Instance("ct_idu_is_sdiq", "x_ct_idu_is_sdiq"); @63
   //todo: add sdiq
-
+  //sdiq
   // &ConnRule(s/_dupx/_dup2/); @66
   // &Instance("ct_idu_is_viq0_dummy", "x_ct_idu_is_viq0"); @67
   // &ConnRule(s/_dupx/_dup3/); @68
