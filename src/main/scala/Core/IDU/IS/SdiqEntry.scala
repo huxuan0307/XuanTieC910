@@ -56,9 +56,9 @@ class SdiqEntryOutput
   extends IqEntryOutput(SdiqConfig.NumSdiqEntry)
     with SdiqConfig with DepRegEntryConfig {
   val readData = new SdiqEntryData
-  val src0PregOH : UInt = UInt(NumPhysicRegsBits.W)
-  val srcFPregOH : UInt = UInt(NumFPregsBits.W)
-  val srcVPregOH : UInt = UInt(NumVPregsBits.W)
+  val src0PregOH : UInt = UInt(NumPhysicRegs.W)
+  val srcFPregOH : UInt = UInt(NumFPregs.W)
+  val srcVPregOH : UInt = UInt(NumVPregs.W)
 }
 
 class SdiqEntryIO extends Bundle {
@@ -135,7 +135,9 @@ class SdiqEntry extends Module with SdiqConfig {
   when(create.en) {
     ageVec := create.ageVec
   }.elsewhen(io.in.popValid) {
-    ageVec := VecInit((ageVec.asUInt & ~io.in.popOtherEntry.asUInt).asBools)
+    ageVec := ageVec.zip(io.in.popOtherEntry).map {
+      case (age, popOther) => age & !popOther
+    }
   }
   io.out.ageVec := ageVec
 
