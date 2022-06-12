@@ -200,7 +200,7 @@ class ArithInstQueue extends Module with AiqConfig {
 
   //after flush fe/is, the rf may wrongly pop before rtu_yy_xx_flush // Todo: figure out
   //need flush also when rtu_yy_xx_flush
-  when (rtu.flushFe || rtu.flushIs || rtu.yyXXFlush) {
+  when (rtu.flush.fe || rtu.flush.is || rtu.flush.be) {
     entryCnt := 0.U
   }.elsewhen(entryCntUpdateValid) {
     entryCnt := entryCntUpdate
@@ -387,8 +387,7 @@ class ArithInstQueue extends Module with AiqConfig {
       in.rfPopValid := ctrlAiq0.rfPopValid
       in.rfReadyClr := dataAiq0.rfReadyClr
       in.stall      := ctrlAiq0.stall
-      in.fromRtu.flush.is   := rtu.flushIs
-      in.fromRtu.flush.fe   := rtu.flushFe
+      in.fromRtu.flush    := rtu.flush
       in.create.ageVec    := entryCreateAgeVec(i)
       in.create.data      := entryCreateDataVec(i)
       in.create.dpEn      := entryCreateDpEnVec(i)

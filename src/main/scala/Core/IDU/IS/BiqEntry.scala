@@ -1,6 +1,7 @@
 package Core.IDU.IS
 
 import Core.ExceptionConfig._
+import Core.IDU.IduFromRtuFlushBundle
 import Core.IntConfig._
 import Core.VectorUnitConfig._
 import chisel3._
@@ -15,10 +16,7 @@ trait BiqConfig {
 object BiqConfig extends BiqConfig
 
 class EntryFromRtu extends Bundle {
-  val flush = new Bundle {
-    val fe : Bool = Bool()
-    val is : Bool = Bool()
-  }
+  val flush = new IduFromRtuFlushBundle
 }
 
 class BiqEntryData extends Bundle with BiqConfig {

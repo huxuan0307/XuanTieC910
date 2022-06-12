@@ -1,5 +1,6 @@
 package Core.IDU.IS
 
+import Core.IDU.IduFromRtuFlushBundle
 import chisel3._
 import chisel3.util._
 import Core.ROBConfig._
@@ -13,9 +14,7 @@ class InstQueFromPad extends Bundle {
 }
 
 class InstQueFromRtu extends Bundle {
-  val flushFe : Bool = Bool()
-  val flushIs : Bool = Bool()
-  val yyXXFlush : Bool = Bool()
+  val flush = new IduFromRtuFlushBundle
 }
 
 class BiqCtrlInput extends Bundle
@@ -171,7 +170,7 @@ class Biq extends Module with BiqConfig {
   private val entryCntUpdateValid  = ctrlBiq.createEn(0) || ctrlBiq.rfPopValid
   private val entryCntUpdate  = entryCnt + entryCntCreate - entryCntPop
 
-  when (rtu.flushFe || rtu.flushIs || rtu.yyXXFlush) {
+  when (rtu.flush.fe || rtu.flush.is || rtu.flush.be) {
     entryCnt := 0.U
   }.elsewhen(entryCntUpdateValid) {
     entryCnt := entryCntUpdate
@@ -348,8 +347,7 @@ class Biq extends Module with BiqConfig {
       in.fuDstPreg        := io.in.fuResultDstPreg
       in.wbPreg           := io.in.wbPreg
       in.loadPreg         := io.in.loadPreg
-      in.fromRtu.flush.fe := io.in.fromRtu.flushFe
-      in.fromRtu.flush.is := io.in.fromRtu.flushIs
+      in.fromRtu.flush    := io.in.fromRtu.flush
       in.create.ageVec    := entryCreateAgeVec(i)
       in.create.data      := entryCreateDataVec(i)
       in.create.dpEn      := entryCreateDpEnVec(i)

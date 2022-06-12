@@ -108,10 +108,8 @@ class ISStageInput extends Bundle {
   }
   val fromVFPU = Vec(2, new VFPU2IS)
   val fromRTU = new Bundle {
-    val flush_fe = Bool()
-    val flush_is = Bool()
+    val flush = new IduFromRtuFlushBundle
     val flush_stall = Bool()
-    val yy_xx_flush = Bool()
     val rob_full = Bool()
 
     val retire_int_vld = Bool()
@@ -304,7 +302,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //            Implement of is inst valid register
   //----------------------------------------------------------
-  when(io.in.fromRTU.flush_fe || io.in.fromIU.yyxxCancel){
+  when(io.in.fromRTU.flush.fe || io.in.fromIU.yyxxCancel){
     instVld := WireInit(VecInit(Seq.fill(4)(false.B)))
   }.elsewhen(!is_dis_stall){
     instVld := io.in.ir_pipedown.instVld
@@ -320,7 +318,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //            Implement of dispatch control register
   //----------------------------------------------------------
-  when(io.in.fromRTU.flush_fe || io.in.fromIU.yyxxCancel){
+  when(io.in.fromRTU.flush.fe || io.in.fromIU.yyxxCancel){
     dis_info := 0.U.asTypeOf(Output(new IR_preDispatch))
   }.elsewhen(!is_dis_stall){
     dis_info := io.in.pre_dispatch
@@ -424,8 +422,8 @@ class ISStage extends Module{
     is_dp_inst(i).io.lsu_idu_wb_pipe3_wb_vreg_dupx           := io.in.fromLSU.wb_pipe3_wb_vreg_dupx
     is_dp_inst(i).io.lsu_idu_wb_pipe3_wb_vreg_vld_dupx       := io.in.fromLSU.wb_pipe3_wb_vreg_vld_dupx
     is_dp_inst(i).io.pad_yy_icg_scan_en := io.in.fromPad.yyIcgScanEn
-    is_dp_inst(i).io.rtu_idu_flush_fe   := io.in.fromRTU.flush_fe
-    is_dp_inst(i).io.rtu_idu_flush_is   := io.in.fromRTU.flush_is
+    is_dp_inst(i).io.rtu_idu_flush_fe   := io.in.fromRTU.flush.fe
+    is_dp_inst(i).io.rtu_idu_flush_is   := io.in.fromRTU.flush.is
     is_dp_inst(i).io.vfpu_idu_ex1_pipe6_data_vld_dupx      := io.in.fromVFPU(0).ex1_data_vld_dupx
     is_dp_inst(i).io.vfpu_idu_ex1_pipe6_fmla_data_vld_dupx := io.in.fromVFPU(0).ex1_fmla_data_vld_dupx
     is_dp_inst(i).io.vfpu_idu_ex1_pipe6_mfvr_inst_vld_dupx := io.in.fromVFPU(0).ex1_mfvr_inst_vld_dupx
@@ -1960,7 +1958,7 @@ class ISStage extends Module{
   //----------------------------------------------------------
   //                      Queue Full
   //----------------------------------------------------------
-  when(io.in.fromRTU.flush_fe || io.in.fromRTU.flush_is || io.in.fromRTU.yy_xx_flush){
+  when(io.in.fromRTU.flush.fe || io.in.fromRTU.flush.is || io.in.fromRTU.flush.be){
     iq_full  := false.B
     vmb_full := false.B
   }.otherwise{
