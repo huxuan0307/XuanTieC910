@@ -116,6 +116,7 @@ class Lsiq extends Module with LsiqConfig {
   val io : LsiqIO = IO(new LsiqIO)
 
   private val cp0 = io.in.fromCp0
+//  private val lsu = io.in.fromLsu
   private val rtu = io.in.fromRtu
   private val ctrlLsiq = io.in.ctrl
   private val dataLsiq = io.in.data
