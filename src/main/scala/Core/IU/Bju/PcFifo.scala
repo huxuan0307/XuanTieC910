@@ -120,9 +120,19 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
   fifo_create_data(0).bhtPred     := ifu_forward_data(0).predStore.bhtPred
   fifo_create_data(0).jmpMispred  := ifu_forward_data(0).predStore.jmpMispred
 
-  fifo_create_data(1).pc          := Mux(ifu_forward_data(0).dstVld,
-    Mux(ifu_forward_data(0).jal, ifu_forward_data(0).curPc ,ifu_forward_data(0).tarPc ),
-    Mux(ifu_forward_data(1).jalr,ifu_forward_data(1).curPc ,ifu_forward_data(1).tarPc ))
+
+  when(ifu_forward_data(0).jal && ifu_forward_data(0).dstVld){
+    fifo_create_data(1).pc  := ifu_forward_data(0).curPc
+  }.elsewhen(ifu_forward_data(0).jalr && ifu_forward_data(0).dstVld){
+    fifo_create_data(1).pc  := ifu_forward_data(0).tarPc
+  }.elsewhen(ifu_forward_data(1).jalr && !ifu_forward_data(1).dstVld){
+    fifo_create_data(1).pc := ifu_forward_data(1).tarPc
+  }.otherwise{
+    fifo_create_data(1).pc := ifu_forward_data(1).curPc
+  }
+//  fifo_create_data(1).pc          := Mux(ifu_forward_data(0).dstVld,
+//    Mux(ifu_forward_data(0).jal, ifu_forward_data(0).curPc ,ifu_forward_data(0).tarPc ),
+//    Mux(ifu_forward_data(1).jalr,ifu_forward_data(1).curPc ,ifu_forward_data(1).tarPc ))
   fifo_create_data(1).chkIdx      := Mux(ifu_forward_data(0).dstVld, ifu_forward_data(0).predStore.chkIdx    , ifu_forward_data(1).predStore.chkIdx )
   fifo_create_data(1).bhtPred     := Mux(ifu_forward_data(0).dstVld, ifu_forward_data(0).predStore.bhtPred   , ifu_forward_data(1).predStore.bhtPred )
   fifo_create_data(1).jmpMispred  := Mux(ifu_forward_data(0).dstVld, ifu_forward_data(0).predStore.jmpMispred, ifu_forward_data(1).predStore.jmpMispred )
@@ -197,16 +207,20 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
   val create_en = create_ptr_num =/= 0.U
   val cmplt_en = io.bjuRw.ex2WritePcfifo.instVld
   // idu write
-  for(i <- 0 until 3){
-    //      val offset = Mux(fifo_create_vec(i), 1.U, 0.U) // shift once per vec
-    val ptr = createPtr + i.U
-    val idx = ptr.value
-    when(i.U <= create_ptr_num){
-      fifo_tab_pred(idx) := fifo_create_data(i)
-    }.otherwise{
-      fifo_tab_pred(idx) := fifo_tab_pred(idx)
-    }
-  }
+
+//    fifo_tab_pred(idx) := Mux(create_en && i.U <= create_ptr_num,fifo_create_data(i),fifo_tab_pred(idx))
+    when(create_en){
+      for(i <- 0 until 3){
+        //      val offset = Mux(fifo_create_vec(i), 1.U, 0.U) // shift once per vec
+        //    val ptr = createPtr + i.U
+        val idx = createPtr.value + i.U
+        fifo_tab_pred(idx) := fifo_create_data(i)
+      }}
+
+//    }.otherwise{
+//      fifo_tab_pred(idx) := fifo_tab_pred(idx)
+//    }
+
   // bju write
   val bju_write_pid = io.bjuRw.pid.ex2
   when(create_en){

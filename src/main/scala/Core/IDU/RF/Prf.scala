@@ -103,7 +103,11 @@ class Prf extends Module with PrfConfig{
 
   for(i <- 0 until NumPregWritePort){
     when(wenVec(i)){
-      data(wPregVec(i)) := wdataVec(i)
+      when(wPregVec(i) === 0.U((NumPhysicRegsBits.W))){
+        data(wPregVec(i)) := 0.U(XLEN.W)
+      }.otherwise{
+        data(wPregVec(i)) := wdataVec(i)
+      }
     }
   }
 
