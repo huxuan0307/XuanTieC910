@@ -8,7 +8,6 @@ trait SdiqConfig {
   def NumSrcSd = 2
   def NumSrcSdX = 1
   def NumSdiqEntry = 12
-  def NumSdiqCreatePort = 2
 }
 
 object SdiqConfig extends SdiqConfig
