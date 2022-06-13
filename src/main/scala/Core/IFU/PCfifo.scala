@@ -18,74 +18,140 @@ class PCfifo extends Module with Config {
   val jalr = io.in.jalr
   val con_br = io.in.con_br
   val dst_vld = io.in.dst_vld
+//  val index_0:UInt = PriorityMux(Seq(
+//    pcoper(7) -> 0.U,
+//    pcoper(6) -> 1.U,
+//    pcoper(5) -> 2.U,
+//    pcoper(4) -> 3.U,
+//    pcoper(3) -> 4.U,
+//    pcoper(2) -> 5.U,
+//    pcoper(1) -> 6.U,
+//    pcoper(0) -> 7.U,
+//    true.B    -> 0.U
+//  ))
+//
+//  val index_1 = Wire(UInt(4.W))
+//  when(index_0 === 0.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(6) -> 1.U,
+//      pcoper(5) -> 2.U,
+//      pcoper(4) -> 3.U,
+//      pcoper(3) -> 4.U,
+//      pcoper(2) -> 5.U,
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.elsewhen(index_0 === 1.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(5) -> 2.U,
+//      pcoper(4) -> 3.U,
+//      pcoper(3) -> 4.U,
+//      pcoper(2) -> 5.U,
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.elsewhen(index_0 === 2.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(4) -> 3.U,
+//      pcoper(3) -> 4.U,
+//      pcoper(2) -> 5.U,
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.elsewhen(index_0 === 3.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(3) -> 4.U,
+//      pcoper(2) -> 5.U,
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.elsewhen(index_0 === 4.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(2) -> 5.U,
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.elsewhen(index_0 === 5.U) {
+//    index_1 := PriorityMux(Seq(
+//      pcoper(1) -> 6.U,
+//      pcoper(0) -> 7.U,
+//      true.B    -> 7.U
+//    ))
+//  }.otherwise {
+//    index_1 := 7.U
+//  }
   val index_0:UInt = PriorityMux(Seq(
-    pcoper(7) -> 0.U,
-    pcoper(6) -> 1.U,
-    pcoper(5) -> 2.U,
-    pcoper(4) -> 3.U,
-    pcoper(3) -> 4.U,
-    pcoper(2) -> 5.U,
-    pcoper(1) -> 6.U,
     pcoper(0) -> 7.U,
-    true.B    -> 0.U
+    pcoper(1) -> 6.U,
+    pcoper(2) -> 5.U,
+    pcoper(3) -> 4.U,
+    pcoper(4) -> 3.U,
+    pcoper(5) -> 2.U,
+    pcoper(6) -> 1.U,
+    pcoper(7) -> 0.U,
+    true.B    -> 7.U
   ))
 
   val index_1 = Wire(UInt(4.W))
   when(index_0 === 0.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(6) -> 1.U,
-      pcoper(5) -> 2.U,
-      pcoper(4) -> 3.U,
-      pcoper(3) -> 4.U,
-      pcoper(2) -> 5.U,
       pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(2) -> 5.U,
+      pcoper(3) -> 4.U,
+      pcoper(4) -> 3.U,
+      pcoper(5) -> 2.U,
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.elsewhen(index_0 === 1.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(5) -> 2.U,
-      pcoper(4) -> 3.U,
-      pcoper(3) -> 4.U,
       pcoper(2) -> 5.U,
-      pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(3) -> 4.U,
+      pcoper(4) -> 3.U,
+      pcoper(5) -> 2.U,
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.elsewhen(index_0 === 2.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(4) -> 3.U,
       pcoper(3) -> 4.U,
-      pcoper(2) -> 5.U,
-      pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(4) -> 3.U,
+      pcoper(5) -> 2.U,
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.elsewhen(index_0 === 3.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(3) -> 4.U,
-      pcoper(2) -> 5.U,
-      pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(4) -> 3.U,
+      pcoper(5) -> 2.U,
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.elsewhen(index_0 === 4.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(2) -> 5.U,
-      pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(5) -> 2.U,
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.elsewhen(index_0 === 5.U) {
     index_1 := PriorityMux(Seq(
-      pcoper(1) -> 6.U,
-      pcoper(0) -> 7.U,
-      true.B    -> 7.U
+      pcoper(6) -> 1.U,
+      pcoper(7) -> 0.U,
+      true.B    -> 0.U
     ))
   }.otherwise {
-    index_1 := 7.U
+    index_1 := 0.U
   }
-
 
   val cur_pc_0  = cur_pc(index_0)
   val jal_0     = jal(index_0)
