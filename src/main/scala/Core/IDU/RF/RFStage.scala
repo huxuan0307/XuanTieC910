@@ -3,7 +3,7 @@ package Core.IDU.RF
 import Core.Config.XLEN
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
-import Core.IDU.{FuncUnit, IduFromRtuFlushBundle, ct_idu_rf_pipe2_decd}
+import Core.IDU.{FuncUnit, IduFromRtuFlushBundle, ct_idu_rf_pipe2_decd, ct_idu_rf_pipe3_decd, ct_idu_rf_pipe4_decd}
 import Core.IDU.IS.AiqConfig.NumSrcArith
 import Core.IDU.IS.BiqConfig.NumSrcBr
 import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
@@ -158,6 +158,15 @@ class RFStageCtrlBundle extends Bundle {
   val out : RFStageCtrlOutput = Output(new RFStageCtrlOutput)
 }
 
+class RFStageFromLsuBundle extends Bundle with RFStageConfig {
+  val dc = new Bundle {
+    val sdiqEntry     = UInt(NumSdiqEntry.W)
+    val stAddr1Valid  = Bool()
+    val stAddrUnalign = Bool()
+    val stAddrValid   = Bool()
+  }
+}
+
 class RFStageFromHadBundle extends Bundle {
   val iduWbBrData   : UInt = UInt(XLEN.W)
   val iduWbBrValid  : Bool = Bool()
@@ -209,53 +218,174 @@ class RFStageDataInput extends Bundle with RFStageConfig {
   val vfiq1 = new VfiqIssueBundle
   val fromHad = new RFStageFromHadBundle
   val fromPad = new RFStageFromPadBundle
+  val fromLsu = new RFStageFromLsuBundle
 }
 
-class RFStageToFuDataBundle extends Bundle with RFStageConfig {
-  val aluShort : Bool = Bool()
-  val dstPreg = ValidIO(UInt(NumPhysicRegsBits.W))
-  val dstVPreg = ValidIO(UInt(NumVPregsBits.W))
-  val exceptVec = ValidIO(UInt(ExceptionVecWidth.W))
-  // has replaced func with opcode
-  val opcode      : UInt = UInt(Opcode.width.W)
-  val highHwExpt  : Bool = Bool()
-  val iid         : UInt = UInt(InstructionIdWidth.W)
-  // Todo: imm
-  val imm         : UInt = UInt(6.W)
-  // output  [31 :0]  idu_iu_rf_pipe0_opcode;
-  val inst        : UInt = UInt(InstBits.W)
-  // Todo: imm
-  // fifo id, ifu -> IU 拿到pid -> ifu
-  val pid         : UInt = UInt(5.W)
-  val rsltSel     : UInt = UInt(21.W)
-  val specialImm  : UInt = UInt(20.W)
-  val src0        : UInt = UInt(XLEN.W)
-  val src1        : UInt = UInt(XLEN.W)
-  val src1NoImm   : UInt = UInt(XLEN.W)
-  val src2        : UInt = UInt(XLEN.W)
-  val vl          : UInt = UInt(VlmaxBits.W)
-  val vlmul       : UInt = UInt(VlmulBits.W)
-  val vsew        : UInt = UInt(VsewBits.W)
-  val offset = UInt(21.W)
+class RFStageToIuPipe0Bundle extends Bundle with RFStageConfig {
+  val aluShort : UInt = UInt(1.W)
+  val dstPreg : UInt = UInt(7.W)
+  val dstVld : UInt = UInt(1.W)
+  val dstVreg : UInt = UInt(7.W)
+  val dstvVld : UInt = UInt(1.W)
+  val exptVec : UInt = UInt(5.W)
+  val exptVld : UInt = UInt(1.W)
+  val opcode  : UInt = UInt(Opcode.width.W) // replace func with opcode
+  val highHwExpt : UInt = UInt(1.W)
+  val iid : UInt = UInt(7.W)
+  val imm : UInt = UInt(6.W)
+  val inst : UInt = UInt(32.W) // replace opcode with inst
+  val pid : UInt = UInt(5.W)
+  // val rsltSel : UInt = UInt(21.W)
+  val specialImm : UInt = UInt(20.W)
+  val src0 : UInt = UInt(64.W)
+  val src1 : UInt = UInt(64.W)
+  val src1NoImm : UInt = UInt(64.W)
+  val src2 : UInt = UInt(64.W)
+  val vl : UInt = UInt(8.W)
+  val vlmul : UInt = UInt(2.W)
+  val vsew : UInt = UInt(3.W)
 }
 
+class RFStageToIuPipe1Bundle extends Bundle with RFStageConfig {
+  val aluShort : UInt = UInt(1.W)
+  val dstPreg : UInt = UInt(7.W)
+  val dstVld : UInt = UInt(1.W)
+  val dstVreg : UInt = UInt(7.W)
+  val dstvVld : UInt = UInt(1.W)
+  val opcode  : UInt = UInt(Opcode.width.W) // replace func with opcode
+  val iid : UInt = UInt(7.W)
+  val imm : UInt = UInt(6.W)
+  val mlaSrc2Preg : UInt = UInt(7.W)
+  val mlaSrc2Vld : UInt = UInt(1.W)
+  // val multFunc : UInt = UInt(8.W) // replace func with opcode
+  // val rsltSel : UInt = UInt(21.W)
+  val src0 : UInt = UInt(64.W)
+  val src1 : UInt = UInt(64.W)
+  val src1NoImm : UInt = UInt(64.W)
+  val src2 : UInt = UInt(64.W)
+  val vl : UInt = UInt(8.W)
+  val vlmul : UInt = UInt(2.W)
+  val vsew : UInt = UInt(3.W)
+}
+
+class RFStageToIuPipe2Bundle extends Bundle with RFStageConfig {
+  val opcode : UInt = UInt(8.W) // replace func with opcode
+  val iid : UInt = UInt(7.W)
+  val length : UInt = UInt(1.W)
+  val offset : UInt = UInt(21.W)
+  val pcall : UInt = UInt(1.W)
+  val pid : UInt = UInt(5.W)
+  val rts : UInt = UInt(1.W)
+  val src0 : UInt = UInt(64.W)
+  val src1 : UInt = UInt(64.W)
+  val vl : UInt = UInt(8.W)
+  val vlmul : UInt = UInt(2.W)
+  val vsew : UInt = UInt(3.W)
+}
+
+class RFStageToLsuPipe3Bundle extends Bundle with RFStageConfig {
+  val alreadyDa : UInt = UInt(1.W)
+  val atomic : UInt = UInt(1.W)
+  val bkptaData : UInt = UInt(1.W)
+  val bkptbData : UInt = UInt(1.W)
+  val iid : UInt = UInt(7.W)
+  val instFls : UInt = UInt(1.W)
+  val instLdr : UInt = UInt(1.W)
+  val instSize : UInt = UInt(2.W)
+  val instType : UInt = UInt(2.W)
+  val lchEntry : UInt = UInt(12.W)
+  val lsfifo : UInt = UInt(1.W)
+  val noSpec : UInt = UInt(1.W)
+  val noSpecExist : UInt = UInt(1.W)
+  val off0Extend : UInt = UInt(1.W)
+  val offset : UInt = UInt(12.W)
+  val offsetPlus : UInt = UInt(13.W)
+  val oldest : UInt = UInt(1.W)
+  val pc : UInt = UInt(15.W)
+  val preg : UInt = UInt(7.W)
+  val shift : UInt = UInt(4.W)
+  val signExtend : UInt = UInt(1.W)
+  val specFail : UInt = UInt(1.W)
+  val split : UInt = UInt(1.W)
+  val src0 : UInt = UInt(64.W)
+  val src1 : UInt = UInt(64.W)
+  val unalign2Nd : UInt = UInt(1.W)
+  val vreg : UInt = UInt(7.W)
+}
+
+class RFStageToLsuPipe4Bundle extends Bundle with RFStageConfig {
+  val alreadyDa : UInt = UInt(1.W)
+  val atomic : UInt = UInt(1.W)
+  val bkptaData : UInt = UInt(1.W)
+  val bkptbData : UInt = UInt(1.W)
+  val fenceMode : UInt = UInt(4.W)
+  val icc : UInt = UInt(1.W)
+  val iid : UInt = UInt(7.W)
+  val instCode : UInt = UInt(32.W)
+  val instFls : UInt = UInt(1.W)
+  val instFlush : UInt = UInt(1.W)
+  val instMode : UInt = UInt(2.W)
+  val instShare : UInt = UInt(1.W)
+  val instSize : UInt = UInt(2.W)
+  val instStr : UInt = UInt(1.W)
+  val instType : UInt = UInt(2.W)
+  val lchEntry : UInt = UInt(12.W)
+  val lsfifo : UInt = UInt(1.W)
+  val mmuReq : UInt = UInt(1.W)
+  val noSpec : UInt = UInt(1.W)
+  val off0Extend : UInt = UInt(1.W)
+  val offset : UInt = UInt(12.W)
+  val offsetPlus : UInt = UInt(13.W)
+  val oldest : UInt = UInt(1.W)
+  val pc : UInt = UInt(15.W)
+  val sdiqEntry : UInt = UInt(12.W)
+  val shift : UInt = UInt(4.W)
+  val specFail : UInt = UInt(1.W)
+  val split : UInt = UInt(1.W)
+  val src0 : UInt = UInt(64.W)
+  val src1 : UInt = UInt(64.W)
+  val st : UInt = UInt(1.W)
+  val staddr : UInt = UInt(1.W)
+  val syncFence : UInt = UInt(1.W)
+  val unalign2Nd : UInt = UInt(1.W)
+}
+
+class RFStageToLsuPipe5Bundle extends Bundle with RFStageConfig {
+  val sdiqEntry : UInt = UInt(12.W)
+  val src0 : UInt = UInt(64.W)
+  val srcv0Fr : UInt = UInt(64.W)
+  val srcv0FrVld : UInt = UInt(1.W)
+  val srcv0Vld : UInt = UInt(1.W)
+  val srcv0Vr0 : UInt = UInt(64.W)
+  val srcv0Vr1 : UInt = UInt(64.W)
+  val stdata1Vld : UInt = UInt(1.W)
+  val unalign : UInt = UInt(1.W)
+}
 class RFStageDataOutput extends Bundle with RFStageConfig {
-  class RFStageToIqBundle(numEntry: Int, numSrc: Int) extends Bundle {
+  abstract class RFStageToIqBundle(numEntry: Int, numSrc: Int) extends Bundle {
     val launchEntryOH : UInt = UInt(numEntry.W)
     val readyClr      : Vec[Bool] = Vec(numSrc, Bool())
   }
-  val toAiq0  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith)
-  val toAiq1  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith)
-  val toBiq   = new RFStageToIqBundle(NumBiqEntry, NumSrcBr)
-  val toLsiq0 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs)
-  val toLsiq1 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs)
-  val toSdiq  = new RFStageToIqBundle(NumSdiqEntry, NumSrcSd)
-  val toVfiq0 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf)
-  val toVfiq1 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf)
+  val toAiq0  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {}
+  val toAiq1  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {}
+  val toBiq   = new RFStageToIqBundle(NumBiqEntry, NumSrcBr) {}
+  val toLsiq0 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {}
+  val toLsiq1 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {}
+  val toSdiq  = new RFStageToIqBundle(NumSdiqEntry, NumSrcSd) {
+    val stAddr1Valid      = Bool()
+    val stAddrReadyClear  = Bool()
+    val stData1Valid      = Bool()
+  }
+  val toVfiq0 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {}
+  val toVfiq1 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {}
 
-  val toIu0 = new RFStageToFuDataBundle
-  val toIu1 = new RFStageToFuDataBundle
-  val toBju = new RFStageToFuDataBundle
+  val toIu0 = new RFStageToIuPipe0Bundle
+  val toIu1 = new RFStageToIuPipe1Bundle
+  val toBju = new RFStageToIuPipe2Bundle
+  val toLsuPipe3 = new RFStageToLsuPipe3Bundle
+  val toLsuPipe4 = new RFStageToLsuPipe4Bundle
+  val toLsuPipe5 = new RFStageToLsuPipe5Bundle
+
   /**
    * aluDstPregs(i): alu(i) dst preg
    */
@@ -282,6 +412,7 @@ class RFStage extends Module with RFStageConfig {
   val io : RFStageIO = IO(new RFStageIO)
 
   private val rtu = io.ctrl.in.fromRtu
+  private val lsu = io.data.in.fromLsu
   private val aiq0_data = io.data.in.aiq0
   private val aiq1_data = io.data.in.aiq1
   private val biq_data = io.data.in.biq
@@ -321,6 +452,8 @@ class RFStage extends Module with RFStageConfig {
     (0, 2) -> 7, // the same as pipe3 src1
     (1, 2) -> 10,// the same as pipe5 src0
   )
+
+
 
   //==========================================================
   //                          Regs
@@ -762,6 +895,53 @@ class RFStage extends Module with RFStageConfig {
     iu1_imm_sel(1) -> sext(XLEN, aiq1Inst(31, 20)),
   ))
 
+  // pipe3
+  private val pipe3Inst = Wire(UInt(32.W))
+  val pipe3_decode = Module(new ct_idu_rf_pipe3_decd)
+  pipe3_decode.io.pipe3_decd_opcode := pipe3Inst
+  val pipe3_decd_atomic       = pipe3_decode.io.pipe3_decd_atomic
+  val pipe3_decd_inst_fls     = pipe3_decode.io.pipe3_decd_inst_fls
+  val pipe3_decd_inst_ldr     = pipe3_decode.io.pipe3_decd_inst_ldr
+  val pipe3_decd_inst_size    = pipe3_decode.io.pipe3_decd_inst_size
+  val pipe3_decd_inst_type    = pipe3_decode.io.pipe3_decd_inst_type
+  val pipe3_decd_lsfifo       = pipe3_decode.io.pipe3_decd_lsfifo
+  val pipe3_decd_off_0_extend = pipe3_decode.io.pipe3_decd_off_0_extend
+  val pipe3_decd_offset       = pipe3_decode.io.pipe3_decd_offset
+  val pipe3_decd_offset_plus  = pipe3_decode.io.pipe3_decd_offset_plus
+  val pipe3_decd_opcode       = pipe3_decode.io.pipe3_decd_opcode
+  val pipe3_decd_shift        = pipe3_decode.io.pipe3_decd_shift
+  val pipe3_decd_sign_extend  = pipe3_decode.io.pipe3_decd_sign_extend
+
+  // pipe4
+  private val pipe4Inst = Wire(UInt(32.W))
+  private val pipe4dstPreg = Wire(UInt(NumPhysicRegsBits.W))
+  val pipe4_decode = Module(new ct_idu_rf_pipe4_decd)
+  pipe4_decode.io.pipe4_decd_opcode   := pipe4Inst
+  pipe4_decode.io.pipe4_decd_dst_preg := pipe4dstPreg
+  pipe4_decode.io.cp0_lsu_fencei_broad_dis := io.ctrl.in.fromCp0.lsuFenceIBroadDis
+  pipe4_decode.io.cp0_lsu_fencerw_broad_dis := io.ctrl.in.fromCp0.lsuFenceRwBroadDis
+  pipe4_decode.io.cp0_lsu_tlb_broad_dis := io.ctrl.in.fromCp0.lsuTlbBroadDis
+  val pipe4_decd_atomic       = pipe4_decode.io.pipe4_decd_atomic
+  val pipe4_decd_fence_mode   = pipe4_decode.io.pipe4_decd_fence_mode
+  val pipe4_decd_icc          = pipe4_decode.io.pipe4_decd_icc
+  val pipe4_decd_inst_fls     = pipe4_decode.io.pipe4_decd_inst_fls
+  val pipe4_decd_inst_flush   = pipe4_decode.io.pipe4_decd_inst_flush
+  val pipe4_decd_inst_mode    = pipe4_decode.io.pipe4_decd_inst_mode
+  val pipe4_decd_inst_share   = pipe4_decode.io.pipe4_decd_inst_share
+  val pipe4_decd_inst_size    = pipe4_decode.io.pipe4_decd_inst_size
+  val pipe4_decd_inst_str     = pipe4_decode.io.pipe4_decd_inst_str
+  val pipe4_decd_inst_type    = pipe4_decode.io.pipe4_decd_inst_type
+  val pipe4_decd_lsfifo       = pipe4_decode.io.pipe4_decd_lsfifo
+  val pipe4_decd_mmu_req      = pipe4_decode.io.pipe4_decd_mmu_req
+  val pipe4_decd_off_0_extend = pipe4_decode.io.pipe4_decd_off_0_extend
+  val pipe4_decd_offset       = pipe4_decode.io.pipe4_decd_offset
+  val pipe4_decd_offset_plus  = pipe4_decode.io.pipe4_decd_offset_plus
+  val pipe4_decd_shift        = pipe4_decode.io.pipe4_decd_shift
+  val pipe4_decd_st           = pipe4_decode.io.pipe4_decd_st
+  val pipe4_decd_sync_fence   = pipe4_decode.io.pipe4_decd_sync_fence
+
+  // pipe5
+  // no decode module
 
   //==========================================================
   //                   Pipeline Registers
@@ -789,12 +969,16 @@ class RFStage extends Module with RFStageConfig {
   aiq0Inst := aiq0ReadData.inst
   aiq1Inst := aiq1ReadData.inst
   biqInst  := biqReadData.inst
+  pipe3Inst := lsiq0ReadData.inst
+  pipe4Inst := lsiq1ReadData.inst
+  pipe4dstPreg := lsiq1ReadData.dstPreg
 
   io.data.out.aluDstPregs(0) := RegEnable(aiq0_data.issueReadData.dstPreg, 0.U.asTypeOf(aiq0_data.issueReadData.dstPreg), aiq0_data.issueEn)
   io.data.out.aluDstPregs(1) := RegEnable(aiq1_data.issueReadData.dstPreg, 0.U.asTypeOf(aiq1_data.issueReadData.dstPreg), aiq1_data.issueEn)
   io.data.out.vfpuDstVregs(0) := RegEnable(vfiq0_data.issueReadData.dstVreg, 0.U.asTypeOf(vfiq0_data.issueReadData.dstVreg), vfiq0_data.issueEn)
   io.data.out.vfpuDstVregs(1) := RegEnable(vfiq1_data.issueReadData.dstVreg, 0.U.asTypeOf(vfiq1_data.issueReadData.dstVreg), vfiq1_data.issueEn)
 
+  // Todo: check if no use
   private val issueEntriesOH = WireInit(VecInit(
     io.data.in.aiq0.issueEntryOH,
     io.data.in.aiq1.issueEntryOH,
@@ -1037,10 +1221,10 @@ class RFStage extends Module with RFStageConfig {
   //----------------------------------------------------------
   io.data.out.toIu0.iid  := aiq0ReadData.iid
   io.data.out.toIu0.inst := aiq0ReadData.inst
-  io.data.out.toIu0.dstPreg.valid := aiq0ReadData.dstValid
-  io.data.out.toIu0.dstPreg.bits := aiq0ReadData.dstPreg
-  io.data.out.toIu0.dstVPreg.valid := aiq0ReadData.dstVValid
-  io.data.out.toIu0.dstVPreg.bits := aiq0ReadData.dstVreg
+  io.data.out.toIu0.dstVld := aiq0ReadData.dstValid
+  io.data.out.toIu0.dstPreg := aiq0ReadData.dstPreg
+  io.data.out.toIu0.dstVld := aiq0ReadData.dstVValid
+  io.data.out.toIu0.dstPreg := aiq0ReadData.dstVreg
   io.data.out.toIu0.opcode := aiq0Op
   //  io.data.out.toIu.src0
   //  io.data.out.toIu.src1
@@ -1048,16 +1232,15 @@ class RFStage extends Module with RFStageConfig {
   //  io.data.out.toIu.src1NoImm
   io.data.out.toIu0.imm := DontCare // Todo: figure out and fix
   io.data.out.toIu0.aluShort := aiq0ReadData.aluShort
-  io.data.out.toIu0.rsltSel := DontCare // Todo: fix or remove
   io.data.out.toIu0.vlmul := aiq0ReadData.vlmul
   io.data.out.toIu0.vsew := aiq0ReadData.vsew
   io.data.out.toIu0.vl := aiq0ReadData.vl
   // output to special
-  io.data.out.toIu0.exceptVec := aiq0ReadData.exceptVec
+  io.data.out.toIu0.exptVec := aiq0ReadData.exceptVec.bits
+  io.data.out.toIu0.exptVld := aiq0ReadData.exceptVec.valid
   io.data.out.toIu0.highHwExpt := aiq0ReadData.highHwExcept
   io.data.out.toIu0.specialImm := iu0_imm(19, 0)
   io.data.out.toIu0.pid := aiq0ReadData.pid
-  io.data.out.toIu0.offset := DontCare
   // output to cp0
   io.ctrl.out.toCp0.iid := aiq0ReadData.iid
   io.ctrl.out.toCp0.inst := aiq0ReadData.inst
@@ -1125,11 +1308,10 @@ class RFStage extends Module with RFStageConfig {
   //                Output to Execution Units
   //----------------------------------------------------------
   io.data.out.toIu1.iid  := aiq1ReadData.iid
-  io.data.out.toIu1.inst := aiq1ReadData.inst
-  io.data.out.toIu1.dstPreg.valid := aiq1ReadData.dstValid
-  io.data.out.toIu1.dstPreg.bits := aiq1ReadData.dstPreg
-  io.data.out.toIu1.dstVPreg.valid := aiq1ReadData.dstVValid
-  io.data.out.toIu1.dstVPreg.bits := aiq1ReadData.dstVreg
+  io.data.out.toIu1.dstVld := aiq1ReadData.dstValid
+  io.data.out.toIu1.dstPreg := aiq1ReadData.dstPreg
+  io.data.out.toIu1.dstvVld := aiq1ReadData.dstVValid
+  io.data.out.toIu1.dstVreg := aiq1ReadData.dstVreg
   io.data.out.toIu1.opcode := aiq1Op
   //  io.data.out.toIu.src1
   //  io.data.out.toIu.src1
@@ -1141,16 +1323,9 @@ class RFStage extends Module with RFStageConfig {
   //  io.data.out.toIu1.mlaSrc2Preg
   //  io.data.out.toIu1.mlasrc2Vld
   io.data.out.toIu1.aluShort := aiq1ReadData.aluShort
-  io.data.out.toIu1.rsltSel := DontCare // Todo: fix or remove
   io.data.out.toIu1.vlmul := aiq1ReadData.vlmul
   io.data.out.toIu1.vsew := aiq1ReadData.vsew
   io.data.out.toIu1.vl := aiq1ReadData.vl
-  // no special
-  io.data.out.toIu1.exceptVec   := DontCare
-  io.data.out.toIu1.highHwExpt  := DontCare
-  io.data.out.toIu1.specialImm  := DontCare
-  io.data.out.toIu1.pid         := DontCare
-  io.data.out.toIu1.offset := DontCare
 
   //==========================================================
   //                    Pipe2 Data Path
@@ -1171,8 +1346,6 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toBju.src1 := MuxCase(0.U,
     srcDataMap((2,1))
   )
-  io.data.out.toBju.src2      := DontCare
-  io.data.out.toBju.src1NoImm := DontCare
 
   //----------------------------------------------------------
   //                 Source Not Ready Signal
@@ -1196,31 +1369,223 @@ class RFStage extends Module with RFStageConfig {
   //                Output to Execution Units
   //----------------------------------------------------------
   io.data.out.toBju.iid  := biqReadData.iid
-  io.data.out.toBju.inst := biqReadData.inst
   io.data.out.toBju.opcode := biqOp
   //  io.data.out.toBju.src0
   //  io.data.out.toBju.src1
   // Todo: bju
-  //  io.data.out.toBju.offset
-  //  io.data.out.toBju.length
-  //  io.data.out.toBju.rts
-  //  io.data.out.toBju.pcall
-  io.data.out.toBju.pid         := biqReadData.pid
-  io.data.out.toBju.vlmul := aiq1ReadData.vlmul
-  io.data.out.toBju.vsew := aiq1ReadData.vsew
-  io.data.out.toBju.vl := aiq1ReadData.vl
-  // no special
-  io.data.out.toBju.exceptVec   := DontCare
-  io.data.out.toBju.highHwExpt  := DontCare
-  io.data.out.toBju.specialImm  := DontCare
-  // no dst
-  io.data.out.toBju.dstPreg     := DontCare
-  io.data.out.toBju.dstVPreg    := DontCare
-  io.data.out.toBju.imm         := DontCare
-  // no alu
-  io.data.out.toBju.aluShort    := DontCare
-  io.data.out.toBju.rsltSel     := DontCare
-  io.data.out.toBju.offset := pipe2_decd.io.pipe2_decd_offset
+  io.data.out.toBju.length  := biqReadData.length
+  io.data.out.toBju.rts     := biqReadData.rts
+  io.data.out.toBju.pcall   := biqReadData.pcall
+  io.data.out.toBju.pid     := biqReadData.pid
+  io.data.out.toBju.vlmul   := aiq1ReadData.vlmul
+  io.data.out.toBju.vsew    := aiq1ReadData.vsew
+  io.data.out.toBju.vl      := aiq1ReadData.vl
+  io.data.out.toBju.offset  := pipe2_decd.io.pipe2_decd_offset
+
+  //==========================================================
+  //                    Pipe3 Data Path
+  //==========================================================
+  //----------------------------------------------------------
+  //                    Source Operand
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe3.src0 := MuxCase(0.U, // Todo: fwd
+    srcDataMap((3,0))
+  )
+  io.data.out.toLsuPipe3.src1 := MuxCase(0.U, // Todo: fwd
+    srcDataMap((3,1))
+  )
+
+  private val pipe3SrcNoReadyVec = Wire(Vec(LsiqConfig.NumSrcLs, Bool()))
+  pipe3SrcNoReadyVec(0) := lsiq0ReadData.srcValid(0) && !lsiq0ReadData.srcVec(0).wb // Todo: && !fwd
+  pipe3SrcNoReadyVec(1) := lsiq0ReadData.srcValid(1) && !lsiq0ReadData.srcVec(1).wb // Todo: && !fwd
+  pipe3SrcNoReadyVec(2) := true.B // Todo: v-ext
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
+
+  pipeSrcNotReadyVec(3) := pipe3SrcNoReadyVec.reduce(_||_)
+  io.data.out.toLsiq0.readyClr.zipWithIndex.foreach {
+    case (readyClr, i) =>
+      readyClr := pipe3SrcNoReadyVec(i) && !pipeOtherLaunchFailVec(3)
+  }
+
+  //----------------------------------------------------------
+  //                Output to Execution Units
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe3 match {
+    case out =>
+      out.iid := lsiq0ReadData.iid
+      out.preg := lsiq0ReadData.dstPreg
+      out.vreg := lsiq0ReadData.dstVreg
+      // out.src0
+      // out.src1
+      out.offset      := pipe3_decd_offset
+      out.shift       := pipe3_decd_shift
+      out.offsetPlus  := pipe3_decd_offset_plus
+      out.pc          := lsiq0ReadData.pc
+      out.atomic      := pipe3_decd_atomic
+      out.signExtend  := pipe3_decd_sign_extend
+      out.instType    := pipe3_decd_inst_type
+      out.instSize    := pipe3_decd_inst_size
+      out.unalign2Nd  := lsiq0ReadData.unalign2nd
+      out.alreadyDa   := lsiq0ReadData.alreadyDa
+      out.specFail    := lsiq0ReadData.specFail
+      out.bkptaData   := lsiq0ReadData.breakpointData.a
+      out.bkptbData   := lsiq0ReadData.breakpointData.b
+      out.lchEntry    := io.data.out.toLsiq0.launchEntryOH
+      out.oldest      := !lsiq0ReadData.ageVecAll.reduce(_||_)
+      out.split       := lsiq0ReadData.split
+      out.instFls     := pipe3_decd_inst_fls
+      out.instLdr     := pipe3_decd_inst_ldr
+      out.off0Extend  := pipe3_decd_off_0_extend
+      out.noSpec      := lsiq0ReadData.noSpec
+      out.noSpecExist := lsiq0ReadData.noSpecExist
+      out.lsfifo      := pipe3_decd_lsfifo
+  }
+
+  //==========================================================
+  //                    Pipe4 Data Path
+  //==========================================================
+  //----------------------------------------------------------
+  //                    Source Operand
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe4.src0 := MuxCase(0.U, // Todo: fwd
+    srcDataMap((4, 0))
+  )
+  io.data.out.toLsuPipe4.src1 := MuxCase(0.U, // Todo: fwd
+    srcDataMap((4, 1))
+  )
+  private val pipe4SrcNoReadyVec = Wire(Vec(LsiqConfig.NumSrcLs, Bool()))
+  pipe4SrcNoReadyVec(0) := lsiq1ReadData.srcValid(0) && !lsiq1ReadData.srcVec(0).wb // Todo: && !fwd
+  pipe4SrcNoReadyVec(1) := lsiq1ReadData.srcValid(1) && !lsiq1ReadData.srcVec(1).wb // Todo: && !fwd
+  pipe4SrcNoReadyVec(2) := true.B // Todo: v-ext
+
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
+
+  pipeSrcNotReadyVec(4) := pipe4SrcNoReadyVec.reduce(_||_)
+  io.data.out.toLsiq1.readyClr.zipWithIndex.foreach {
+    case (readyClr, i) =>
+      readyClr := pipe4SrcNoReadyVec(i) && !pipeOtherLaunchFailVec(4)
+  }
+  //----------------------------------------------------------
+  //                Output to Execution Units
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe4 match {
+    case out =>
+      out.instCode  := lsiq1ReadData.inst
+      out.iid       := lsiq1ReadData.iid
+      // out.src0
+      // out.src1
+      out.atomic    := pipe4_decd_atomic
+      out.syncFence := pipe4_decd_sync_fence
+      out.icc       := pipe4_decd_icc
+      out.st        := pipe4_decd_st
+      out.mmuReq    := pipe4_decd_mmu_req
+      out.instShare := pipe4_decd_inst_share
+      out.instFlush := pipe4_decd_inst_flush
+      out.instMode  := pipe4_decd_inst_mode
+      out.instType  := pipe4_decd_inst_type
+      out.instSize  := pipe4_decd_inst_size
+      out.fenceMode := pipe4_decd_fence_mode
+      out.sdiqEntry := lsiq1ReadData.sdEntry.asUInt
+      out.unalign2Nd:= lsiq1ReadData.unalign2nd
+      out.alreadyDa := lsiq1ReadData.alreadyDa
+      out.specFail  := lsiq1ReadData.specFail
+      out.bkptaData := lsiq1ReadData.breakpointData.a
+      out.bkptbData := lsiq1ReadData.breakpointData.b
+      out.lchEntry  := io.data.out.toLsiq1.launchEntryOH
+      out.oldest    := !lsiq1ReadData.ageVecAll.reduce(_||_)
+      out.split     := lsiq1ReadData.split
+      out.offset    := pipe4_decd_offset
+      out.offsetPlus:= pipe4_decd_offset_plus
+      out.instFls   := pipe4_decd_inst_fls
+      out.shift     := pipe4_decd_shift
+      out.instStr   := pipe4_decd_inst_str
+      out.off0Extend:= pipe4_decd_off_0_extend
+      out.noSpec    := lsiq1ReadData.noSpec
+      out.staddr    := lsiq1ReadData.stAddr
+      out.pc        := lsiq1ReadData.pc
+      out.lsfifo    := pipe4_decd_lsfifo
+  }
+
+  //==========================================================
+  //                    Pipe5 Data Path
+  //==========================================================
+  //----------------------------------------------------------
+  //                    Source Operand 0
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe5.src0 := MuxCase(0.U, // Todo: fwd
+    srcDataMap((5, 0))
+  )
+  io.data.out.toLsuPipe5.srcv0Fr  := 0.U // Todo: vf
+  io.data.out.toLsuPipe5.srcv0Vr0 := 0.U // Todo: vf
+  io.data.out.toLsuPipe5.srcv0Vr1 := 0.U // Todo: vf
+
+  // src0, srcv0
+  private val pipe5SrcNoReadyVec = Wire(Vec(SdiqConfig.NumSrcSd, Bool()))
+  pipe5SrcNoReadyVec(0) := sdiqReadData.src0Valid && !sdiqReadData.src0.wb // Todo: && !fwd
+  pipe5SrcNoReadyVec(1) := sdiqReadData.srcV0Valid && !sdiqReadData.srcV0.wb // Todo: && !fwd
+
+  //----------------------------------------------------------
+  //                 Staddr Not Ready Signal
+  //----------------------------------------------------------
+  // Todo: Figure out if stData1Valid is select singal, 0 for addr0, 1 for addr1
+  //staddr inst already in store queue
+  private val pipe5StAddrInStq =
+    !sdiqReadData.stData1Valid && sdiqReadData.stAddr0InStq ||
+      sdiqReadData.stData1Valid && sdiqReadData.stAddr1InStq
+
+  //staddr inst is writing into store queue
+  private val pipe5StAddrCreateStq = lsu.dc.stAddrValid &&
+    (lsu.dc.sdiqEntry === io.data.out.toSdiq.launchEntryOH) &&
+    (lsu.dc.stAddr1Valid === sdiqReadData.stData1Valid)
+
+  //staddr not ready if not in store queue
+  private val pipe5StAddrNoReady = !(sdiqReadData.load || pipe5StAddrInStq || pipe5StAddrCreateStq)
+  io.data.out.toSdiq.stAddrReadyClear := pipe5StAddrNoReady
+
+  //----------------------------------------------------------
+  //                 Source Not Ready Signal
+  //----------------------------------------------------------
+  //if source not ready, signal rf_ctrl launch fail and clear
+  //issue queue ready
+  pipeSrcNotReadyVec(5) := pipe5SrcNoReadyVec.reduce(_||_) || pipe5StAddrNoReady
+
+  io.data.out.toSdiq.readyClr.zipWithIndex.foreach {
+    case (readyClr, i) =>
+      readyClr := pipe5SrcNoReadyVec(i) && !pipeOtherLaunchFailVec(5)
+  }
+
+  //----------------------------------------------------------
+  //                 Unalign Stdata Signal
+  //----------------------------------------------------------
+  //unalign stdata when lsu signal unalign or already unalign
+  private val pipe5Unalign_with_lsu_dc = sdiqReadData.unalign || pipe5StAddrCreateStq && lsu.dc.stAddrUnalign
+
+  //----------------------------------------------------------
+  //                Output to Execution Units
+  //----------------------------------------------------------
+  io.data.out.toLsuPipe5 match {
+    case out =>
+      out.sdiqEntry := io.data.out.toSdiq.launchEntryOH
+      out.stdata1Vld := sdiqReadData.stData1Valid
+      out.unalign   := pipe5Unalign_with_lsu_dc
+      // out.src0
+      // out.srcv0Fr
+      // out.srcv0Vr0
+      // out.srcv0Vr1
+      out.srcv0Vld := sdiqReadData.srcV0Valid
+      out.srcv0FrVld := 0.U // Todo: vf
+  }
+  io.data.out.toSdiq.stData1Valid := sdiqReadData.stData1Valid
+  // ct_idu_rf_dp.v:3167
+  io.data.out.toSdiq.stAddr1Valid := lsiq1ReadData.unalign2nd
 
   //==========================================================
   //                Source Pipeline Registers
@@ -1320,9 +1685,14 @@ class RFStage extends Module with RFStageConfig {
       bundle.preg := prfSrcPregs(i)
   }
 
+  io.data.out.toIu0.dstvVld := 0.U
+  io.data.out.toIu0.dstVreg := DontCare
+  io.data.out.toIu1.dstvVld := 0.U
+  io.data.out.toIu1.dstVreg := DontCare
+
+  io.data.out.toIu1.mlaSrc2Vld := DontCare
+  io.data.out.toIu1.mlaSrc2Preg := DontCare
+
   io.data.out.toVfiq0 := DontCare
   io.data.out.toVfiq1 := DontCare
-  io.data.out.toLsiq0 := DontCare
-  io.data.out.toLsiq1 := DontCare
-  io.data.out.toSdiq := DontCare
 }

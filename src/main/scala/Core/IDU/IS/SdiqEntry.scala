@@ -15,15 +15,15 @@ object SdiqConfig extends SdiqConfig
 
 class SdiqEntryData extends Bundle with SdiqConfig {
   val load : Bool = Bool()
-  val src0Valid : Bool = Bool()
-  val srcV0Valid : Bool = Bool()
-  val stAddr0InStq : Bool = Bool()
   val stAddr1InStq : Bool = Bool()
+  val stAddr0InStq : Bool = Bool()
   // 0: data 0 valid, 1: data 1 valid
   val stData1Valid : Bool = Bool()
   val unalign : Bool = Bool()
   val src0 = new DepRegEntryData
-  val srcV0 = new DepRegEntryData
+  val srcV0 = new DepRegEntryData // Todo: Vreg
+  val src0Valid : Bool = Bool()
+  val srcV0Valid : Bool = Bool()
 }
 
 class SdiqEntryInput
