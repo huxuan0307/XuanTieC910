@@ -1,6 +1,7 @@
 package Core.RTU
 
 import Core.AddrConfig._
+import Core.Config.XLEN
 import Core.ExceptionConfig._
 import Core.GlobalConfig.{DifftestEnable, NumFoldMax, RobFoldEnable}
 import Core.IntConfig._
@@ -10,6 +11,7 @@ import Core.VectorUnitConfig._
 import Utils.Bits.RingShiftLeft
 import chisel3._
 import chisel3.util._
+import chisel3.util.experimental.BoringUtils
 import difftest.{DifftestInstrCommit, DifftestTrapEvent}
 
 
@@ -819,6 +821,9 @@ class Rob extends Module {
   //          to Difftest
   //==========================================================
   private val NumFoldInstMax = if (RobFoldEnable) NumFoldMax else 1
+  private val hitTrap = Wire(Vec(NumFoldInstMax * NumCommitEntry, Bool()))
+  private val commitPcVec = Wire(Vec(NumFoldInstMax * NumCommitEntry, UInt(64.W)))
+
   if (DifftestEnable) {
     for (i <- 0 until NumCommitEntry) {
       val commitValid = io.out.toRetire.instVec(i).valid
@@ -844,21 +849,30 @@ class Rob extends Module {
         instrCommit.io.fpwen   := RegNext(false.B)
         instrCommit.io.wdest   := RegNext(wdestVec(j))
         instrCommit.io.wpdest  := RegNext(wpdestVec(j))
+        hitTrap(i * NumFoldInstMax + j) := commitValid && instVec(j)(6,0) === 0x6b.U
+        commitPcVec(i * NumFoldInstMax + j) := Cat(pcVec(j), 0.U(1.W))(63, 0) | BigInt("80000000", 16).U
       }
     }
     val cycleCnt = RegInit(0.U(64.W))
     cycleCnt := cycleCnt + 1.U
     val instrCnt = RegInit(0.U(64.W))
+    val commitCnt = WireInit(0.U(4.W))
+    commitCnt :=  io.out.toRetire.instVec.map(inst => Mux(inst.valid, inst.num, 0.U))
+      .reduce(_ + _)
+
     when(io.out.toRetire.commitValidVec(0) || io.out.toRetire.commitValidVec(1) || io.out.toRetire.commitValidVec(2)) {
-      instrCnt := instrCnt + io.out.toRetire.commitValidVec(0).asUInt + io.out.toRetire.commitValidVec(1).asUInt + io.out.toRetire.commitValidVec(2).asUInt
+      instrCnt := instrCnt + commitCnt
     }
+
+    val difftestTrapCode = WireInit(0.U(XLEN.W))
+    BoringUtils.addSink(difftestTrapCode, "difftestTrapCode")
 
     val trapEvent = Module(new DifftestTrapEvent)
     trapEvent.io.clock     := clock
     trapEvent.io.coreid    := 0.U
-    trapEvent.io.valid     := false.B
-    trapEvent.io.code      := RegNext(0.U)
-    trapEvent.io.pc        := RegNext(0.U)
+    trapEvent.io.valid     := RegNext(hitTrap.reduce(_||_))
+    trapEvent.io.code      := difftestTrapCode
+    trapEvent.io.pc        := RegNext(commitPcVec(OHToUInt(PriorityEncoderOH(hitTrap))))
     trapEvent.io.cycleCnt  := RegNext(cycleCnt)
     trapEvent.io.instrCnt  := RegNext(instrCnt)
     trapEvent.io.hasWFI    := RegNext(false.B)
