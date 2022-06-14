@@ -267,3 +267,49 @@ class ct_idu_rf_pipe2_decd extends BlackBox{
     val pipe2_decd_src1_imm = Output(UInt(64.W))
   })
 }
+
+class ct_idu_rf_pipe3_decd extends BlackBox {
+  val io = IO(new Bundle {
+    val pipe3_decd_opcode       = Input(UInt(32.W))
+    val pipe3_decd_atomic       = Output(UInt(1.W))
+    val pipe3_decd_inst_fls     = Output(UInt(1.W))
+    val pipe3_decd_inst_ldr     = Output(UInt(1.W))
+    val pipe3_decd_inst_size    = Output(UInt(2.W))
+    val pipe3_decd_inst_type    = Output(UInt(2.W))
+    val pipe3_decd_lsfifo       = Output(UInt(1.W))
+    val pipe3_decd_off_0_extend = Output(UInt(1.W))
+    val pipe3_decd_offset       = Output(UInt(12.W))
+    val pipe3_decd_offset_plus  = Output(UInt(13.W))
+    val pipe3_decd_shift        = Output(UInt(4.W))
+    val pipe3_decd_sign_extend  = Output(UInt(1.W))
+  })
+}
+
+class ct_idu_rf_pipe4_decd extends BlackBox {
+  val io = IO(new Bundle {
+    val cp0_lsu_fencei_broad_dis  = Input(UInt(1.W))
+    val cp0_lsu_fencerw_broad_dis = Input(UInt(1.W))
+    val cp0_lsu_tlb_broad_dis     = Input(UInt(1.W))
+    val pipe4_decd_dst_preg       = Input(UInt(7.W))
+    val pipe4_decd_opcode         = Input(UInt(32.W))
+    val pipe4_decd_atomic         = Output(UInt(1.W))
+    val pipe4_decd_fence_mode     = Output(UInt(4.W))
+    val pipe4_decd_icc            = Output(UInt(1.W))
+    val pipe4_decd_inst_fls       = Output(UInt(1.W))
+    val pipe4_decd_inst_flush     = Output(UInt(1.W))
+    val pipe4_decd_inst_mode      = Output(UInt(2.W))
+    val pipe4_decd_inst_share     = Output(UInt(1.W))
+    val pipe4_decd_inst_size      = Output(UInt(2.W))
+    val pipe4_decd_inst_str       = Output(UInt(1.W))
+    val pipe4_decd_inst_type      = Output(UInt(2.W))
+    val pipe4_decd_lsfifo         = Output(UInt(1.W))
+    val pipe4_decd_mmu_req        = Output(UInt(1.W))
+    val pipe4_decd_off_0_extend   = Output(UInt(1.W))
+    val pipe4_decd_offset         = Output(UInt(12.W))
+    val pipe4_decd_offset_plus    = Output(UInt(13.W))
+    val pipe4_decd_shift          = Output(UInt(4.W))
+    val pipe4_decd_st             = Output(UInt(1.W))
+    val pipe4_decd_sync_fence     = Output(UInt(1.W))
+  })
+}
+

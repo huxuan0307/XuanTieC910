@@ -158,11 +158,11 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.divSel.sel := idu.io.out.RFCtrl.toDiv.sel
   iu.io.divSel.gateSel := idu.io.out.RFCtrl.toDiv.gateClkSel
   iu.io.pipe0.iid := idu.io.out.RFData.toIu0.iid
-  iu.io.pipe0.dstVld := idu.io.out.RFData.toIu0.dstPreg.valid
-  iu.io.pipe0.dstPreg := idu.io.out.RFData.toIu0.dstPreg.bits
+  iu.io.pipe0.dstVld := idu.io.out.RFData.toIu0.dstVld
+  iu.io.pipe0.dstPreg := idu.io.out.RFData.toIu0.dstPreg
   iu.io.pipe0.opcode := idu.io.out.RFData.toIu0.opcode
-  iu.io.pipe0.exptVec := idu.io.out.RFData.toIu0.exceptVec.bits
-  iu.io.pipe0.exptVld := idu.io.out.RFData.toIu0.exceptVec.valid
+  iu.io.pipe0.exptVec := idu.io.out.RFData.toIu0.exptVec
+  iu.io.pipe0.exptVld := idu.io.out.RFData.toIu0.exptVld
   iu.io.pipe0.highHwExpt := idu.io.out.RFData.toIu0.highHwExpt
   iu.io.pipe0.specialImm := idu.io.out.RFData.toIu0.specialImm
   iu.io.pipe0.aluShort := idu.io.out.RFData.toIu0.aluShort
@@ -173,8 +173,8 @@ class SimTop extends Module with Config with ROBConfig {
   iu.io.pipe0.src1NoImm := idu.io.out.RFData.toIu0.src1NoImm
   iu.io.pipe0.opcode := idu.io.out.RFData.toIu0.opcode //////todo: check it, use opcode(7.W) to replace func(7.W)
   iu.io.pipe1.iid := idu.io.out.RFData.toIu1.iid
-  iu.io.pipe1.dstVld := idu.io.out.RFData.toIu1.dstPreg.valid
-  iu.io.pipe1.dstPreg := idu.io.out.RFData.toIu1.dstPreg.bits
+  iu.io.pipe1.dstVld := idu.io.out.RFData.toIu1.dstVld
+  iu.io.pipe1.dstPreg := idu.io.out.RFData.toIu1.dstPreg
   iu.io.pipe1.multFunc := DontCare //////todo: find it, (8.W) different with toIu1.opcode(7.W)
   iu.io.pipe1.mlaSrc2Preg := DontCare //////todo: find it
   iu.io.pipe1.mlaSrc2Vld := DontCare //////todo: find it
