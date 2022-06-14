@@ -1,33 +1,25 @@
-package Core.IFU_IDU
+package Top
 
 import Core.GlobalConfig.RobFoldEnable
-import Core.IDU._
-import Core.IFU._
-import Core.IU._
-import Core.LSU._
-import Core.RTU._
+import Core.IDU.IDU
+import Core.IFU.IFU
+import Core.IU.IntegeUnit
+import Core.LSU.LSU
+import Core.RTU.RtuTop
 import Core.{Config, ROBConfig}
+import chisel3.util.UIntToOH
 import chisel3._
-import chisel3.util._
-import difftest._
-
-class ct_coreBundle extends Bundle {
-  val logCtrl = new LogCtrlIO
-  val perfInfo = new PerfInfoIO
-  val uart = new UARTIO
-}
 
 class SimTop extends Module with Config with ROBConfig {
-  val io = IO(new ct_coreBundle)
+  val io = IO(new SimTopIO)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
-  val lsu = Module(new LSU)
   val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
-  io.uart.in.valid  := false.B
+  io.uart.in.valid := false.B
   io.uart.out.valid := false.B
-  io.uart.out.ch    := 0.U
+  io.uart.out.ch := 0.U
   //IFU
   ifu.io.bpu_update.rtu_flush := rtu.io.out.toIfu.flush
   ifu.io.bpu_update.rtu_ras_update.isret := rtu.io.out.toIfu.retire0.pReturn
@@ -42,7 +34,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
   ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc// Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc // Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
@@ -64,7 +56,7 @@ class SimTop extends Module with Config with ROBConfig {
   //IDU
   idu.io.in.IDfromIFUIB.instData := ifu.io.instData
   idu.io.in.IDfromIFUIB.instVld := ifu.io.instVld
-  idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare  //todo: figure out Gateclk
+  idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare //todo: figure out Gateclk
   idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.yyXxCancel
   idu.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
   idu.io.in.fromRTU.flush.fe := rtu.io.out.toIdu.flushFe
@@ -110,7 +102,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
-  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg//DontCare //////todo: check it, and compare with PRFfromIU
+  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg //DontCare //////todo: check it, and compare with PRFfromIU
   idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
   idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
   idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
@@ -127,42 +119,8 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.ISfromVFPU := DontCare
   idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
 
-
-  //LSU
-  lsu.io.in.ld_ag.fromCp0 := 0.U.asTypeOf(lsu.io.in.ld_ag.fromCp0) //////todo: add Cp0
-  lsu.io.in.ld_ag.fromPad := 0.U.asTypeOf(lsu.io.in.ld_ag.fromPad) //////todo: add Pad
-  lsu.io.in.ld_ag.fromMMU := 0.U.asTypeOf(lsu.io.in.ld_ag.fromMMU) //////todo: add MMU
-  lsu.io.in.ld_ag.fromRTU.yy_xx_flush := rtu.io.out.yyXx.flush
-  lsu.io.in.ld_ag.fromRTU.yy_xx_commit := rtu.io.out.yyXx.commitIid.map(_.valid)
-  lsu.io.in.ld_ag.fromRTU.yy_xx_commit_iid := rtu.io.out.yyXx.commitIid.map(_.bits)
-  lsu.io.in.cp0In := 0.U.asTypeOf(lsu.io.in.cp0In) //////todo: add Cp0
-  lsu.io.in.rb.fromRTU.lsu_async_flush := rtu.io.out.toLsu.asyncFlush
-  lsu.io.in.rb.fromBiu := 0.U.asTypeOf(lsu.io.in.rb.fromBiu) //////todo: add Biu
-  lsu.io.in.wmb.fromBiu := 0.U.asTypeOf(lsu.io.in.wmb.fromBiu) //////todo: add Biu
-  lsu.io.in.wmb.fromCp0 := 0.U.asTypeOf(lsu.io.in.wmb.fromCp0) //////todo: add Cp0
-  lsu.io.in.ld_da.fromCp0 := 0.U.asTypeOf(lsu.io.in.ld_da.fromCp0) //////todo: add Cp0
-  lsu.io.in.ld_da.mmu_lsu_access_fault0 := 0.U.asTypeOf(lsu.io.in.ld_da.mmu_lsu_access_fault0) //////todo: add MMU
-  lsu.io.in.ctrl.rfPipeIn.ldPipeSel := idu.io.out.RFCtrl.toLu.sel
-  lsu.io.in.ctrl.rfPipeIn.ldPipGateSel := idu.io.out.RFCtrl.toLu.gateClkSel //////todo: check it, pipe3
-  lsu.io.in.ctrl.rfPipeIn.stPipeAddrSel := idu.io.out.RFCtrl.toSt.sel
-  lsu.io.in.ctrl.rfPipeIn.stPipeAddrGateSel := idu.io.out.RFCtrl.toSt.gateClkSel //////todo: check it, pipe4
-  lsu.io.in.ctrl.rfPipeIn.stPipeDataGateSel := idu.io.out.RFCtrl.toSd.gateClkSel //////todo: check it, pipe5
-  lsu.io.in.ctrl.mmu_lsu_tlb_wakeup := 0.U.asTypeOf(lsu.io.in.ctrl.mmu_lsu_tlb_wakeup) //////todo: add MMU
-  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(0) := idu.io.out.IStoLSU.vmb_create(0).gateclk_en
-  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(1) := idu.io.out.IStoLSU.vmb_create(1).gateclk_en
-  lsu.io.in.st_da.mmu_lsu_access_fault1 := 0.U.asTypeOf(lsu.io.in.st_da.mmu_lsu_access_fault1) //////todo: add MMU
-  lsu.io.in.st_dc.fromCp0 := 0.U.asTypeOf(lsu.io.in.st_dc.fromCp0) //////todo: add Cp0
-  lsu.io.in.st_dc.mmuIn := 0.U.asTypeOf(lsu.io.in.st_dc.mmuIn) //////todo: add MMU
-  lsu.io.in.st_dc.rtuIn.flush := rtu.io.out.yyXx.flush //////yyxxflush
-  lsu.io.in.st_dc.rtuIn.commitIidUpdata := rtu.io.out.toLsu.commitIidUpdateVal
-  lsu.io.in.st_ag.cp0In := 0.U.asTypeOf(lsu.io.in.st_ag.cp0In) //////todo: add Cp0
-  lsu.io.in.st_ag.mmuIn := 0.U.asTypeOf(lsu.io.in.st_ag.mmuIn) //////todo: add MMU
-  lsu.io.in.st_ag.rfIn //////todo: complete it
-
-
-
   //IU
-  for(i <- 0 to 1) {
+  for (i <- 0 to 1) {
     iu.io.ifuForward(i).curPc := ifu.io.ifuForward(i).curPc
     iu.io.ifuForward(i).tarPc := ifu.io.ifuForward(i).tarPc
     iu.io.ifuForward(i).dstVld := ifu.io.ifuForward(i).dstVld
@@ -254,7 +212,7 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.fromIr.ereg.allocGateClkValid := idu.io.out.IRtoRTU.ereg_alloc_gateclk_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocValidVec := idu.io.out.IRtoRTU.vreg_alloc_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocGateClkValid := idu.io.out.IRtoRTU.vreg_alloc_gateclk_vld
-  for(i <- 0 until NumCreateEntry) {
+  for (i <- 0 until NumCreateEntry) {
     rtu.io.in.fromIdu.robCreate(i).en := idu.io.out.IStoRTU.rob_create(i).en
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.hit := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_HIT
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.miss := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_MISS
@@ -287,7 +245,7 @@ class SimTop extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.robCreate(i).data.data.instr := idu.io.out.IStoRTU.rob_create(i).data.INSTR
     rtu.io.in.fromIdu.robCreate(i).data.data.debug := idu.io.out.IStoRTU.rob_create(i).data.debug
   }
-  for(i <- 0 to (NumCreateEntry-1)) {
+  for (i <- 0 to (NumCreateEntry - 1)) {
     //////todo:check it
     rtu.io.in.fromIdu.toPst.preg(i).preg := idu.io.out.IStoRTU.pst_dis(i).preg
     rtu.io.in.fromIdu.toPst.preg(i).pregValid := idu.io.out.IStoRTU.pst_dis(i).preg_vld
@@ -375,8 +333,8 @@ class SimTop extends Module with Config with ROBConfig {
       in0.vstart := DontCare
       in1.vstart := DontCare
       in2.vstart := DontCare
-      wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools //////todo: check it
-      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95,0).asBools
+      wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95, 0).asBools //////todo: check it
+      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95, 0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
       pcFifoPop0.length := false.B //////todo: find it
@@ -399,13 +357,13 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
   rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
-//  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
-//  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
-//  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
-//  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
-//  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
+  //  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
+  //  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
+  //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
+  //  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
+  //  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
   rtu.io.in.fromLsu.allCommitDataValid := true.B
-//  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
+  //  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0.xxIntB := true.B //////_b
   rtu.io.in.fromCp0.xxVec := 0.U.asTypeOf(rtu.io.in.fromCp0.xxVec)
@@ -424,10 +382,9 @@ class SimTop extends Module with Config with ROBConfig {
   dontTouch(iu.io)
   dontTouch(rtu.io)
 
-  io.uart.in.valid  := false.B
+  io.uart.in.valid := false.B
   io.uart.out.valid := false.B
-  io.uart.out.ch    := 0.U
-
+  io.uart.out.ch := 0.U
 
 
 }

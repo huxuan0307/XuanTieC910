@@ -1,4 +1,4 @@
-package Core.IFU_IDU
+package Top
 
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 
