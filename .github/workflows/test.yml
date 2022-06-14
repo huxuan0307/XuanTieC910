@@ -11,6 +11,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Cleanup
         run: sed -i "s/%NAME%/test/g" build.sc
+      - name: Update Submodule
+        run: git submodule update --init --recursive
       - name: Setup Scala
         uses: olafurpg/setup-scala@v10
         with:
