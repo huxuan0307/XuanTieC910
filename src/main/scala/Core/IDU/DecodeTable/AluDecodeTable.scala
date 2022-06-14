@@ -1,11 +1,12 @@
 package Core.IDU.DecodeTable
 
+import Core.IDU.FuncUnit._
+import Core.IDU.Opcode.AluOpcode._
+import ISA.RV64Diff.trapInst
+import ISA.RV64I._
 import Utils.Bits.BinaryConst.{F, T}
 import chisel3._
 import chisel3.util.BitPat
-import ISA.RV64I._
-import Core.IDU.Opcode.AluOpcode._
-import Core.IDU.FuncUnit._
 
 object AluDecodeTable {
 
@@ -43,5 +44,6 @@ object AluDecodeTable {
     sra   -> List(ALU, SRA, T, T, T),
     or    -> List(ALU, OR,  T, T, T),
     and   -> List(ALU, AND, T, T, T),
+    trapInst -> List(ALU, ADD, F, T, T)
   )
 }
