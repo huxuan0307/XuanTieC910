@@ -118,19 +118,19 @@ class BIQData extends Bundle {
 //  val OPCODE = UInt(32.W)
 //}
 
-class SDIQData extends Bundle {
-  val LOAD = Bool()
-  val STADDR1_IN_STQ = Bool()
-  val STADDR0_IN_STQ = Bool()
-  val STDATA1_VLD = Bool()
-  val UNALIGN = Bool()
-  val SRCV0_LSU_MATCH = Bool()
-  val SRCV0_DATA = new srcData9
-  val SRC0_LSU_MATCH = Bool()
-  val SRC0_DATA = new srcData9
-  val SRCV0_VLD = Bool()
-  val SRC0_VLD = Bool()
-}
+//class SDIQData extends Bundle {
+//  val LOAD = Bool()
+//  val STADDR1_IN_STQ = Bool()
+//  val STADDR0_IN_STQ = Bool()
+//  val STDATA1_VLD = Bool()
+//  val UNALIGN = Bool()
+//  val SRCV0_LSU_MATCH = Bool()
+//  val SRCV0_DATA = new srcData9
+//  val SRC0_LSU_MATCH = Bool()
+//  val SRC0_DATA = new srcData9
+//  val SRCV0_VLD = Bool()
+//  val SRC0_VLD = Bool()
+//}
 
 class VIQData extends Bundle {
   val VL              = UInt(8.W)
