@@ -8,6 +8,7 @@ trait SdiqConfig {
   def NumSrcSd = 2
   def NumSrcSdX = 1
   def NumSdiqEntry = 12
+  def NumSdiqCreatePort = 2
 }
 
 object SdiqConfig extends SdiqConfig
@@ -56,9 +57,9 @@ class SdiqEntryOutput
   extends IqEntryOutput(SdiqConfig.NumSdiqEntry)
     with SdiqConfig with DepRegEntryConfig {
   val readData = new SdiqEntryData
-  val src0PregOH : UInt = UInt(NumPhysicRegsBits.W)
-  val srcFPregOH : UInt = UInt(NumFPregsBits.W)
-  val srcVPregOH : UInt = UInt(NumVPregsBits.W)
+  val src0PregOH : UInt = UInt(NumPhysicRegs.W)
+  val srcFPregOH : UInt = UInt(NumFPregs.W)
+  val srcVPregOH : UInt = UInt(NumVPregs.W)
 }
 
 class SdiqEntryIO extends Bundle {
@@ -105,7 +106,7 @@ class SdiqEntry extends Module with SdiqConfig {
   //==========================================================
   //                      Entry Valid
   //==========================================================
-  when(rtu.yyXXFlush) {
+  when(rtu.flush.be) {
     valid := false.B
   }.elsewhen(create.en) {
     valid := true.B
@@ -135,7 +136,9 @@ class SdiqEntry extends Module with SdiqConfig {
   when(create.en) {
     ageVec := create.ageVec
   }.elsewhen(io.in.popValid) {
-    ageVec := VecInit((ageVec.asUInt & ~io.in.popOtherEntry.asUInt).asBools)
+    ageVec := ageVec.zip(io.in.popOtherEntry).map {
+      case (age, popOther) => age & !popOther
+    }
   }
   io.out.ageVec := ageVec
 
@@ -238,8 +241,9 @@ class SdiqEntry extends Module with SdiqConfig {
       in.fuDstPreg      := io.in.fuDstPreg
       in.wbPreg         := io.in.wbPreg
       in.loadPreg       := io.in.loadPreg
-      in.flush.is       := rtu.flushIs
-      in.flush.fe       := rtu.flushFe
+      in.flush.is       := rtu.flush.be // Todo: Figure out why use flush backend signal
+      in.flush.fe       := rtu.flush.be
+      in.flush.be       := rtu.flush.be
       in.createData     := create.data.src0
       in.gateClkIdxWen  := createSrcGateClkEn
       in.gateClkWen     := create.gateClkEn
@@ -247,7 +251,6 @@ class SdiqEntry extends Module with SdiqConfig {
       in.wen            := create.dpEn
 
       srcReadData       := out.readData
-
   }
 
   // Todo: src entry for vector

@@ -45,10 +45,8 @@ class RenameInput extends Bundle{
   }
   val pad_yy_icg_scan_en = Bool()
   val fromRTU = new Bundle{
-    val flush_fe = Bool()
-    val flush_is = Bool()
+    val flush = new IduFromRtuFlushBundle
     val rt_recover_preg = Vec(32, UInt(7.W))
-    val yy_xx_flush     = Bool()
   }
   val fromVFPU = new Bundle{
     val ex1_pipe_mfvr_inst_vld_dupx = Vec(2, Bool())//pipe6 pipe7
@@ -102,8 +100,8 @@ class RenameTable extends Module{
     rename_table(i).io.in.lsu_dc_pipe3_load_fwd_inst_vld_dupx := lsu_idu_dc_pipe3_load_fwd_inst_vld_dupx
     rename_table(i).io.in.mla_reg_fwd_vld    := mla_reg_fwd_vld
     rename_table(i).io.in.pad_yy_icg_scan_en := io.in.pad_yy_icg_scan_en
-    rename_table(i).io.in.fromRTU.flush_fe   := io.in.fromRTU.flush_fe
-    rename_table(i).io.in.fromRTU.flush_is   := io.in.fromRTU.flush_is
+    rename_table(i).io.in.fromRTU.flush_fe   := io.in.fromRTU.flush.fe
+    rename_table(i).io.in.fromRTU.flush_is   := io.in.fromRTU.flush.is
     rename_table(i).io.in.fromVFPU           := io.in.fromVFPU
 
     rename_table(i).io.in.createData := reg_creat_data(i+1)
@@ -142,7 +140,7 @@ class RenameTable extends Module{
   //reset: build initial mappings (r0~r31 <-> p0~p31)
   //flush: recover mappings from rtu pst
   val rt_reset_updt_preg = WireInit(VecInit((0 until 32).map(_.U(7.W))))
-  rt_recover_updt_vld := io.in.ifu_xx_sync_reset || io.in.fromRTU.yy_xx_flush
+  rt_recover_updt_vld := io.in.ifu_xx_sync_reset || io.in.fromRTU.flush.be
   val rt_recover_updt_preg = Mux(io.in.ifu_xx_sync_reset, rt_reset_updt_preg, io.in.fromRTU.rt_recover_preg)
 
   //-----------------------Write value------------------------

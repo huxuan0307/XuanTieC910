@@ -1,31 +1,25 @@
-package Core.IFU_IDU
+package Top
 
 import Core.GlobalConfig.RobFoldEnable
-import Core.IDU._
-import Core.IFU._
-import Core.IU._
-import Core.RTU._
+import Core.IDU.IDU
+import Core.IFU.IFU
+import Core.IU.IntegeUnit
+import Core.LSU.LSU
+import Core.RTU.RtuTop
 import Core.{Config, ROBConfig}
+import chisel3.util.UIntToOH
 import chisel3._
-import chisel3.util._
-import difftest._
-
-class ct_coreBundle extends Bundle {
-  val logCtrl = new LogCtrlIO
-  val perfInfo = new PerfInfoIO
-  val uart = new UARTIO
-}
 
 class SimTop extends Module with Config with ROBConfig {
-  val io = IO(new ct_coreBundle)
+  val io = IO(new SimTopIO)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
   val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
-  io.uart.in.valid  := false.B
+  io.uart.in.valid := false.B
   io.uart.out.valid := false.B
-  io.uart.out.ch    := 0.U
+  io.uart.out.ch := 0.U
   //IFU
   ifu.io.bpu_update.rtu_flush := rtu.io.out.toIfu.flush
   ifu.io.bpu_update.rtu_ras_update.isret := rtu.io.out.toIfu.retire0.pReturn
@@ -40,7 +34,7 @@ class SimTop extends Module with Config with ROBConfig {
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
   ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc// Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
+  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc // Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull
@@ -62,11 +56,12 @@ class SimTop extends Module with Config with ROBConfig {
   //IDU
   idu.io.in.IDfromIFUIB.instData := ifu.io.instData
   idu.io.in.IDfromIFUIB.instVld := ifu.io.instVld
-  idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare  //todo: figure out Gateclk
+  idu.io.in.IDfromIFUIB.pipedownGateclk := DontCare //todo: figure out Gateclk
   idu.io.in.fromIU.yyxxCancel := iu.io.bjuToIdu.yyXxCancel
   idu.io.in.fromIU.mispred_stall := iu.io.bjuToIdu.misPredStall
-  idu.io.in.fromRTU.flush_fe := rtu.io.out.toIdu.flushFe
-  idu.io.in.fromRTU.flush_is := rtu.io.out.toIdu.flushIs
+  idu.io.in.fromRTU.flush.fe := rtu.io.out.toIdu.flushFe
+  idu.io.in.fromRTU.flush.is := rtu.io.out.toIdu.flushIs
+  idu.io.in.fromRTU.flush.be := rtu.io.out.yyXx.flush
   idu.io.in.fromRTU.flush_stall := rtu.io.out.toIdu.flushStall
   idu.io.in.fromRTU.freg := rtu.io.out.toIdu.fregAlloc.map(_.bits)
   idu.io.in.fromRTU.preg := rtu.io.out.toIdu.pregAlloc.map(_.bits)
@@ -77,7 +72,6 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromRTU.ereg_vld := rtu.io.out.toIdu.eregAlloc.map(_.valid)
   idu.io.in.fromRTU.vreg_vld := rtu.io.out.toIdu.vregAlloc.map(_.valid)
   idu.io.in.fromRTU.srt_en := rtu.io.out.toIdu.srtEn
-  idu.io.in.fromRTU.yy_xx_flush := rtu.io.out.yyXx.flush
   idu.io.in.RTfromRTUsub.rt_recover_preg := rtu.io.out.toIdu.rtRecoverPreg
   idu.io.in.ISfromRTUsub.rob_full := rtu.io.out.toIdu.robFull
   idu.io.in.ISfromRTUsub.rob_inst_idd := rtu.io.out.toIdu.robInstIidVec
@@ -108,7 +102,7 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
-  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg//DontCare //////todo: check it, and compare with PRFfromIU
+  idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg //DontCare //////todo: check it, and compare with PRFfromIU
   idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
   idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
   idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
@@ -125,11 +119,8 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.ISfromVFPU := DontCare
   idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
 
-
-
-
   //IU
-  for(i <- 0 to 1) {
+  for (i <- 0 to 1) {
     iu.io.ifuForward(i).curPc := ifu.io.ifuForward(i).curPc
     iu.io.ifuForward(i).tarPc := ifu.io.ifuForward(i).tarPc
     iu.io.ifuForward(i).dstVld := ifu.io.ifuForward(i).dstVld
@@ -221,7 +212,7 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.fromIr.ereg.allocGateClkValid := idu.io.out.IRtoRTU.ereg_alloc_gateclk_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocValidVec := idu.io.out.IRtoRTU.vreg_alloc_vld
   rtu.io.in.fromIdu.fromIr.vreg.allocGateClkValid := idu.io.out.IRtoRTU.vreg_alloc_gateclk_vld
-  for(i <- 0 until NumCreateEntry) {
+  for (i <- 0 until NumCreateEntry) {
     rtu.io.in.fromIdu.robCreate(i).en := idu.io.out.IStoRTU.rob_create(i).en
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.hit := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_HIT
     rtu.io.in.fromIdu.robCreate(i).data.data.noSpec.miss := idu.io.out.IStoRTU.rob_create(i).data.NO_SPEC_MISS
@@ -254,7 +245,7 @@ class SimTop extends Module with Config with ROBConfig {
     rtu.io.in.fromIdu.robCreate(i).data.data.instr := idu.io.out.IStoRTU.rob_create(i).data.INSTR
     rtu.io.in.fromIdu.robCreate(i).data.data.debug := idu.io.out.IStoRTU.rob_create(i).data.debug
   }
-  for(i <- 0 to (NumCreateEntry-1)) {
+  for (i <- 0 to (NumCreateEntry - 1)) {
     //////todo:check it
     rtu.io.in.fromIdu.toPst.preg(i).preg := idu.io.out.IStoRTU.pst_dis(i).preg
     rtu.io.in.fromIdu.toPst.preg(i).pregValid := idu.io.out.IStoRTU.pst_dis(i).preg_vld
@@ -342,8 +333,8 @@ class SimTop extends Module with Config with ROBConfig {
       in0.vstart := DontCare
       in1.vstart := DontCare
       in2.vstart := DontCare
-      wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95,0).asBools //////todo: check it
-      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95,0).asBools
+      wbdata(0).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(0).wbPreg)(95, 0).asBools //////todo: check it
+      wbdata(1).bits := UIntToOH(iu.io.iuToRtu.rbusRslt(1).wbPreg)(95, 0).asBools
       wbdata(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
       wbdata(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
       pcFifoPop0.length := false.B //////todo: find it
@@ -366,13 +357,13 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
   rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
-//  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
-//  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
-//  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
-//  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
-//  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
+  //  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
+  //  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
+  //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)
+  //  rtu.io.in.fromLsu.asyncExceptAddr := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptAddr)
+  //  rtu.io.in.fromLsu.asyncExceptValid := 0.U.asTypeOf(rtu.io.in.fromLsu.asyncExceptValid)
   rtu.io.in.fromLsu.allCommitDataValid := true.B
-//  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
+  //  rtu.io.in.fromLsu.ctcFlushValid := 0.U.asTypeOf(rtu.io.in.fromLsu.ctcFlushValid)
   //rtu.io.in.fromIu := DontCare //////todo: pcFifoPopDataVec: iu_rtu_pcfifo_pop0_data... wbData: iu_rtu_ex2_pipe0_wb_preg_expand?  Ctrl: ...
   rtu.io.in.fromCp0.xxIntB := true.B //////_b
   rtu.io.in.fromCp0.xxVec := 0.U.asTypeOf(rtu.io.in.fromCp0.xxVec)
@@ -391,10 +382,9 @@ class SimTop extends Module with Config with ROBConfig {
   dontTouch(iu.io)
   dontTouch(rtu.io)
 
-  io.uart.in.valid  := false.B
+  io.uart.in.valid := false.B
   io.uart.out.valid := false.B
-  io.uart.out.ch    := 0.U
-
+  io.uart.out.ch := 0.U
 
 
 }

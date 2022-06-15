@@ -38,7 +38,7 @@ class WmbCeToAmr extends Bundle with LsuConfig{
   val bytesVld = UInt(BYTES_ACCESS_WIDTH.W)
   val caStInst = Bool()
   val popVld   = Bool()
-  val vld = Bool()
+  val vld       = Bool()
 }
 //----------------------------------------------------------
 class AmrIn extends Bundle with LsuConfig{
@@ -79,7 +79,7 @@ class Amr extends Module with LsuConfig with AmrStateConfig {
   //+-------+
   //| state |
   //+-------+
-  val amr_state = RegInit(JUDGE)
+  val amr_state = RegInit(0.U(3.W))
   io.out.waCancel := amr_state(0).asBool
   io.out.l2MemSet := amr_state(2).asBool && io.in.cp0In.amr2
   //+------+-----------+-----+-----+

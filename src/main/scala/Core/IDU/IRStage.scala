@@ -137,10 +137,8 @@ class IRStageInput extends Bundle{
     val instData = Vec(4, new IRData)
   }
   val fromRTU = new Bundle{
-    val flush_fe = Bool()
-    val flush_is = Bool()
+    val flush = new IduFromRtuFlushBundle
     val flush_stall = Bool()
-    val yy_xx_flush = Bool()
     val srt_en = Bool()
 
     val ereg_vld = Vec(4, Bool())
@@ -267,7 +265,7 @@ class IRStage extends Module {
   //----------------------------------------------------------
   //               Pipeline register implement
   //----------------------------------------------------------
-  when(io.in.fromRTU.flush_fe || io.in.fromIU.yyxxCancel) {
+  when(io.in.fromRTU.flush.fe || io.in.fromIU.yyxxCancel) {
     instVld := WireInit(VecInit(Seq.fill(4)(false.B)))
   }.elsewhen(!ir_stall) {
     instVld := io.in.id_pipedown.instVld
@@ -782,7 +780,7 @@ class IRStage extends Module {
 
   val aiq_dlb_updt_vld = !io.in.fromCp0.dlbDisable && (aiq_entry_cnt_diff_8 || aiq_entry_cnt_diff_7_2)
 
-  when(io.in.fromRTU.flush_fe || io.in.fromRTU.flush_is || io.in.fromRTU.yy_xx_flush){
+  when(io.in.fromRTU.flush.fe || io.in.fromRTU.flush.is || io.in.fromRTU.flush.be){
     aiq_dlb_en := false.B
   }.elsewhen(io.in.aiq_entry_cnt_updt(0).valid || io.in.aiq_entry_cnt_updt(1).valid){
     aiq_dlb_en := aiq_dlb_updt_vld
@@ -798,7 +796,7 @@ class IRStage extends Module {
 
   val viq_dlb_updt_vld = !io.in.fromCp0.dlbDisable && (viq_entry_cnt_diff_8 || viq_entry_cnt_diff_7_2)
 
-  when(io.in.fromRTU.flush_fe || io.in.fromRTU.flush_is || io.in.fromRTU.yy_xx_flush){
+  when(io.in.fromRTU.flush.fe || io.in.fromRTU.flush.is || io.in.fromRTU.flush.be){
     viq_dlb_en := false.B
   }.elsewhen(io.in.viq_entry_cnt_updt(0).valid || io.in.viq_entry_cnt_updt(1).valid){
     viq_dlb_en := viq_dlb_updt_vld

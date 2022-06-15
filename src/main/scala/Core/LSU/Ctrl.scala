@@ -10,8 +10,8 @@ import chisel3.util._
 
 class Cp0ToCtrl extends Bundle with LsuConfig{
   val dcachePrefDist = UInt(CACHE_DIST_SELECT.W) // TODO 2?
-  val icgEn          = Bool()
   val l2PrefDist     = UInt(CACHE_DIST_SELECT.W) // TODO 2?
+  val icgEn          = Bool()
   val yyClkEn        = Bool()
 }
 class DcacheArbIn0ToCtrl extends Bundle with LsuConfig{
@@ -67,7 +67,7 @@ class WmbToCtrl extends Bundle with LsuConfig {
 class StDaToCtrlExt extends StDaToCtrl {
   // some bundle did not bind in StDaToCtrl
   // thus in this bundle extend,
-  val instVld = Bool() // in bundle 'StoreDaOut'
+  val instVld           = Bool() // in bundle 'StoreDaOut'
   val rbcreateGateclkEn = Bool() // in bundle 'StDaToRb'
   val waitFenceGateclkEn = Bool() // in bundle 'StDaToSq'
 }
@@ -93,10 +93,6 @@ class CtrlIn extends Bundle with LsuConfig{
     val tlbBusyGateclkEn  = Bool()
   }
   val ldWbIn = new Bundle() {
-    val dataVld = Bool()
-    val instVld = Bool()
-  }
-  val wbIn = new Bundle() {
     val dataVld = Bool()
     val instVld = Bool()
   }
@@ -194,7 +190,7 @@ class Ctrl extends Module with LsuConfig {
     io.in.dcacheArbIn.ldDcBorrowGate || io.in.ldDcIn.borrowVld || io.in.ldDaIn.borrow_vld
 
   val ctrl_st_clk_en = io.in.rfPipeSel.stPipeAddrGateSel || io.in.rfPipeSel.stPipeDataGateSel ||
-    io.in.stAgIn.instVld || io.in.stEx1InstVld || io.in.stDcIn.instVld || io.in.stDaIn.instVld || io.in.wbIn.instVld ||
+    io.in.stAgIn.instVld || io.in.stEx1InstVld || io.in.stDcIn.instVld || io.in.stDaIn.instVld ||
     io.in.wmbIn.stWbCmpltReq || io.in.dcacheArbIn.stDcBorrowGate ||
     io.in.stDcIn.borrowVld || io.in.stDaIn.borrowVld
   val cp0_lsu_up_vld = Wire(Bool())

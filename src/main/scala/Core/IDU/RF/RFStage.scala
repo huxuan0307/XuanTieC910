@@ -3,7 +3,7 @@ package Core.IDU.RF
 import Core.Config.XLEN
 import Core.ExceptionConfig.ExceptionVecWidth
 import Core.IDU.DecodeTable.{AluDecodeTable, BjuDecodeTable, DefaultInst}
-import Core.IDU.{FuncUnit, ct_idu_rf_pipe2_decd}
+import Core.IDU.{FuncUnit, IduFromRtuFlushBundle, ct_idu_rf_pipe2_decd}
 import Core.IDU.IS.AiqConfig.NumSrcArith
 import Core.IDU.IS.BiqConfig.NumSrcBr
 import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
@@ -70,12 +70,7 @@ class RFStageFromVfpuBundle extends Bundle {
 }
 
 class RFStageFromRtuBundle extends Bundle {
-  val flush = new Bundle {
-    val fe : Bool = Bool()
-    val is : Bool = Bool()
-  }
-  // Todo: check if need be merged into flush bundle
-  val yyXxFlush : Bool = Bool()
+  val flush = new IduFromRtuFlushBundle
 }
 
 class RFStageCtrlInput extends Bundle with RFStageConfig {
@@ -431,7 +426,7 @@ class RFStage extends Module with RFStageConfig {
       // pipe 5 rf stage is flush by flush_be
       // st pipe
       if (StorePipeNumSet.contains(i)) {
-        when(rtu.yyXxFlush) {
+        when(rtu.flush.be) {
           instValid := false.B
         }.otherwise {
           instValid := io.ctrl.in.issueEnVec(i).issueEn

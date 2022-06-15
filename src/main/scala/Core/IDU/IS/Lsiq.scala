@@ -116,7 +116,6 @@ class Lsiq extends Module with LsiqConfig {
   val io : LsiqIO = IO(new LsiqIO)
 
   private val cp0 = io.in.fromCp0
-//  private val lsu = io.in.fromLsu
   private val rtu = io.in.fromRtu
   private val ctrlLsiq = io.in.ctrl
   private val dataLsiq = io.in.data
@@ -199,7 +198,7 @@ class Lsiq extends Module with LsiqConfig {
   //1.disable lsiq bypass
   //2.all lsiq inst create into lsiq with frz set
   //3.check older inst barrier state, if it is not barriered by older inst, clear frz
-  when(rtu.flushFe || rtu.flushIs) {
+  when(rtu.flush.fe || rtu.flush.is) {
     barMode := false.B
   }.elsewhen(ctrlLsiq.fromIr.barInstValid || ctrlLsiq.fromIs.barInstValid) {
     barMode := true.B
@@ -223,7 +222,7 @@ class Lsiq extends Module with LsiqConfig {
   private val entryCntUpdateValid = ctrlLsiq.createEnVec(0) || lsu.popValid
   private val entryCntUpdate = entryCnt + entryCntCreate - entryCntPop
 
-  when(rtu.flushFe || rtu.flushIs || rtu.yyXXFlush) {
+  when(rtu.flush.fe || rtu.flush.is || rtu.flush.be) {
     entryCnt := 0.U
   }.elsewhen(entryCntUpdateValid) {
     entryCnt := entryCntUpdate
@@ -536,8 +535,7 @@ class Lsiq extends Module with LsiqConfig {
       in.loadPreg := io.in.loadPreg
       in.popValid := lsu.popValid
       in.readyClr := entryReadyClearVec(i)
-      in.fromRtu.flush.is := io.in.fromRtu.flushIs
-      in.fromRtu.flush.fe := io.in.fromRtu.flushFe
+      in.fromRtu.flush := io.in.fromRtu.flush
       in.create.ageVec := entryCreateAgeVec(i)
       in.create.ageVecAll := entryCreateAgeVecAll(i)
       in.create.data := entryCreateDataVec(i)

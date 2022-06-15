@@ -135,4 +135,6 @@ class Prf extends Module with PrfConfig{
   difftestArchIntRegState.io.clock := clock
   difftestArchIntRegState.io.coreid := 0.U
   difftestArchIntRegState.io.gpr := commitGpr
+
+  BoringUtils.addSource(commitGpr(0xa), "difftestTrapCode")
 }

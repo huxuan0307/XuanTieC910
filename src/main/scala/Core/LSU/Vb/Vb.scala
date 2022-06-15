@@ -37,7 +37,7 @@ class StDaToVbAll extends StDaToVb with LsuConfig with DCacheConfig {
   val eccStall          = Bool()
   val feedbackDddrTto14 = UInt(26.W)
   val tagReissue        = Bool()
-  val hit = Bool()
+  val hit               = Bool()
 }
 class SdbToVbTop extends Bundle with LsuConfig with DCacheConfig {
   val addrId          = Vec(VB_ADDR_ENTRY, UInt(2.W))
@@ -55,10 +55,10 @@ class SdbToVbTop extends Bundle with LsuConfig with DCacheConfig {
 }
 class WmbToVbAll extends Bundle {
   val toEntry = new WmbToVbAddrEntry
-  val createDpVld = Bool()
+  val createDpVld     = Bool()
   val createGateclkEn = Bool()
-  val createReq = Bool()
-  val createVld = Bool()
+  val createReq       = Bool()
+  val createVld       = Bool()
 }
 //----------------------------------------------------------
 class VbIn extends Bundle with LsuConfig with DCacheConfig {

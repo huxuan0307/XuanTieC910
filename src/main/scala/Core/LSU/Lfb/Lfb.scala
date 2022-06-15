@@ -28,24 +28,24 @@ class LmToLfb extends BiuToLfbDataEntry {
   val stateIsAmoLock = Bool()
 }
 class PfuToLfb extends Bundle with DCacheConfig with LsuConfig {
-  val reqAddr = UInt(PA_WIDTH.W)
-  val createDpVld = Bool()
+  val reqAddr         = UInt(PA_WIDTH.W)
+  val createDpVld     = Bool()
   val createGateclkEn = Bool()
-  val createReq = Bool()
-  val createVld = Bool()
-  val id = UInt(PFU_IDX.W)
+  val createReq       = Bool()
+  val createVld       = Bool()
+  val id              = UInt(PFU_IDX.W)
 }
 class RbToLfb extends Bundle with LsuConfig {
-  val biuReqAddr = UInt((PA_WIDTH).W)
-  val addrTto4 = UInt((PA_WIDTH-4).W)
-  val atomic = Bool()
-  val boundaryDepdWakeup = Bool()
-  val createDpVld = Bool()
-  val createGateclkEn = Bool()
-  val createReq = Bool()
-  val createVld = Bool()
-  val depd = Bool()
-  val ldamo = Bool()
+  val biuReqAddr          = UInt((PA_WIDTH).W)
+  val addrTto4            = UInt((PA_WIDTH-4).W)
+  val atomic              = Bool()
+  val boundaryDepdWakeup  = Bool()
+  val createDpVld         = Bool()
+  val createGateclkEn     = Bool()
+  val createReq           = Bool()
+  val createVld           = Bool()
+  val depd                = Bool()
+  val ldamo               = Bool()
 }
 class SnqToLfb extends Bundle with LsuConfig  {
   val bypassAddrTto6 = UInt((PA_WIDTH-6).W)
@@ -56,18 +56,20 @@ class SnqToLfb extends Bundle with LsuConfig  {
 }
 class VbToLfb extends Bundle with LsuConfig with DCacheConfig {
   val addrEntryRcldone = UInt(LFB_ADDR_ENTRY.W)
-  val createGrnt = Bool()
-  val dcacheDirty = Bool()
-  val dcacheHit = Bool()
-  val dcacheWay = Bool()
-  val rclDone = Bool()
-  val vbReqHitIdx = Bool()
+  val createGrnt       = Bool()
+  val dcacheDirty      = Bool()
+  val dcacheHit        = Bool()
+  val dcacheWay        = Bool()
+  val rclDone          = Bool()
+  val vbReqHitIdx      = Bool()
 }
 //----------------------------------------------------------
 class LfbIOIn extends Bundle with LsuConfig with DCacheConfig {
   val biuIn = new BiuToLfb
-  val bus_arb_pfu_ar_sel = Bool() // todo whats this?
-  val bus_arb_rb_ar_sel = Bool() // todo whats this?
+  val busArbIn = new Bundle() {
+    val pfu_ar_sel = Bool() // todo
+    val rb_ar_sel = Bool() // todo
+  }
   val cp0In = new Cp0ToLfbEntry
   val dcache_arb_lfb_ld_grnt = Bool()
   val ldDaIn = new Bundle {
@@ -273,8 +275,8 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_addr_create_ptr = RegInit(0.U(LFB_ADDR_ENTRY.W))
   lfb_addr_create_ptr := UIntToOH(PriorityEncoder(VecInit(addr_entry_vld).asUInt))
   //------------------grnt signal to lfb/pfu------------------
-  val lfb_rb_create_grnt   = io.in.bus_arb_rb_ar_sel && io.in.rbIn.createReq
-  val lfb_pfu_create_grnt  = io.in.bus_arb_pfu_ar_sel && io.in.pfuIn.createReq
+  val lfb_rb_create_grnt   = io.in.busArbIn.rb_ar_sel && io.in.rbIn.createReq
+  val lfb_pfu_create_grnt  = io.in.busArbIn.pfu_ar_sel && io.in.pfuIn.createReq
   val lfb_create_id = Wire(UInt(LFB_ID_WIDTH.W))
   lfb_create_id := OHToUInt(lfb_addr_create_ptr) // equal to ct_rtu_encode_8 x_lsu_lfb_create_ptr_encode  @1276
   io.out.toRb.createId  := Cat(BIU_LFB_ID_T,lfb_create_id)
