@@ -1,0 +1,12 @@
+input
+lsu_idu_ag      IduFromLsuAgStageBundle     ag
+lsu_idu_da      IduFromLsuDaStageBundle     da
+lsu_idu_dc      IduFromLsuDcStageBundle     dc
+lsu_idu_ex1     IduFromLsuEx1StageBundle    ex1
+lsu_idu_lq      IduFromLsuLqBundle          lq
+lsu_idu_rb      IduFromLsuRbBundle          rb
+lsu_idu_sq      IduFromLsuSqBundle          sq
+lsu_idu_tlb     IduFromLsuTlbBundle         tlb
+lsu_idu_vmb     IduFromLsuVmbBundle         vwb
+lsu_idu_wb      IduFromLsuWbStageBundle     wb
+lsu_idu         IduFromLsu                  top_class
