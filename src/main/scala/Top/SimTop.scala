@@ -14,6 +14,7 @@ class SimTop extends Module with Config with ROBConfig {
   val io = IO(new SimTopIO)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
+  val lsu = Module(new LSU)
   val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
@@ -118,6 +119,36 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromLSU := DontCare //////todo: add LSU
   idu.io.in.ISfromVFPU := DontCare
   idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
+
+
+  //LSU
+  lsu.io.in.fromCp0 := 0.U.asTypeOf(lsu.io.in.fromCp0) //////todo: add Cp0
+  lsu.io.in.fromPad := 0.U.asTypeOf(lsu.io.in.fromPad) //////todo: add Pad
+  lsu.io.in.fromMMU := 0.U.asTypeOf(lsu.io.in.fromMMU) //////todo: add MMU
+  lsu.io.in.ld_wb.fromHad := 0.U.asTypeOf(lsu.io.in.ld_wb.fromHad) //////todo: add Had
+  lsu.io.in.ld_dc.fromHad := 0.U.asTypeOf(lsu.io.in.ld_dc.fromHad) //////todo: add Had
+  lsu.io.in.rb.fromBiu := 0.U.asTypeOf(lsu.io.in.rb.fromBiu) //////todo: add Biu
+  lsu.io.in.wmb.fromBiu := 0.U.asTypeOf(lsu.io.in.wmb.fromBiu) //////todo: add Biu
+  lsu.io.in.bus_arb.fromBiu := 0.U.asTypeOf(lsu.io.in.bus_arb.fromBiu) //////todo: add Biu
+  lsu.io.in.ld_dc.fromHad := 0.U.asTypeOf(lsu.io.in.ld_dc.fromHad) //////todo: add Had
+  lsu.io.in.fromRTU.yy_xx_flush := rtu.io.out.yyXx.flush
+  lsu.io.in.fromRTU.yy_xx_commit := rtu.io.out.yyXx.commitIid.map(_.valid)
+  lsu.io.in.fromRTU.yy_xx_commit_iid := rtu.io.out.yyXx.commitIid.map(_.bits)
+  lsu.io.in.fromRTU.lsu_async_flush := rtu.io.out.toLsu.asyncFlush
+  lsu.io.in.fromRTU.commitIidUpdata := rtu.io.out.toLsu.commitIidUpdateVal
+  lsu.io.in.ctrl.rfPipeIn.ldPipeSel := idu.io.out.RFCtrl.toLu.sel
+  lsu.io.in.ctrl.rfPipeIn.ldPipGateSel := idu.io.out.RFCtrl.toLu.gateClkSel //////todo: check it, pipe3
+  lsu.io.in.ctrl.rfPipeIn.stPipeAddrSel := idu.io.out.RFCtrl.toSt.sel
+  lsu.io.in.ctrl.rfPipeIn.stPipeAddrGateSel := idu.io.out.RFCtrl.toSt.gateClkSel //////todo: check it, pipe4
+  lsu.io.in.ctrl.rfPipeIn.stPipeDataGateSel := idu.io.out.RFCtrl.toSd.gateClkSel //////todo: check it, pipe5
+  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(0) := idu.io.out.IStoLSU.vmb_create(0).gateclk_en
+  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(1) := idu.io.out.IStoLSU.vmb_create(1).gateclk_en
+  lsu.io.in.ld_ag.rf_pipe3 := DontCare //////todo: complete it
+  lsu.io.in.st_ag.rf_pipe4 := DontCare //////todo: complete it
+  lsu.io.in.sd_ex1.rf_pipe5 := DontCare //////todo: complete it
+  dontTouch(lsu.io)
+
+
 
   //IU
   for (i <- 0 to 1) {
