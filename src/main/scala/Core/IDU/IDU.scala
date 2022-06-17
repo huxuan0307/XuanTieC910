@@ -226,6 +226,13 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
       val lsiqCtrl = new LsiqFromLsuBundle
     }
 
+    val RFfomLSU = new Bundle {
+      val dc_stAddrUnalign = Bool()
+      val dc_stAddrValid = Bool()
+      val dc_stAddr1Valid = Bool()
+      val dc_sdiqEntry = UInt(SdiqConfig.NumSdiqEntry.W)
+    }
+
     val SDIQfromLsu = new Bundle() {
       val sdiqCtrl = new SdiqFromLsuBundle
     }
@@ -974,6 +981,10 @@ class IDU extends Module with Config {
   rfstage.io.data.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn //////todo: check it
   rfstage.io.data.in.fromHad.iduWbBrValid := io.in.RFfromHad.iduWbBrValid
   rfstage.io.data.in.fromHad.iduWbBrData := io.in.RFfromHad.iduWbBrData
+  rfstage.io.data.in.fromLsu.dc.stAddrValid := io.in.fromLSU.RFfomLSU.dc_stAddrValid
+  rfstage.io.data.in.fromLsu.dc.stAddr1Valid := io.in.fromLSU.RFfomLSU.dc_stAddr1Valid
+  rfstage.io.data.in.fromLsu.dc.stAddrUnalign := io.in.fromLSU.RFfomLSU.dc_stAddrUnalign
+  rfstage.io.data.in.fromLsu.dc.sdiqEntry := io.in.fromLSU.RFfomLSU.dc_sdiqEntry
   rfstage.io.data.in.aiq0.issueEn := aiq0.io.out.xxIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueGateClkEn := aiq0.io.out.xxGateClkIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueReadData := aiq0.io.out.data.issueData
