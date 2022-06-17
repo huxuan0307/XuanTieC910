@@ -366,18 +366,33 @@ class RFStageDataOutput extends Bundle with RFStageConfig {
     val launchEntryOH : UInt = UInt(numEntry.W)
     val readyClr      : Vec[Bool] = Vec(numSrc, Bool())
   }
-  val toAiq0  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {}
-  val toAiq1  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {}
-  val toBiq   = new RFStageToIqBundle(NumBiqEntry, NumSrcBr) {}
-  val toLsiq0 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {}
-  val toLsiq1 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {}
+  val toAiq0  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {
+    val issueEntryOH : UInt = UInt(NumAiqEntry.W)
+  }
+  val toAiq1  = new RFStageToIqBundle(NumAiqEntry, NumSrcArith) {
+    val issueEntryOH : UInt = UInt(NumAiqEntry.W)
+  }
+  val toBiq   = new RFStageToIqBundle(NumBiqEntry, NumSrcBr) {
+    val issueEntryOH : UInt = UInt(NumBiqEntry.W)
+  }
+  val toLsiq0 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {
+    val issueEntryOH : UInt = UInt(NumLsiqEntry.W)
+  }
+  val toLsiq1 = new RFStageToIqBundle(NumLsiqEntry, NumSrcLs) {
+    val issueEntryOH : UInt = UInt(NumLsiqEntry.W)
+  }
   val toSdiq  = new RFStageToIqBundle(NumSdiqEntry, NumSrcSd) {
     val stAddr1Valid      = Bool()
     val stAddrReadyClear  = Bool()
     val stData1Valid      = Bool()
+    val issueEntryOH : UInt = UInt(NumSdiqEntry.W)
   }
-  val toVfiq0 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {}
-  val toVfiq1 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {}
+  val toVfiq0 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {
+    val issueEntryOH : UInt = UInt(NumVfiqEntry.W)
+  }
+  val toVfiq1 = new RFStageToIqBundle(NumVfiqEntry, NumSrcVf) {
+    val issueEntryOH : UInt = UInt(NumVfiqEntry.W)
+  }
 
   val toIu0 = new RFStageToIuPipe0Bundle
   val toIu1 = new RFStageToIuPipe1Bundle
@@ -949,14 +964,23 @@ class RFStage extends Module with RFStageConfig {
   // Gathered from ct_idu_rf_dp.v 8 sub-segment
 
   // launchEntryOH
-  io.data.out.toAiq0.launchEntryOH  := RegEnable(aiq0_data.issueEntryOH, 0.U.asTypeOf(aiq0_data.issueEntryOH),  aiq0_data.issueEn)
-  io.data.out.toAiq1.launchEntryOH  := RegEnable(aiq1_data.issueEntryOH, 0.U.asTypeOf(aiq1_data.issueEntryOH),  aiq1_data.issueEn)
-  io.data.out.toBiq.launchEntryOH   := RegEnable(biq_data.issueEntryOH, 0.U.asTypeOf(biq_data.issueEntryOH),  biq_data.issueEn)
-  io.data.out.toLsiq0.launchEntryOH := RegEnable(lsiq0_data.issueEntryOH, 0.U.asTypeOf(lsiq0_data.issueEntryOH), lsiq0_data.issueEn)
-  io.data.out.toLsiq1.launchEntryOH := RegEnable(lsiq1_data.issueEntryOH, 0.U.asTypeOf(lsiq1_data.issueEntryOH), lsiq1_data.issueEn)
-  io.data.out.toSdiq.launchEntryOH  := RegEnable(sdiq_data.issueEntryOH, 0.U.asTypeOf(sdiq_data.issueEntryOH),  sdiq_data.issueEn)
-  io.data.out.toVfiq0.launchEntryOH := RegEnable(vfiq0_data.issueEntryOH, 0.U.asTypeOf(vfiq0_data.issueEntryOH), vfiq0_data.issueEn)
-  io.data.out.toVfiq1.launchEntryOH := RegEnable(vfiq1_data.issueEntryOH, 0.U.asTypeOf(vfiq1_data.issueEntryOH), vfiq1_data.issueEn)
+  io.data.out.toAiq0.launchEntryOH  := pipeIqEntriesOH(0)// RegEnable(aiq0_data.issueEntryOH, 0.U.asTypeOf(aiq0_data.issueEntryOH),  aiq0_data.issueEn)
+  io.data.out.toAiq1.launchEntryOH  := pipeIqEntriesOH(1) //RegEnable(aiq1_data.issueEntryOH, 0.U.asTypeOf(aiq1_data.issueEntryOH),  aiq1_data.issueEn)
+  io.data.out.toBiq.launchEntryOH   := pipeIqEntriesOH(2) //RegEnable(biq_data.issueEntryOH, 0.U.asTypeOf(biq_data.issueEntryOH),  biq_data.issueEn)
+  io.data.out.toLsiq0.launchEntryOH := pipeIqEntriesOH(3) //RegEnable(lsiq0_data.issueEntryOH, 0.U.asTypeOf(lsiq0_data.issueEntryOH), lsiq0_data.issueEn)
+  io.data.out.toLsiq1.launchEntryOH := pipeIqEntriesOH(4) //RegEnable(lsiq1_data.issueEntryOH, 0.U.asTypeOf(lsiq1_data.issueEntryOH), lsiq1_data.issueEn)
+  io.data.out.toSdiq.launchEntryOH  := pipeIqEntriesOH(5) //RegEnable(sdiq_data.issueEntryOH, 0.U.asTypeOf(sdiq_data.issueEntryOH),  sdiq_data.issueEn)
+  io.data.out.toVfiq0.launchEntryOH := pipeIqEntriesOH(6) //RegEnable(vfiq0_data.issueEntryOH, 0.U.asTypeOf(vfiq0_data.issueEntryOH), vfiq0_data.issueEn)
+  io.data.out.toVfiq1.launchEntryOH := pipeIqEntriesOH(7) //RegEnable(vfiq1_data.issueEntryOH, 0.U.asTypeOf(vfiq1_data.issueEntryOH), vfiq1_data.issueEn)
+  // issueEntryOH
+  io.data.out.toAiq0.issueEntryOH  := RegEnable(aiq0_data.issueEntryOH, 0.U.asTypeOf(aiq0_data.issueEntryOH),  aiq0_data.issueEn)
+  io.data.out.toAiq1.issueEntryOH  := RegEnable(aiq1_data.issueEntryOH, 0.U.asTypeOf(aiq1_data.issueEntryOH),  aiq1_data.issueEn)
+  io.data.out.toBiq.issueEntryOH   := RegEnable(biq_data.issueEntryOH, 0.U.asTypeOf(biq_data.issueEntryOH),  biq_data.issueEn)
+  io.data.out.toLsiq0.issueEntryOH := RegEnable(lsiq0_data.issueEntryOH, 0.U.asTypeOf(lsiq0_data.issueEntryOH), lsiq0_data.issueEn)
+  io.data.out.toLsiq1.issueEntryOH := RegEnable(lsiq1_data.issueEntryOH, 0.U.asTypeOf(lsiq1_data.issueEntryOH), lsiq1_data.issueEn)
+  io.data.out.toSdiq.issueEntryOH  := RegEnable(sdiq_data.issueEntryOH, 0.U.asTypeOf(sdiq_data.issueEntryOH),  sdiq_data.issueEn)
+  io.data.out.toVfiq0.issueEntryOH := RegEnable(vfiq0_data.issueEntryOH, 0.U.asTypeOf(vfiq0_data.issueEntryOH), vfiq0_data.issueEn)
+  io.data.out.toVfiq1.issueEntryOH := RegEnable(vfiq1_data.issueEntryOH, 0.U.asTypeOf(vfiq1_data.issueEntryOH), vfiq1_data.issueEn)
 
   // update if issue enable
   private val aiq0ReadData  = RegEnable(io.data.in.aiq0.issueReadData, 0.U.asTypeOf(io.data.in.aiq0.issueReadData), io.data.in.aiq0.issueEn)

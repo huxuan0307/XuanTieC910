@@ -924,10 +924,10 @@ class IDU extends Module with Config {
   sdiq.io.in.data.createData := isstage.io.out.sdiq_create_data // is bind bundle
   sdiq.io.in.data.fromRf.launchEntry      := VecInit(rfstage.io.data.out.toSdiq.launchEntryOH.asBools)
   sdiq.io.in.data.fromRf.readyClear       := rfstage.io.data.out.toSdiq.readyClr
-  sdiq.io.in.data.fromRf.sdiqEntry        := DontCare // todo
-  sdiq.io.in.data.fromRf.stAddr1Valid     := DontCare // todo
-  sdiq.io.in.data.fromRf.stAddrReadyClear := DontCare // todo
-  sdiq.io.in.data.fromRf.stData1Valid     := DontCare // todo
+  sdiq.io.in.data.fromRf.sdiqEntry        := VecInit(rfstage.io.data.out.toSdiq.issueEntryOH.asBools)
+  sdiq.io.in.data.fromRf.stAddr1Valid     := rfstage.io.data.out.toSdiq.stAddr1Valid
+  sdiq.io.in.data.fromRf.stAddrReadyClear := rfstage.io.data.out.toSdiq.stAddrReadyClear
+  sdiq.io.in.data.fromRf.stData1Valid     := rfstage.io.data.out.toSdiq.stData1Valid
 
 
   sdiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
@@ -941,7 +941,7 @@ class IDU extends Module with Config {
 
   sdiq.io.in.fromLsu         := io.in.fromLSU.SDIQfromLsu.sdiqCtrl
   sdiq.io.in.fromRtu.flush   := io.in.fromRTU.flush
-  io.out.toRtu.sdiqOut := sdiq.io.out.toRtu
+  io.out.toRtu.sdiqOut       := sdiq.io.out.toRtu
   //sdiq
   // &ConnRule(s/_dupx/_dup2/); @66
   // &Instance("ct_idu_is_viq0_dummy", "x_ct_idu_is_viq0"); @67
