@@ -154,16 +154,16 @@ class PCfifo extends Module with Config {
   }
 
   val cur_pc_0  = cur_pc(index_0)
-  val jal_0     = jal(index_0)
-  val jalr_0    = jalr(index_0)
-  val con_br_0  = con_br(index_0)
-  val dst_vld_0 = dst_vld(index_0)
+  val jal_0     = jal(7.U-index_0)
+  val jalr_0    = jalr(7.U-index_0)
+  val con_br_0  = con_br(7.U-index_0)
+  val dst_vld_0 = dst_vld(7.U-index_0)
 
   val cur_pc_1  = cur_pc(index_1)
-  val jal_1     = jal(index_1)
-  val jalr_1    = jalr(index_1)
-  val con_br_1  = con_br(index_1)
-  val dst_vld_1 = dst_vld(index_1)
+  val jal_1     = jal(7.U-index_1)
+  val jalr_1    = jalr(7.U-index_1)
+  val con_br_1  = con_br(7.U-index_1)
+  val dst_vld_1 = dst_vld(7.U-index_1)
 
   val vld_0 = PriorityMux(Seq(
     pcoper(7) -> true.B,

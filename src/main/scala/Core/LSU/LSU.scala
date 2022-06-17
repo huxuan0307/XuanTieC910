@@ -103,12 +103,12 @@ class LSUInput extends Bundle {
 
   val rb = new Bundle{
     val fromBiu = new Bundle{
-      val b_id = UInt(5.W)
-      val b_vld = Bool()
+      val b_id   = UInt(5.W)
+      val b_vld  = Bool()
       val r_data = UInt(128.W)
-      val r_id = UInt(5.W)
+      val r_id   = UInt(5.W)
       val r_resp = UInt(4.W)
-      val r_vld = Bool()
+      val r_vld  = Bool()
       val r_last = Bool()
     }
   }
@@ -130,16 +130,19 @@ class LSUInput extends Bundle {
   }
   val bus_arb = new Bundle{
     val fromBiu = new Bundle{
-      val ar_ready = Bool()
-      val aw_vb_grnt = Bool()
+      val ar_ready    = Bool()
+      val aw_vb_grnt  = Bool()
       val aw_wmb_grnt = Bool()
-      val w_vb_grnt = Bool()
-      val w_wmb_grnt = Bool()
+      val w_vb_grnt   = Bool()
+      val w_wmb_grnt  = Bool()
     }
   }
 }
 
 class LSUOutput extends Bundle with LsuConfig{
+  val ctrl = new Bundle{
+    val toIDU = new CtrltoIdu
+  }
   val ld_ag = new Bundle{
     val toHpcp = new Bundle{
       val cross_4k_stall = Bool()
@@ -165,6 +168,10 @@ class LSUOutput extends Bundle with LsuConfig{
     val toIdu       = new StAgToIdu
     val toMmu       = new StAgToMmu
     val rfVld       = Bool() // all done
+  }
+
+  val st_ex1 = new Bundle{
+    val toIdu = new StExtoIdu
   }
 
   //todo: before loaddc
@@ -447,6 +454,8 @@ class LSU extends Module {
   storeex1.io.in.cp0In.lsuIcgEn := io.in.fromCp0.lsu_icg_en
   storeex1.io.in.iduIn := io.in.sd_ex1.rf_pipe5
   storeex1.io.in.rtuFlush := io.in.fromRTU.yy_xx_flush
+
+  io.out.st_ex1.toIdu := storeex1.io.out.toIdu
 
   // &Instance("ct_lsu_mcic","x_ct_lsu_mcic"); @90
   //mcic //todo: complete mcic
@@ -1400,6 +1409,8 @@ class LSU extends Module {
   ctrl.io.in.ldAgIn.stallRestartEntry := loadag.io.out.toDC.stall_restart_entry.asUInt
   ctrl.io.in.mmuTlbWakep := io.in.fromMMU.mmu_lsu_tlb_wakeup
   ctrl.io.in.pfuIn := 0.U.asTypeOf(ctrl.io.in.pfuIn) //////todo: add pfu
+
+  io.out.ctrl.toIDU := ctrl.io.out.toIdu
 
   // &Instance("ct_lsu_bus_arb","x_ct_lsu_bus_arb"); @143
 

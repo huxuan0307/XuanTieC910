@@ -226,7 +226,7 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
       val lsiqCtrl = new LsiqFromLsuBundle
     }
 
-    val RFfomLSU = new Bundle {
+    val RFfromLSU = new Bundle {
       val dc_stAddrUnalign = Bool()
       val dc_stAddrValid = Bool()
       val dc_stAddr1Valid = Bool()
@@ -990,18 +990,20 @@ class IDU extends Module with Config {
   rfstage.io.ctrl.in.issueEnVec(2).issueEn := biq.io.out.xxIssueEn
   rfstage.io.ctrl.in.issueEnVec(3).gateClkIssueEn := lsiq.io.out.gateClkIssueEn
   rfstage.io.ctrl.in.issueEnVec(3).issueEn := lsiq.io.out.issueEnVec(0) //////todo: is rfstage.io.ctrl.in.issueEnVec(3) wrong?
-  rfstage.io.ctrl.in.issueEnVec(4) := DontCare //////todo: add lsiq
-  rfstage.io.ctrl.in.issueEnVec(5) := DontCare //////todo: add sdiq
+  rfstage.io.ctrl.in.issueEnVec(4).gateClkIssueEn := lsiq.io.out.gateClkIssueEn  //////todo: add lsiq
+  rfstage.io.ctrl.in.issueEnVec(4).issueEn := lsiq.io.out.issueEnVec(1)  //////todo: add lsiq
+  rfstage.io.ctrl.in.issueEnVec(5).gateClkIssueEn := sdiq.io.out.gateClkIssueEn //////todo: add sdiq
+  rfstage.io.ctrl.in.issueEnVec(5).issueEn := sdiq.io.out.issueEn //////todo: add sdiq
   rfstage.io.ctrl.in.issueEnVec(6) := DontCare //////todo: add viq0
   rfstage.io.ctrl.in.issueEnVec(7) := DontCare //////todo: add viq1
   rfstage.io.ctrl.in.fromVfpu := io.in.RFfromVFPU
   rfstage.io.data.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn //////todo: check it
   rfstage.io.data.in.fromHad.iduWbBrValid := io.in.RFfromHad.iduWbBrValid
   rfstage.io.data.in.fromHad.iduWbBrData := io.in.RFfromHad.iduWbBrData
-  rfstage.io.data.in.fromLsu.dc.stAddrValid := io.in.fromLSU.RFfomLSU.dc_stAddrValid
-  rfstage.io.data.in.fromLsu.dc.stAddr1Valid := io.in.fromLSU.RFfomLSU.dc_stAddr1Valid
-  rfstage.io.data.in.fromLsu.dc.stAddrUnalign := io.in.fromLSU.RFfomLSU.dc_stAddrUnalign
-  rfstage.io.data.in.fromLsu.dc.sdiqEntry := io.in.fromLSU.RFfomLSU.dc_sdiqEntry
+  rfstage.io.data.in.fromLsu.dc.stAddrValid := io.in.fromLSU.RFfromLSU.dc_stAddrValid
+  rfstage.io.data.in.fromLsu.dc.stAddr1Valid := io.in.fromLSU.RFfromLSU.dc_stAddr1Valid
+  rfstage.io.data.in.fromLsu.dc.stAddrUnalign := io.in.fromLSU.RFfromLSU.dc_stAddrUnalign
+  rfstage.io.data.in.fromLsu.dc.sdiqEntry := io.in.fromLSU.RFfromLSU.dc_sdiqEntry
   rfstage.io.data.in.aiq0.issueEn := aiq0.io.out.xxIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueGateClkEn := aiq0.io.out.xxGateClkIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueReadData := aiq0.io.out.data.issueData

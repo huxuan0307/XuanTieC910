@@ -255,6 +255,7 @@ class RFStageToIuPipe1Bundle extends Bundle with RFStageConfig {
   val opcode  : UInt = UInt(Opcode.width.W) // replace func with opcode
   val iid : UInt = UInt(7.W)
   val imm : UInt = UInt(6.W)
+  val inst : UInt = UInt(32.W) // replace opcode with inst
   val mlaSrc2Preg : UInt = UInt(7.W)
   val mlaSrc2Vld : UInt = UInt(1.W)
   // val multFunc : UInt = UInt(8.W) // replace func with opcode
@@ -1247,8 +1248,8 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu0.inst := aiq0ReadData.inst
   io.data.out.toIu0.dstVld := aiq0ReadData.dstValid
   io.data.out.toIu0.dstPreg := aiq0ReadData.dstPreg
-  io.data.out.toIu0.dstVld := aiq0ReadData.dstVValid
-  io.data.out.toIu0.dstPreg := aiq0ReadData.dstVreg
+  io.data.out.toIu0.dstvVld := aiq0ReadData.dstVValid
+  io.data.out.toIu0.dstVreg := aiq0ReadData.dstVreg
   io.data.out.toIu0.opcode := aiq0Op
   //  io.data.out.toIu.src0
   //  io.data.out.toIu.src1
@@ -1332,6 +1333,7 @@ class RFStage extends Module with RFStageConfig {
   //                Output to Execution Units
   //----------------------------------------------------------
   io.data.out.toIu1.iid  := aiq1ReadData.iid
+  io.data.out.toIu1.inst := aiq1ReadData.inst
   io.data.out.toIu1.dstVld := aiq1ReadData.dstValid
   io.data.out.toIu1.dstPreg := aiq1ReadData.dstPreg
   io.data.out.toIu1.dstvVld := aiq1ReadData.dstVValid
