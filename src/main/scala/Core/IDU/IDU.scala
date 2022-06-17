@@ -828,17 +828,37 @@ class IDU extends Module with Config {
   lsiq.io.in.ctrl.fromRf.launchFailValid(1) := rfstage.io.ctrl.out.toIq(4).launchFailValid
   // Todo: add forward signal
   //  e.g. ctrl_aiq0_rf_pipe0_alu_reg_fwd_vld ctrl_viq1_rf_pipe7_vmla_vreg_fwd_vld
+  // Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
+  // alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe0_dst_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(0).bits   := rfstage.io.data.out.aluDstPregs(0)
+  lsiq.io.in.fuDstPreg(0).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).valid)
+  // alu1 : ctrl_xx_rf_pipe1_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe1_dst_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(1).bits   := rfstage.io.data.out.aluDstPregs(1)
+  lsiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).valid)
+  // mult : iu_idu_ex2_pipe1_mult_inst_vld_dupx <br>
+  //        iu_idu_ex2_pipe1_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
+  lsiq.io.in.fuDstPreg(2).bits  := io.in.RTfromIU.ex2_pipe1_preg_dupx
+  // div  : iu_idu_div_inst_vld <br>
+  //        iu_idu_div_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
+  lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+  // load : lsu_idu_dc_pipe3_load_inst_vld_dupx <br>
+  //        lsu_idu_dc_pipe3_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+  lsiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx
+  // vfpu0: vfpu_idu_ex1_pipe6_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe6_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).valid)
+  lsiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).bits)
+  // vfpu1: vfpu_idu_ex1_pipe7_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe7_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).valid)
+  lsiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).bits)
 
-    lsiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).valid)
-    lsiq.io.in.fuDstPreg(0).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).valid)
-    lsiq.io.in.fuDstPreg(0).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).bits)
-    lsiq.io.in.fwd.loadValid       := 0.U.asTypeOf(lsiq.io.in.fwd.loadValid)
-    lsiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).valid)
-    lsiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).valid)
-    lsiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).bits)
-    lsiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).bits)
-    lsiq.io.in.fuDstPreg(1).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).bits)
-
+  lsiq.io.in.fwd.loadValid       := 0.U.asTypeOf(lsiq.io.in.fwd.loadValid)
   lsiq.io.in.data.bypassData := isstage.io.out.toLsiq.bypass_data // is bind bundle
   lsiq.io.in.data.create.bar := isstage.io.out.toLsiq.create_bar
   lsiq.io.in.data.create.load   := isstage.io.out.toLsiq.create_load
@@ -853,17 +873,14 @@ class IDU extends Module with Config {
   lsiq.io.in.data.fromRf.readyClear(0) := rfstage.io.data.out.toLsiq0.readyClr
   lsiq.io.in.data.fromRf.readyClear(1) := rfstage.io.data.out.toLsiq1.readyClr
 
-  lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
-  lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+
   lsiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
   lsiq.io.in.wbPreg(0).valid := io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx
-  lsiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
-  lsiq.io.in.fuDstPreg(2).bits  := io.in.RTfromIU.ex2_pipe1_preg_dupx
+
   lsiq.io.in.wbPreg(1).bits  := io.in.RTfromIU.ex2_pipe1_wb_preg_dupx
   lsiq.io.in.wbPreg(1).valid := io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx
 
-  lsiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
-  lsiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx
+
   lsiq.io.in.loadPreg.bits      := io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx
   lsiq.io.in.loadPreg.valid     := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
   lsiq.io.in.wbPreg(2).bits    := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx
@@ -894,11 +911,11 @@ class IDU extends Module with Config {
   // Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
   // alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
   //        dp_xx_rf_pipe0_dst_preg_dupx <br>
-  sdiq.io.in.fuDstPreg(0).bits   := DontCare // todo
+  sdiq.io.in.fuDstPreg(0).bits   := rfstage.io.data.out.aluDstPregs(0) // todo
   sdiq.io.in.fuDstPreg(0).valid  := DontCare // todo
   // alu1 : ctrl_xx_rf_pipe1_preg_lch_vld_dupx <br>
   //        dp_xx_rf_pipe1_dst_preg_dupx <br>
-  sdiq.io.in.fuDstPreg(1).bits   := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(1).bits)
+  sdiq.io.in.fuDstPreg(1).bits   := rfstage.io.data.out.aluDstPregs(1)
   sdiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(1).valid)
   // mult : iu_idu_ex2_pipe1_mult_inst_vld_dupx <br>
   //        iu_idu_ex2_pipe1_preg_dupx <br>
