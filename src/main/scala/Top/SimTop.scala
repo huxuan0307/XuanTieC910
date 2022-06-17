@@ -83,9 +83,9 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg := iu.io.iuToRtu.rbusRslt(1).wbPreg
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_vld := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_data := iu.io.iuToRtu.rbusRslt(1).wbData
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := DontCare //////todo: from LSU??
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := DontCare //////todo: from LSU??
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_data
   idu.io.in.PRFfromRTUsub.yyXxDebugOn := rtu.io.out.yyXx.debugOn
 
   //IDU ignore other signals
@@ -116,7 +116,26 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromHpcp := DontCare
   idu.io.in.fromCp0 := DontCare
   idu.io.in.fromPad := DontCare
-  idu.io.in.fromLSU := DontCare //////todo: add LSU
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx := lsu.io.out.ld_ag.toIDU.pipe3_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld := lsu.io.out.ld_ag.toIDU.pipe3_load_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_vload_inst_vld := lsu.io.out.ld_ag.toIDU.pipe3_vload_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_vreg_dupx := lsu.io.out.ld_ag.toIDU.pipe3_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx := lsu.io.out.ld_dc.toIDU.pipe3_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vreg_dupx := lsu.io.out.ld_dc.toIDU.pipe3_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx := lsu.io.out.ld_ag.toIDU.pipe3_load_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_load_fwd_inst_vld_dupx := lsu.io.out.ld_dc.toIDU.pipe3_load_fwd_inst_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vload_inst_vld_dupx := lsu.io.out.ld_dc.toIDU.pipe3_vload_inst_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vload_fwd_inst_vld := lsu.io.out.ld_dc.toIDU.pipe3_vload_fwd_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_vreg_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_vreg_vld_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_vreg_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.vmb_create0_entry := 0.U(8.W) //////8'b0 in origin src
+  idu.io.in.fromLSU.ISfromLSU.vmb_create1_entry := 0.U(8.W) //////8'b0 in origin src
+  //////todo: idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.alreadyDaVec := lsu.io.out
+
+
+
   idu.io.in.ISfromVFPU := DontCare
   idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
 
