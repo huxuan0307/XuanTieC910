@@ -188,7 +188,9 @@ class IFU extends Module with Config {
     io.instData(i).no_spec      := false.B
     io.instData(i).bkptb_inst   := false.B
     io.instData(i).bkpta_inst   := false.B
-    io.instData(i).split_short  := false.B
+    val inst = ibuf.io.out(i).bits.inst
+    io.instData(i).split_short  := inst(11,7) =/= 0.U &&
+      (Cat(inst(15,12),inst(6,0)) === "b1001_0000010".U || inst(6,0) === "b1101111".U || Cat(inst(14,12),inst(6,0)) === "b000_1100111".U)
     io.instData(i).fence        := false.B
     io.instData(i).split_long   := false.B
     io.instData(i).high_hw_expt := false.B

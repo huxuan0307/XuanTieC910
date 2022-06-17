@@ -1173,6 +1173,7 @@ class ISStage extends Module{
     io.out.toAiq0.create_data(i).src_vld  := aiq0_create_data(i).src_vld
     io.out.toAiq0.create_data(i).IID      := aiq0_create_iid(i)
     io.out.toAiq0.create_data(i).OPCODE   := aiq0_create_data(i).opcode
+    io.out.toAiq0.create_data(i).PC       := aiq0_create_data(i).LSU_PC
   }
 
   io.out.toAiq0.bypass_data.VL           := aiq0_create_data(0).VL
@@ -1214,6 +1215,7 @@ class ISStage extends Module{
   io.out.toAiq0.bypass_data.src_vld  := aiq0_create_data(0).src_vld
   io.out.toAiq0.bypass_data.IID      := aiq0_create_iid(0)
   io.out.toAiq0.bypass_data.OPCODE   := aiq0_create_data(0).opcode
+  io.out.toAiq0.bypass_data.PC       := aiq0_create_data(0).LSU_PC
 
   io.out.toAiq0.src_rdy_for_bypass(0) := aiq0_create_data(0).src0_bp_rdy(1)
   io.out.toAiq0.src_rdy_for_bypass(1) := aiq0_create_data(0).src1_bp_rdy(1)

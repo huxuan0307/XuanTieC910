@@ -593,9 +593,11 @@ class IDU extends Module with Config {
       cbundle.vlmul := isstage.io.out.toAiq0.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq0.create_data(i).VSEW
       cbundle.inst := isstage.io.out.toAiq0.create_data(i).OPCODE //todo: check it
+      cbundle.pc := isstage.io.out.toAiq0.create_data(i).PC
     //todo: find isstage.io.out.toAiq0.create_data(i).LCH_RDY_AIQ0... to where
   } //:= isstage.io.out.toAiq0.create_data //////todo: make it same
   //todo: find isstage.io.out.toAiq0.bypass_data.LCH_RDY_AIQ0... to where
+  aiq0.io.in.data.bypassData.pc := isstage.io.out.toAiq0.bypass_data.PC
   aiq0.io.in.data.bypassData.inst := isstage.io.out.toAiq0.bypass_data.OPCODE//isstage.io.out.toAiq0.bypass_data //////todo: make it same
   aiq0.io.in.data.bypassData.div := isstage.io.out.toAiq0.bypass_data.DIV
   aiq0.io.in.data.bypassData.iid := isstage.io.out.toAiq0.bypass_data.IID
@@ -693,9 +695,11 @@ class IDU extends Module with Config {
       cbundle.vlmul := isstage.io.out.toAiq1.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq1.create_data(i).VSEW
       cbundle.inst := isstage.io.out.toAiq1.create_data(i).OPCODE //todo: check it
+      cbundle.pc := DontCare
     //todo: find isstage.io.out.toAiq0.create_data(i).LCH_RDY_AIQ0... to where
   } //:= isstage.io.out.toAiq0.create_data //////todo: make it same
   //todo: find isstage.io.out.toAiq0.bypass_data.LCH_RDY_AIQ0... to where
+  aiq1.io.in.data.bypassData.pc := DontCare
   aiq1.io.in.data.bypassData.inst := isstage.io.out.toAiq1.bypass_data.OPCODE//isstage.io.out.toAiq0.bypass_data //////todo: make it same
   aiq1.io.in.data.bypassData.div := DontCare //////not use
   aiq1.io.in.data.bypassData.iid := isstage.io.out.toAiq1.bypass_data.IID

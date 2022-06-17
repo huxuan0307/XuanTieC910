@@ -10,6 +10,7 @@ import Core.IDU.IS.LsiqConfig.{NumSrcLs, NumSrcLsX}
 import Core.IDU.IS.SdiqConfig.NumSrcSd
 import Core.IDU.IS.VfiqConfig.NumSrcVf
 import Core.IDU.IS._
+import Core.IDU.Opcode.AluOpcode.AUI_PC
 import Core.IDU.Opcode.Opcode
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig._
@@ -1142,9 +1143,11 @@ class RFStage extends Module with RFStageConfig {
   // Data Path
   val srcDataMap = Map(
     (0,0) -> Seq (
+      (aiq0Op === AUI_PC) -> Cat(1.U(1.W), 0.U(15.W), aiq0ReadData.pc, 0.U(1.W)),
       aiq0ReadData.srcVec(0).wb -> prfRdataVec(readPortMap(0, 0)),  // has write back -> read reg
     ),
     (0,1) -> Seq (
+      (aiq0Op === AUI_PC) -> sext(XLEN, Cat(aiq0Inst(31, 12), 0.U(12.W))),
       !aiq0ReadData.srcValid(1) -> iu0_imm,                         // !srcValid      -> use imm
       aiq0ReadData.srcVec(1).wb -> prfRdataVec(readPortMap(0, 1)),  // has write back -> use reg
     ),

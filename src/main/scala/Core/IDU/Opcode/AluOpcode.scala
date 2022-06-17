@@ -4,6 +4,7 @@ import chisel3._
 
 trait AluOpcode extends Opcode {
   // alu
+  def AUI_PC = "b1011111".U
   def ADD   : UInt = "b0000000".U
   def SUB   : UInt = "b0000001".U
   def SLT   : UInt = "b0000011".U

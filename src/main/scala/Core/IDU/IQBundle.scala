@@ -33,6 +33,7 @@ class AIQ0Data extends Bundle {
   val src_vld = Vec(3, Bool())
   val IID = UInt(7.W)
   val OPCODE = UInt(32.W)
+  val PC = UInt(15.W)
 }
 
 class AIQ1Data extends Bundle{
