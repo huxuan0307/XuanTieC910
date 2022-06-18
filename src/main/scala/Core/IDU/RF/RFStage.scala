@@ -14,7 +14,9 @@ import Core.IDU.Opcode.AluOpcode.AUI_PC
 import Core.IDU.Opcode.Opcode
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig._
+import Core.{DCacheConfig, LsuConfig}
 import Core.PipelineConfig.NumPipeline
+import Core.ROBConfig.IidWidth
 import Core.VectorUnitConfig._
 import Utils.Bits.{sext, zext}
 import chisel3._
@@ -223,15 +225,15 @@ class RFStageDataInput extends Bundle with RFStageConfig {
 }
 
 class RFStageToIuPipe0Bundle extends Bundle with RFStageConfig {
-  val aluShort : UInt = UInt(1.W)
+  val aluShort : Bool= Bool()
   val dstPreg : UInt = UInt(7.W)
-  val dstVld : UInt = UInt(1.W)
+  val dstVld : Bool= Bool()
   val dstVreg : UInt = UInt(7.W)
-  val dstvVld : UInt = UInt(1.W)
+  val dstvVld : Bool= Bool()
   val exptVec : UInt = UInt(5.W)
-  val exptVld : UInt = UInt(1.W)
+  val exptVld : Bool= Bool()
   val opcode  : UInt = UInt(Opcode.width.W) // replace func with opcode
-  val highHwExpt : UInt = UInt(1.W)
+  val highHwExpt : Bool= Bool()
   val iid : UInt = UInt(7.W)
   val imm : UInt = UInt(6.W)
   val inst : UInt = UInt(32.W) // replace opcode with inst
@@ -248,17 +250,17 @@ class RFStageToIuPipe0Bundle extends Bundle with RFStageConfig {
 }
 
 class RFStageToIuPipe1Bundle extends Bundle with RFStageConfig {
-  val aluShort : UInt = UInt(1.W)
+  val aluShort : Bool= Bool()
   val dstPreg : UInt = UInt(7.W)
-  val dstVld : UInt = UInt(1.W)
+  val dstVld : Bool= Bool()
   val dstVreg : UInt = UInt(7.W)
-  val dstvVld : UInt = UInt(1.W)
+  val dstvVld : Bool= Bool()
   val opcode  : UInt = UInt(Opcode.width.W) // replace func with opcode
   val iid : UInt = UInt(7.W)
   val imm : UInt = UInt(6.W)
   val inst : UInt = UInt(32.W) // replace opcode with inst
   val mlaSrc2Preg : UInt = UInt(7.W)
-  val mlaSrc2Vld : UInt = UInt(1.W)
+  val mlaSrc2Vld : Bool= Bool()
   // val multFunc : UInt = UInt(8.W) // replace func with opcode
   // val rsltSel : UInt = UInt(21.W)
   val src0 : UInt = UInt(64.W)
@@ -273,11 +275,11 @@ class RFStageToIuPipe1Bundle extends Bundle with RFStageConfig {
 class RFStageToIuPipe2Bundle extends Bundle with RFStageConfig {
   val opcode : UInt = UInt(8.W) // replace func with opcode
   val iid : UInt = UInt(7.W)
-  val length : UInt = UInt(1.W)
+  val length : Bool= Bool()
   val offset : UInt = UInt(21.W)
-  val pcall : UInt = UInt(1.W)
+  val pcall : Bool= Bool()
   val pid : UInt = UInt(5.W)
-  val rts : UInt = UInt(1.W)
+  val rts : Bool= Bool()
   val src0 : UInt = UInt(64.W)
   val src1 : UInt = UInt(64.W)
   val vl : UInt = UInt(8.W)
@@ -286,82 +288,84 @@ class RFStageToIuPipe2Bundle extends Bundle with RFStageConfig {
 }
 
 class RFStageToLsuPipe3Bundle extends Bundle with RFStageConfig {
-  val alreadyDa : UInt = UInt(1.W)
-  val atomic : UInt = UInt(1.W)
-  val bkptaData : UInt = UInt(1.W)
-  val bkptbData : UInt = UInt(1.W)
+  val alreadyDa : Bool= Bool()
+  val atomic    : Bool= Bool()
+  val bkptaData : Bool= Bool()
+  val bkptbData : Bool= Bool()
   val iid : UInt = UInt(7.W)
-  val instFls : UInt = UInt(1.W)
-  val instLdr : UInt = UInt(1.W)
+  val instFls : Bool= Bool()
+  val instLdr : Bool= Bool()
   val instSize : UInt = UInt(2.W)
   val instType : UInt = UInt(2.W)
   val lchEntry : UInt = UInt(12.W)
-  val lsfifo : UInt = UInt(1.W)
-  val noSpec : UInt = UInt(1.W)
-  val noSpecExist : UInt = UInt(1.W)
-  val off0Extend : UInt = UInt(1.W)
+  val lsfifo : Bool= Bool()
+  val noSpec : Bool= Bool()
+  val noSpecExist : Bool= Bool()
+  val off0Extend  : Bool= Bool()
   val offset : UInt = UInt(12.W)
   val offsetPlus : UInt = UInt(13.W)
-  val oldest : UInt = UInt(1.W)
+  val oldest : Bool= Bool()
   val pc : UInt = UInt(15.W)
   val preg : UInt = UInt(7.W)
   val shift : UInt = UInt(4.W)
-  val signExtend : UInt = UInt(1.W)
-  val specFail : UInt = UInt(1.W)
-  val split : UInt = UInt(1.W)
+  val signExtend  : Bool= Bool()
+  val specFail    : Bool= Bool()
+  val split : Bool= Bool()
   val src0 : UInt = UInt(64.W)
   val src1 : UInt = UInt(64.W)
-  val unalign2Nd : UInt = UInt(1.W)
+  val unalign2Nd : Bool= Bool()
   val vreg : UInt = UInt(7.W)
 }
 
-class RFStageToLsuPipe4Bundle extends Bundle with RFStageConfig {
-  val alreadyDa : UInt = UInt(1.W)
-  val atomic : UInt = UInt(1.W)
-  val bkptaData : UInt = UInt(1.W)
-  val bkptbData : UInt = UInt(1.W)
-  val fenceMode : UInt = UInt(4.W)
-  val icc : UInt = UInt(1.W)
-  val iid : UInt = UInt(7.W)
-  val instCode : UInt = UInt(32.W)
-  val instFls : UInt = UInt(1.W)
-  val instFlush : UInt = UInt(1.W)
-  val instMode : UInt = UInt(2.W)
-  val instShare : UInt = UInt(1.W)
-  val instSize : UInt = UInt(2.W)
-  val instStr : UInt = UInt(1.W)
-  val instType : UInt = UInt(2.W)
-  val lchEntry : UInt = UInt(12.W)
-  val lsfifo : UInt = UInt(1.W)
-  val mmuReq : UInt = UInt(1.W)
-  val noSpec : UInt = UInt(1.W)
-  val off0Extend : UInt = UInt(1.W)
-  val offset : UInt = UInt(12.W)
-  val offsetPlus : UInt = UInt(13.W)
-  val oldest : UInt = UInt(1.W)
-  val pc : UInt = UInt(15.W)
-  val sdiqEntry : UInt = UInt(12.W)
-  val shift : UInt = UInt(4.W)
-  val specFail : UInt = UInt(1.W)
-  val split : UInt = UInt(1.W)
-  val src0 : UInt = UInt(64.W)
-  val src1 : UInt = UInt(64.W)
-  val st : UInt = UInt(1.W)
-  val staddr : UInt = UInt(1.W)
-  val syncFence : UInt = UInt(1.W)
-  val unalign2Nd : UInt = UInt(1.W)
+class RFStageToLsuPipe4Bundle extends Bundle with RFStageConfig with LsuConfig with DCacheConfig {
+  val alreadyDa      = Bool()
+  val atomic         = Bool()
+  val bkptaData      = Bool()
+  val bkptbData      = Bool()
+  val fenceMode      = UInt(FENCE_MODE_WIDTH.W)
+  //  val gateclkSel     = Bool()
+  //  val sel            = Bool()
+  val icc            = Bool()
+  val iid            = UInt(IidWidth.W)
+  val instCode       = UInt(INST_CODE_WIDTH.W)
+  val instFls        = Bool()
+  val instFlush      = Bool()
+  val instMode       = UInt(INST_MODE_WIDTH.W)
+  val instShare      = Bool()
+  val instSize       = UInt(INST_SIZE_WIDTH.W)
+  val instStr        = Bool()
+  val instType       = UInt(INST_TYPE_WIDTH.W)
+  val lchEntry       = UInt(LSIQ_ENTRY.W)
+  val lsfifo         = Bool()
+  val mmuReq         = Bool()
+  val noSpec         = Bool()
+  val off0Extend     = Bool()
+  val offset         = UInt(OFFSET_WIDTH.W)
+  val offsetPlus     = UInt((OFFSET_WIDTH+1).W)
+  val oldest         = Bool()
+  val pc             = Bool()
+  val sdiqEntry      = UInt(LSIQ_ENTRY.W)
+  val shift          = UInt(SHITF_WIDTH.W)
+  val specFail       = Bool()
+  val split          = Bool()
+  val src0           = UInt(XLEN.W)
+  val src1           = UInt(XLEN.W)
+  val st             = Bool()
+  val staddr         = Bool()
+  val syncFence      = Bool()
+  val unalign2nd     = Bool()
 }
 
-class RFStageToLsuPipe5Bundle extends Bundle with RFStageConfig {
-  val sdiqEntry : UInt = UInt(12.W)
-  val src0 : UInt = UInt(64.W)
-  val srcv0Fr : UInt = UInt(64.W)
-  val srcv0FrVld : UInt = UInt(1.W)
-  val srcv0Vld : UInt = UInt(1.W)
-  val srcv0Vr0 : UInt = UInt(64.W)
-  val srcv0Vr1 : UInt = UInt(64.W)
-  val stdata1Vld : UInt = UInt(1.W)
-  val unalign : UInt = UInt(1.W)
+class RFStageToLsuPipe5Bundle extends Bundle with RFStageConfig with LsuConfig {
+  val sdiqEntry   = UInt(LSIQ_ENTRY.W)
+  val src0        = UInt(XLEN.W)
+  val srcv0Fr     = UInt(XLEN.W)
+  val srcv0FrVld  = Bool()
+  val srcv0Vld    = Bool()
+  val srcv0Vr0    = UInt(XLEN.W)
+  val srcv0Vr1    = UInt(XLEN.W)
+  val stdata1Vld  = Bool()
+  val unalign     = Bool()
 }
 class RFStageDataOutput extends Bundle with RFStageConfig {
   abstract class RFStageToIqBundle(numEntry: Int, numSrc: Int) extends Bundle {
@@ -1523,7 +1527,7 @@ class RFStage extends Module with RFStageConfig {
       out.instSize  := pipe4_decd_inst_size
       out.fenceMode := pipe4_decd_fence_mode
       out.sdiqEntry := lsiq1ReadData.sdEntry.asUInt
-      out.unalign2Nd:= lsiq1ReadData.unalign2nd
+      out.unalign2nd:= lsiq1ReadData.unalign2nd
       out.alreadyDa := lsiq1ReadData.alreadyDa
       out.specFail  := lsiq1ReadData.specFail
       out.bkptaData := lsiq1ReadData.breakpointData.a

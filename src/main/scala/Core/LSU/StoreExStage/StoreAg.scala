@@ -1,6 +1,7 @@
 package Core.LSU.StoreExStage
 
 import Core.Config.XLEN
+import Core.IDU.RF.{RFStageToFuCtrlBundle, RFStageToLsuPipe4Bundle}
 import Core.IUConfig.MPPWidth
 import Core.LsuAccessSize._
 import Core.ROBConfig.{IidWidth, NumCommitEntry}
@@ -29,44 +30,44 @@ class DcacheArbToStAg extends Bundle with LsuConfig{ // for acceleration
   val addr = UInt(PA_WIDTH.W)
   val borrowAddrVld = Bool()
 }
-class RfPipe4 extends Bundle with LsuConfig with DCacheConfig {
-  val alreadyDa      = Bool()
-  val atomic         = Bool()
-  val bkptaData      = Bool()
-  val bkptbData      = Bool()
-  val fenceMode      = UInt(FENCE_MODE_WIDTH.W)
-  val gateclkSel     = Bool()
-  val icc            = Bool()
-  val iid            = UInt(IidWidth.W)
-  val instCode       = UInt(INST_CODE_WIDTH.W)
-  val instFls        = Bool()
-  val instFlush      = Bool()
-  val instMode       = UInt(INST_MODE_WIDTH.W)
-  val instShare      = Bool()
-  val instSize       = UInt(INST_SIZE_WIDTH.W)
-  val instStr        = Bool()
-  val instType       = UInt(INST_TYPE_WIDTH.W)
-  val lchEntry       = UInt(LSIQ_ENTRY.W)
-  val lsfifo         = Bool()
-  val mmuReq         = Bool()
-  val noSpec         = Bool()
-  val off0Extend     = Bool()
-  val offset         = UInt(OFFSET_WIDTH.W)
-  val offsetPlus     = UInt((OFFSET_WIDTH+1).W)
-  val oldest         = Bool()
-  val pc             = Bool()
-  val sdiqEntry      = UInt(LSIQ_ENTRY.W)
-  val sel            = Bool()
-  val shift          = UInt(SHITF_WIDTH.W)
-  val specFail       = Bool()
-  val split          = Bool()
-  val src0           = UInt(XLEN.W)
-  val src1           = UInt(XLEN.W)
-  val st             = Bool()
-  val staddr         = Bool()
-  val syncFence      = Bool()
-  val unalign2nd     = Bool()
-}
+//class RfPipe4 extends Bundle with LsuConfig with DCacheConfig {
+//  val alreadyDa      = Bool()
+//  val atomic         = Bool()
+//  val bkptaData      = Bool()
+//  val bkptbData      = Bool()
+//  val fenceMode      = UInt(FENCE_MODE_WIDTH.W)
+////  val gateclkSel     = Bool()
+////  val sel            = Bool()
+//  val icc            = Bool()
+//  val iid            = UInt(IidWidth.W)
+//  val instCode       = UInt(INST_CODE_WIDTH.W)
+//  val instFls        = Bool()
+//  val instFlush      = Bool()
+//  val instMode       = UInt(INST_MODE_WIDTH.W)
+//  val instShare      = Bool()
+//  val instSize       = UInt(INST_SIZE_WIDTH.W)
+//  val instStr        = Bool()
+//  val instType       = UInt(INST_TYPE_WIDTH.W)
+//  val lchEntry       = UInt(LSIQ_ENTRY.W)
+//  val lsfifo         = Bool()
+//  val mmuReq         = Bool()
+//  val noSpec         = Bool()
+//  val off0Extend     = Bool()
+//  val offset         = UInt(OFFSET_WIDTH.W)
+//  val offsetPlus     = UInt((OFFSET_WIDTH+1).W)
+//  val oldest         = Bool()
+//  val pc             = Bool()
+//  val sdiqEntry      = UInt(LSIQ_ENTRY.W)
+//  val shift          = UInt(SHITF_WIDTH.W)
+//  val specFail       = Bool()
+//  val split          = Bool()
+//  val src0           = UInt(XLEN.W)
+//  val src1           = UInt(XLEN.W)
+//  val st             = Bool()
+//  val staddr         = Bool()
+//  val syncFence      = Bool()
+//  val unalign2nd     = Bool()
+//}
 class LmToStAg extends Bundle with LsuConfig{
   val pa        = UInt(ADDR_PA_WIDTH.W)
   val pageBuf   = Bool()
@@ -95,7 +96,10 @@ class RtuToStAg extends Bundle with ROBConfig{
 class StoreAgIn extends Bundle with LsuConfig{
   val cp0In    = new Cp0ToStAg
   val dcacheIn = new DcacheArbToStAg
-  val rfIn     = new RfPipe4
+  val pipe4 = new Bundle() {
+    val data     = new RFStageToLsuPipe4Bundle
+    val selCtrl  = new RFStageToFuCtrlBundle
+  }
   val lmIn     = new LmToStAg
   val mmuIn    = new MmuToStAg
   val rtuIn    = new RtuToStAg
@@ -195,9 +199,9 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   //                        RF signal
   //==========================================================
-  val st_rf_inst_vld      = io.in.rfIn.gateclkSel
-  val st_rf_inst_str      = io.in.rfIn.instStr
-  val st_rf_off_0_extend  = io.in.rfIn.off0Extend
+  val st_rf_inst_vld      = io.in.pipe4.selCtrl.gateClkSel
+  val st_rf_inst_str      = io.in.pipe4.data.instStr
+  val st_rf_off_0_extend  = io.in.pipe4.data.off0Extend
   //==========================================================
   //                 Pipeline Register
   //==========================================================
@@ -212,7 +216,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   val st_ag_stall_vld = WireInit(false.B)
   when(io.in.rtuIn.flush){
     st_ag_inst_vld := false.B
-  }.elsewhen(io.in.rfIn.sel || st_ag_stall_vld){
+  }.elsewhen(io.in.pipe4.selCtrl.sel || st_ag_stall_vld){
     st_ag_inst_vld := true.B
   }.otherwise{
     st_ag_inst_vld := false.B
@@ -232,9 +236,9 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //+-------+-------+
   //if there is a stall in the AG stage ,the inst info keep unchanged,
   //elseif there is inst in RF stage, the inst goes to the AG stage next cycle
-  val ag_pipe = RegInit(0.U.asTypeOf(new RfPipe4)) // if some signal unused, just ignore
+  val ag_pipe = RegInit(0.U.asTypeOf(new RFStageToLsuPipe4Bundle)) // if some signal unused, just ignore
   when(!st_ag_stall_vld && st_rf_inst_vld){
-    ag_pipe := io.in.rfIn
+    ag_pipe := io.in.pipe4.data
   }
   //+------------------+
   //| already_cross_4k |
@@ -254,7 +258,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //cache stall will not change shift
   val st_ag_offset_shift = RegInit(1.U(SHITF_WIDTH.W))
   when(!st_ag_stall_vld){
-    st_ag_offset_shift := io.in.rfIn.shift
+    st_ag_offset_shift := io.in.pipe4.data.shift
   }.elsewhen(!st_ag_stall_vld && st_ag_cross_page_str_imme_stall_req){
     st_ag_offset_shift := 1.U(SHITF_WIDTH.W)
   }
@@ -271,20 +275,20 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   when(st_ag_cross_page_str_imme_stall_arb){
     st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str){
-    st_ag_offset_h := Cat(Fill(XLEN/2, io.in.rfIn.shift(SHITF_WIDTH-1)))
+    st_ag_offset_h := Cat(Fill(XLEN/2, io.in.pipe4.data.shift(SHITF_WIDTH-1)))
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str && st_rf_off_0_extend){
     st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
-    st_ag_offset_h := io.in.rfIn.src1(XLEN-1,XLEN/2)
+    st_ag_offset_h := io.in.pipe4.data.src1(XLEN-1,XLEN/2)
   }
   when(st_ag_cross_page_str_imme_stall_arb && st_ag_str_imme_stall){
     st_ag_offset_l := 16.U(32.W)
   }.elsewhen(st_ag_cross_page_str_imme_stall_arb){
     st_ag_offset_l := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld  &&  !st_rf_inst_str){
-    st_ag_offset_l := sext(XLEN/2,io.in.rfIn.shift)
+    st_ag_offset_l := sext(XLEN/2,io.in.pipe4.data.shift)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
-    st_ag_offset_l := io.in.rfIn.src1(XLEN/2-1,0)
+    st_ag_offset_l := io.in.pipe4.data.src1(XLEN/2-1,0)
   }
   st_ag_offset := Cat(st_ag_offset_h,st_ag_offset_l)
   //+-------------+
@@ -295,7 +299,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   when(st_ag_cross_page_str_imme_stall_arb){
     st_ag_offset_plus := 0.U((OFFSET_WIDTH+1).W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld){
-    st_ag_offset_plus := io.in.rfIn.offsetPlus
+    st_ag_offset_plus := io.in.pipe4.data.offsetPlus
   }
   //+------+
   //| base |
@@ -304,7 +308,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   when(st_ag_cross_page_str_imme_stall_arb){
     st_ag_base := 0.U(XLEN.W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld){
-    st_ag_base := io.in.rfIn.src0
+    st_ag_base := io.in.pipe4.data.src0
   }
   //==========================================================
   //                      AG gateclk
@@ -554,12 +558,12 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   val st_ag_stall_restart = st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || ag_pipe.mmuReq || st_ag_atomic_no_cmit_restart_req
   val iid_is_old = Wire(Bool())// TODO add iid compare
   val st_ag_iid_compare = Module(new CompareIid)
-  st_ag_iid_compare.io.iid0 := io.in.rfIn.iid
+  st_ag_iid_compare.io.iid0 := io.in.pipe4.data.iid
   st_ag_iid_compare.io.iid1 := ag_pipe.iid
   iid_is_old := st_ag_iid_compare.io.older
 
-  st_ag_stall_mask := io.in.rfIn.sel && iid_is_old
-  io.out.toDc.stallRestartEntry := Mux(st_ag_stall_mask,ag_pipe.lchEntry,io.in.rfIn.lchEntry)
+  st_ag_stall_mask := io.in.pipe4.selCtrl.sel && iid_is_old
+  io.out.toDc.stallRestartEntry := Mux(st_ag_stall_mask,ag_pipe.lchEntry,io.in.pipe4.data.lchEntry)
   //==========================================================
   //        Generate restart/lsiq signal
   //==========================================================

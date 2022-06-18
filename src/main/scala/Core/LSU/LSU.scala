@@ -1,5 +1,6 @@
 package Core.LSU
 
+import Core.IDU.RF.{RFStageToFuCtrlBundle, RFStageToLsuPipe3Bundle, RFStageToLsuPipe4Bundle, RFStageToLsuPipe5Bundle}
 import Core.IUConfig.MPPWidth
 import Core.LSU.CacheRelated._
 import Core.LSU.LoadExStage._
@@ -82,13 +83,22 @@ class LSUInput extends Bundle {
     val mmu_lsu_tlb_wakeup = UInt(LSIQ_ENTRY.W)
   }
   val ld_ag = new Bundle{
-    val rf_pipe3 = new Pipe3In
+    val pipe3 = new Bundle() {
+      val data = new RFStageToLsuPipe3Bundle
+      val selCtrl  = new RFStageToFuCtrlBundle
+    }
   }
   val st_ag = new Bundle{
-    val rf_pipe4     = new RfPipe4
+    val pipe4 = new Bundle() {
+      val data     = new RFStageToLsuPipe4Bundle
+      val selCtrl  = new RFStageToFuCtrlBundle
+    }
   }
   val sd_ex1 = new Bundle{
-    val rf_pipe5 = new RfPipe5ToStEx1
+    val pipe5 = new Bundle() {
+      val data     = new RFStageToLsuPipe5Bundle
+      val selCtrl  = new RFStageToFuCtrlBundle
+    }
   }
   val ld_dc = new Bundle{
     val fromHad = new Bundle{
@@ -420,14 +430,14 @@ class LSU extends Module {
   loadag.io.in.fromDcacheArb.ld_ag_borrow_addr_vld := dcachearb.io.out.dcache_arb_ld_ag_borrow_addr_vld
   loadag.io.in.ctrl_ld_clk := ctrl.io.out.ctrlClk.ldClk
   loadag.io.in.st_ag_iid := storeag.io.out.toDc.iid
-  loadag.io.in.pipe3 := io.in.ld_ag.rf_pipe3
+  loadag.io.in.pipe3 := io.in.ld_ag.pipe3
   io.out.ld_ag.toMMU := loadag.io.out.toMMU
   io.out.ld_ag.toIDU := loadag.io.out.toIDU
   io.out.ld_ag.toHpcp := loadag.io.out.toHpcp
 
   //&Instance("ct_lsu_cmit_monitor","x_ct_lsu_cmit_monitor");
   // &Instance("ct_lsu_st_ag","x_ct_lsu_st_ag"); @87
-  storeag.io.in.rfIn := io.in.st_ag.rf_pipe4
+  storeag.io.in.pipe4 := io.in.st_ag.pipe4
   storeag.io.in.cp0In.tvm := io.in.fromCp0.lsu_tvm
   storeag.io.in.cp0In.ucme := io.in.fromCp0.lsu_ucme
   storeag.io.in.cp0In.clkEn := io.in.fromCp0.yy_clk_en
@@ -452,7 +462,7 @@ class LSU extends Module {
   // &Instance("ct_lsu_sd_ex1","x_ct_lsu_sd_ex1"); @88
   storeex1.io.in.cp0In.clkEn := io.in.fromCp0.yy_clk_en
   storeex1.io.in.cp0In.lsuIcgEn := io.in.fromCp0.lsu_icg_en
-  storeex1.io.in.iduIn := io.in.sd_ex1.rf_pipe5
+  storeex1.io.in.pipe5 := io.in.sd_ex1.pipe5
   storeex1.io.in.rtuFlush := io.in.fromRTU.yy_xx_flush
 
   io.out.st_ex1.toIdu := storeex1.io.out.toIdu

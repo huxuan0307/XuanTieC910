@@ -223,9 +223,12 @@ class SimTop extends Module with Config with ROBConfig with LsuConfig{
   lsu.io.in.ctrl.rfPipeIn.stPipeDataGateSel := idu.io.out.RFCtrl.toSd.gateClkSel //////todo: check it, pipe5
   lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(0) := idu.io.out.IStoLSU.vmb_create(0).gateclk_en
   lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(1) := idu.io.out.IStoLSU.vmb_create(1).gateclk_en
-  lsu.io.in.ld_ag.rf_pipe3 := DontCare //////todo: complete it
-  lsu.io.in.st_ag.rf_pipe4 := DontCare //////todo: complete it
-  lsu.io.in.sd_ex1.rf_pipe5 := DontCare //////todo: complete it
+  lsu.io.in.ld_ag.pipe3.data      := idu.io.out.RFData.toLsuPipe3
+  lsu.io.in.ld_ag.pipe3.selCtrl   := idu.io.out.RFCtrl.toLu
+  lsu.io.in.st_ag.pipe4.data      := idu.io.out.RFData.toLsuPipe4
+  lsu.io.in.st_ag.pipe4.selCtrl   := idu.io.out.RFCtrl.toSt
+  lsu.io.in.sd_ex1.pipe5.data     := idu.io.out.RFData.toLsuPipe5
+  lsu.io.in.sd_ex1.pipe5.selCtrl  := idu.io.out.RFCtrl.toSd
   dontTouch(lsu.io)
 
 

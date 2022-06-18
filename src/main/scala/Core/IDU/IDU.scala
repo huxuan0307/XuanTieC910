@@ -285,6 +285,9 @@ class IDUOutput extends Bundle{
     val toBju = (new RFStageDataOutput).toBju
     val aluDstPregs = (new RFStageDataOutput).aluDstPregs //////todo: seem that same with toIux.dstPreg
     val vfpuDstVregs = (new RFStageDataOutput).vfpuDstVregs
+    val toLsuPipe3 = new RFStageToLsuPipe3Bundle
+    val toLsuPipe4 = new RFStageToLsuPipe4Bundle
+    val toLsuPipe5 = new RFStageToLsuPipe5Bundle
   }
   /**
   val RFtoIU = new RFStageToExuGateClkBundle
@@ -1079,4 +1082,7 @@ class IDU extends Module with Config {
   io.out.RFData.toBju := rfstage.io.data.out.toBju
   io.out.RFData.aluDstPregs := rfstage.io.data.out.aluDstPregs
   io.out.RFData.vfpuDstVregs := rfstage.io.data.out.vfpuDstVregs
+  io.out.RFData.toLsuPipe3  := rfstage.io.data.out.toLsuPipe3
+  io.out.RFData.toLsuPipe4  := rfstage.io.data.out.toLsuPipe4
+  io.out.RFData.toLsuPipe5  := rfstage.io.data.out.toLsuPipe5
 }
