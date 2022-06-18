@@ -5,7 +5,7 @@ import Core.IDU.IDU
 import Core.IFU.IFU
 import Core.IU.IntegeUnit
 import Core.LSU.{BiuRamHelper, LSU}
-import Core.RTU.RtuTop
+import Core.RTU.{RtuTop, ToRobPipeCtrlBundle}
 import Core.{Config, LsuConfig, ROBConfig}
 import chisel3.util.UIntToOH
 import chisel3._
@@ -103,12 +103,13 @@ class SimTop extends Module with Config with ROBConfig with LsuConfig{
   idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
+  //TODO: Rename IQfromIUsub
   idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg //DontCare //////todo: check it, and compare with PRFfromIU
   idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
-  idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(2).bits := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg
   idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
   idu.io.in.IQfromIUsub.wbPreg(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
-  idu.io.in.IQfromIUsub.wbPreg(2).valid := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(2).valid := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld
   idu.io.in.RFfromHad := DontCare
   idu.io.in.RFfromVFPU := DontCare
   idu.io.in.RFfromCp0sub := DontCare
@@ -493,6 +494,30 @@ class SimTop extends Module with Config with ROBConfig with LsuConfig{
   rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
   rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
+  //TODO: LSU to RTU Bundle
+  rtu.io.in.fromLsu.wbPregData(0).valid := lsu.io.out.ld_wb.toRTU.pipe3_wb_preg_vld
+  rtu.io.in.fromLsu.wbPregData(0).bits  := lsu.io.out.ld_wb.toRTU.pipe3_wb_preg_expand.asTypeOf(rtu.io.in.fromLsu.wbPregData(0).bits)
+  rtu.io.in.fromLsu.wbVFregData.fregValid := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_fr_vld
+  rtu.io.in.fromLsu.wbVFregData.vregValid := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_vr_vld
+  rtu.io.in.fromLsu.wbVFregData.pregOH    := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_expand.asTypeOf(rtu.io.in.fromLsu.wbVFregData.pregOH)
+  //TODO: pipe3 cmplt bundle
+  val rtu_pipe3_cmplt = WireInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  rtu_pipe3_cmplt.iid    := lsu.io.out.ld_wb.toRTU.pipe3_iid
+  rtu_pipe3_cmplt.cmplt  := lsu.io.out.ld_wb.toRTU.pipe3_cmplt
+  rtu_pipe3_cmplt.abnormal := lsu.io.out.ld_wb.toRTU.pipe3_abnormal
+  rtu_pipe3_cmplt.flush  := lsu.io.out.ld_wb.toRTU.pipe3_flush
+  val rtu_pipe3_cmplt_reg0 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  val rtu_pipe3_cmplt_reg1 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  val rtu_pipe3_cmplt_reg2 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  rtu_pipe3_cmplt_reg0 := rtu_pipe3_cmplt
+  rtu_pipe3_cmplt_reg1 := rtu_pipe3_cmplt_reg0
+  rtu_pipe3_cmplt_reg2 := rtu_pipe3_cmplt_reg1
+  rtu.io.in.fromLsu.pipeCtrlVec(0) := rtu_pipe3_cmplt_reg2
+  //TODO: pipe4 cmplt bundle
+  rtu.io.in.fromLsu.pipeCtrlVec(1).iid    := lsu.io.out.st_wb.toRTU.iid
+  rtu.io.in.fromLsu.pipeCtrlVec(1).cmplt  := lsu.io.out.st_wb.toRTU.cmplt
+  rtu.io.in.fromLsu.pipeCtrlVec(1).abnormal := lsu.io.out.st_wb.toRTU.abnormal
+  rtu.io.in.fromLsu.pipeCtrlVec(1).flush  := lsu.io.out.st_wb.toRTU.flush
   //  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
   //  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
   //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)

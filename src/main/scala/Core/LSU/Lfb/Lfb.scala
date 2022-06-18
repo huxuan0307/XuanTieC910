@@ -195,10 +195,10 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //wires define
   val addr_entry_vld                 = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
   val lfb_addr_entry_vb_pe_req       = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
-  val lfb_addr_entry_addr_tto4       = Seq.fill(LFB_ADDR_ENTRY)(RegInit(0.U((PA_WIDTH-4).W)  ))
+  val lfb_addr_entry_addr_tto4       = Seq.fill(LFB_ADDR_ENTRY)(WireInit(0.U((PA_WIDTH-4).W)  ))
   val lfb_addr_entry_ldamo           = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
-  val lfb_addr_entry_pfu_dcache_hit  = Seq.fill(LFB_ADDR_ENTRY)(RegInit(0.U((9).W)  ))
-  val lfb_addr_entry_pfu_dcache_miss = Seq.fill(LFB_ADDR_ENTRY)(RegInit(0.U((9).W)  ))
+  val lfb_addr_entry_pfu_dcache_hit  = Seq.fill(LFB_ADDR_ENTRY)(WireInit(0.U((9).W)  ))
+  val lfb_addr_entry_pfu_dcache_miss = Seq.fill(LFB_ADDR_ENTRY)(WireInit(0.U((9).W)  ))
   val lfb_addr_entry_depd            = Seq.fill(LFB_ADDR_ENTRY)(Wire(UInt(8.W)))
   val lfb_addr_entry_discard_vld     = Seq.fill(LFB_ADDR_ENTRY)(Wire(UInt(8.W)))
   val lfb_addr_entry_refill_way      = Seq.fill(LFB_ADDR_ENTRY)(Wire(UInt(8.W)))
@@ -272,8 +272,8 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //            Generate addr signal
   //==========================================================
   //------------------create ptr------------------------------
-  val lfb_addr_create_ptr = RegInit(0.U(LFB_ADDR_ENTRY.W))
-  lfb_addr_create_ptr := UIntToOH(PriorityEncoder(VecInit(addr_entry_vld).asUInt))
+  val lfb_addr_create_ptr = WireInit(0.U(LFB_ADDR_ENTRY.W))
+  lfb_addr_create_ptr := PriorityEncoderOH(~VecInit(addr_entry_vld).asUInt)
   //------------------grnt signal to lfb/pfu------------------
   val lfb_rb_create_grnt   = io.in.busArbIn.rb_ar_sel && io.in.rbIn.createReq
   val lfb_pfu_create_grnt  = io.in.busArbIn.pfu_ar_sel && io.in.pfuIn.createReq
@@ -308,8 +308,8 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   }
   val lfb_vb_addr_ptr  = RegInit(0.U(LFB_ADDR_ENTRY.W))
   val lfb_vb_addr_tto6 = RegInit(0.U((PA_WIDTH-6).W))
-  val lfb_vb_pe_req_ptr       = RegInit(0.U(LFB_ADDR_ENTRY.W))
-  val lfb_vb_pe_req_addr_tto6 = RegInit(0.U((PA_WIDTH-6).W))
+  val lfb_vb_pe_req_ptr       = WireInit(0.U(LFB_ADDR_ENTRY.W))
+  val lfb_vb_pe_req_addr_tto6 = WireInit(0.U((PA_WIDTH-6).W))
   val lfb_vb_pe_req_permit = Wire(Bool())
   val lfb_vb_pe_rb_req  = Wire(Bool())
   val lfb_vb_pe_pfu_req = Wire(Bool())
@@ -370,7 +370,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   //----------r id------------------------
   val lfb_biu_r_id_hit = io.in.biuIn.rVld && (io.in.biuIn.rId(4,3) === BIU_LFB_ID_T)
   val lfb_biu_id_2to0 = io.in.biuIn.rId(2,0)
-  val lfb_r_id_hit_addr_ptr = Seq.fill(LFB_ADDR_ENTRY)(RegInit(false.B))
+  val lfb_r_id_hit_addr_ptr = Seq.fill(LFB_ADDR_ENTRY)(WireInit(false.B))
   val lfb_data_not_full = Wire(Bool())
   val lfb_addr_entry_resp_set = Seq.fill(LFB_ADDR_ENTRY)(Wire(Bool()))
   for(i<- 0 until(LFB_ADDR_ENTRY)){
@@ -380,7 +380,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   val lfb_r_resp_share = io.in.biuIn.rResp(3)
   val lfb_r_resp_err = io.in.biuIn.rResp(1,0) === DECERR ||  io.in.biuIn.rResp(1,0) === SLVERR
   //------------------create ptr------------------------------
-  val lfb_data_create_ptr =  UIntToOH(PriorityEncoder(VecInit(lfb_data_entry_vld).asUInt))
+  val lfb_data_create_ptr =  PriorityEncoderOH(~VecInit(lfb_data_entry_vld).asUInt)
   //------------------create signal---------------------------
   //if no vld, or only one vld and full, then create
   val lfb_data_wait_surplus = lfb_data_entry_wait_surplus.reduce(_ || _)
@@ -547,8 +547,8 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   }
   io.out.popDepdFf := lfb_pop_depd_ff
   //------------------update wakeup queue---------------------
-  val lfb_wakeup_queue_after_pop_bits = (RegInit((0.U(LSIQ_ENTRY.W))))
-  val lfb_wakeup_queue_after_pop_vld  = RegInit(false.B)
+  val lfb_wakeup_queue_after_pop_bits = (WireInit((0.U(LSIQ_ENTRY.W))))
+  val lfb_wakeup_queue_after_pop_vld  = WireInit(false.B)
   lfb_wakeup_queue_after_pop_bits := Mux(lfb_pop_depd_ff ,0.U(LSIQ_ENTRY.W) ,lfb_wakeup_queue_bits)
   lfb_wakeup_queue_after_pop_vld  := Mux(lfb_pop_depd_ff ,false.B ,lfb_wakeup_queue_vld)
   lfb_wakeup_queue_next_bits := lfb_wakeup_queue_after_pop_bits | io.in.ldDaIn.wakeupQueueNext.bits & Cat(Seq.fill(LSIQ_ENTRY)(io.in.ldDaIn.setWakeupQueue))

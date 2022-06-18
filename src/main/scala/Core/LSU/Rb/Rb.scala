@@ -712,9 +712,9 @@ class Rb extends Module with LsuConfig with BIUConfig{
 
   //------------------select sign bit-------------------------
   io.out.toLoadWB.preg_sign_sel := MuxLookup(Cat(rb_ld_wb_sign_extend,rb_ld_wb_inst_size), "b0001".U, Seq(
-    Cat(1.U(1.W),BYTE.U) -> "b0010".U,
-    Cat(1.U(1.W),HALF.U) -> "b0100".U,
-    Cat(1.U(1.W),WORD.U) -> "b1000".U
+    Cat(1.U(1.W),0.U(1.W),BYTE.U) -> "b0010".U,
+    Cat(1.U(1.W),0.U(1.W),HALF.U) -> "b0100".U,
+    Cat(1.U(1.W),0.U(1.W),WORD.U) -> "b1000".U
   ))
 
   io.out.toLoadWB.vreg_sign_sel :=

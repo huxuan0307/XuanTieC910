@@ -120,9 +120,9 @@ class LfbDataEntry extends Module with LsuConfig with DCacheConfig {
     lfb_data_entry_cnt      := lfb_data_entry_cnt + (1.U(2.W)) // axi cnt + 1
     lfb_data_entry_last     := io.in.biuAxiR.rLast
     for(i<-1 until 4){
-      lfb_data_entry_pass_ptr(i) := io.in.firstPassPtr(i-1)  // ptr shift
+      lfb_data_entry_pass_ptr(i) := lfb_data_entry_pass_ptr(i-1)  // ptr shift
     }
-    lfb_data_entry_pass_ptr(0) := io.in.firstPassPtr(3)
+    lfb_data_entry_pass_ptr(0) := lfb_data_entry_pass_ptr(3)
   }
   val lfb_data_entry_dcache_share = RegInit(false.B)
   when(lfb_data_entry_create_dp_vld){
