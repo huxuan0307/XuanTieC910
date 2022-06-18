@@ -8,7 +8,7 @@ import chisel3.util._
 class RotData extends Module with LsuConfig {
   val io = IO(new Bundle() {
     val dataIn     = Input(UInt((XLEN).W))
-    val rotSel     = Input(UInt(ROT_SEL_WIDTH.W))
+    val rotSel     = Input(UInt(ROT_SEL_WIDTH_8.W))
     val dataSettle = Output(UInt((XLEN).W))
   })
   val rotSelU = OHToUInt(io.rotSel)
@@ -22,7 +22,10 @@ class RotData extends Module with LsuConfig {
   data_rot(5) := Cat(data(39,0) ,data(63,40))
   data_rot(6) := Cat(data(47,0) ,data(63,48))
   data_rot(7) := Cat(data(55,0) ,data(63,56))
+  io.dataSettle := 0.U
   for(i<- 0 until 8){
-    io.dataSettle := Cat(Seq.fill(8)(rotSelU === i.U)) & data_rot(i)
+    when(io.rotSel(i)){
+      io.dataSettle := data_rot(i)
+    }
   }
 }

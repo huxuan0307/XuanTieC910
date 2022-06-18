@@ -358,7 +358,7 @@ class LoadAG extends Module with LsuConfig{
     ld_ag_offset(0) := 16.U(32.W)
   }.elsewhen(ld_ag_cross_page_ldr_imme_stall_arb){
     ld_ag_offset(0) := 0.U(32.W)
-  }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  ld_rf_inst_ldr){
+  }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  !ld_rf_inst_ldr){
     ld_ag_offset(0) := Cat(Mux(io.in.pipe3.data.offset(11), -1.S(20.W).asUInt, 0.U(20.W)), io.in.pipe3.data.offset)
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld){
     ld_ag_offset(0) := io.in.pipe3.data.src1(31,0)
@@ -472,7 +472,7 @@ class LoadAG extends Module with LsuConfig{
   //----------------generate bytes_vld------------------------
   //-----------in le/bev2-----------------
   //the 2nd half boundary inst will +128, so va[3:0] of 2nd inst will not change
-  val ld_ag_le_bytes_vld_high_bits_full = MuxLookup(ld_ag_va_ori, 0.U(16.W), Seq(
+  val ld_ag_le_bytes_vld_high_bits_full = MuxLookup(ld_ag_va_ori(3,0), 0.U(16.W), Seq(
     "b0000".U -> "hffff".U,
     "b0001".U -> "hfffe".U,
     "b0010".U -> "hfffc".U,
@@ -509,6 +509,9 @@ class LoadAG extends Module with LsuConfig{
     "b1110".U -> "h7fff".U,
     "b1111".U -> "hffff".U
   ))
+
+  dontTouch(ld_ag_le_bytes_vld_high_bits_full)
+  dontTouch(ld_ag_le_bytes_vld_low_bits_full)
 
   val ld_ag_le_bytes_vld_cross          = ld_ag_le_bytes_vld_high_bits_full & ld_ag_le_bytes_vld_low_bits_full
   val ld_ag_le_bytes_vld_low_cross_bits = Mux(ld_ag_boundary_unmask, ld_ag_le_bytes_vld_low_bits_full, ld_ag_le_bytes_vld_cross)

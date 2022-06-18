@@ -472,6 +472,19 @@ class LSU extends Module {
 
   // &Instance("ct_lsu_dcache_arb","x_ct_lsu_dcache_arb"); @91
   dcachearb.io.in := DontCare
+  dcachearb.io.in.fromLoadAG.ld_data_gateclk_en := loadag.io.out.toDcacheArb.data_gateclk_en
+  dcachearb.io.in.fromLoadAG.ld_data_high_idx   := loadag.io.out.toDcacheArb.data_high_idx
+  dcachearb.io.in.fromLoadAG.ld_data_low_idx    := loadag.io.out.toDcacheArb.data_low_idx
+  dcachearb.io.in.fromLoadAG.ld_data_req        := loadag.io.out.toDcacheArb.data_req
+  dcachearb.io.in.fromLoadAG.ld_tag_gateclk_en  := loadag.io.out.toDcacheArb.tag_gateclk_en
+  dcachearb.io.in.fromLoadAG.ld_tag_idx         := loadag.io.out.toDcacheArb.tag_idx
+  dcachearb.io.in.fromLoadAG.ld_tag_req         := loadag.io.out.toDcacheArb.tag_req
+  dcachearb.io.in.fromStoreAG.st_dirty_gateclk_en := storeag.io.out.toDcacheArb.dirtyGateclkEn
+  dcachearb.io.in.fromStoreAG.st_dirty_idx        := storeag.io.out.toDcacheArb.dirtyIdx
+  dcachearb.io.in.fromStoreAG.st_dirty_req        := storeag.io.out.toDcacheArb.dirtyReq
+  dcachearb.io.in.fromStoreAG.st_tag_gateclk_en   := storeag.io.out.toDcacheArb.tagGateclkEn
+  dcachearb.io.in.fromStoreAG.st_tag_idx          := storeag.io.out.toDcacheArb.tagIdx
+  dcachearb.io.in.fromStoreAG.st_tag_req          := storeag.io.out.toDcacheArb.tagReq
   dcachearb.io.in.cp0_lsu_icg_en := io.in.fromCp0.lsu_icg_en
   dcachearb.io.in.pad_yy_icg_scan_en := io.in.fromPad.yy_icg_scan_en
   dcachearb.io.in.vb_rcl_sm_data_id := vb.io.out.toSdb.rclSmDataId

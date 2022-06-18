@@ -795,6 +795,9 @@ class RFStage extends Module with RFStageConfig {
   pipeOtherLaunchFailVec(6) := pipe6DivMfvrLaunchFail || pipe6vmulUnsplitLaunchFail
   pipeOtherLaunchFailVec(7) := pipe7mulMfvrLaunchFail
 
+  dontTouch(pipeSrcNotReadyVec)
+  dontTouch(pipeOtherLaunchFailVec)
+
   //should consider src no ready lch fail
   pipeLaunchFailVec.zipWithIndex.foreach {
     case (launchFail, i) =>
@@ -1431,7 +1434,7 @@ class RFStage extends Module with RFStageConfig {
   private val pipe3SrcNoReadyVec = Wire(Vec(LsiqConfig.NumSrcLs, Bool()))
   pipe3SrcNoReadyVec(0) := lsiq0ReadData.srcValid(0) && !lsiq0ReadData.srcVec(0).wb // Todo: && !fwd
   pipe3SrcNoReadyVec(1) := lsiq0ReadData.srcValid(1) && !lsiq0ReadData.srcVec(1).wb // Todo: && !fwd
-  pipe3SrcNoReadyVec(2) := true.B // Todo: v-ext
+  pipe3SrcNoReadyVec(2) := false.B // Todo: v-ext
   //----------------------------------------------------------
   //                 Source Not Ready Signal
   //----------------------------------------------------------

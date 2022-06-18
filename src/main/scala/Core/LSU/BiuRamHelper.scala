@@ -1,5 +1,6 @@
 package Core.LSU
 
+import Core.Config.PcStart
 import Core.LsuConfig
 import chisel3._
 import chisel3.util._
@@ -78,8 +79,8 @@ class BiuRamHelper extends Module with LsuConfig{
   when(io.in.ar.req && read_state === r_idle){
     read_state := r_resp
     read_info  := io.in.ar
-    read_cnt   := io.in.ar.len + 1.U
-    read_addr  := io.in.ar.addr
+    read_cnt   := io.in.ar.len + 1.U(4.W)
+    read_addr  := io.in.ar.addr - PcStart.U
   }
 
   when(read_state === r_resp){
@@ -122,8 +123,8 @@ class BiuRamHelper extends Module with LsuConfig{
   when(io.in.vict_aw.req && vb_state === w_idle){
     vb_state := w_data
     vb_info  := io.in.vict_aw
-    vb_cnt   := io.in.vict_aw.len + 1.U
-    vb_addr  := io.in.vict_aw.addr
+    vb_cnt   := io.in.vict_aw.len + 1.U(4.W)
+    vb_addr  := io.in.vict_aw.addr - PcStart.U
   }
 
   when(io.in.vict_w.vld && vb_state === w_data){
@@ -164,8 +165,8 @@ class BiuRamHelper extends Module with LsuConfig{
   when(io.in.st_aw.req && wmb_state === w_idle){
     wmb_state := w_data
     wmb_info  := io.in.st_aw
-    wmb_cnt   := io.in.st_aw.len + 1.U
-    wmb_addr  := io.in.st_aw.addr
+    wmb_cnt   := io.in.st_aw.len + 1.U(4.W)
+    wmb_addr  := io.in.st_aw.addr - PcStart.U
   }
 
   when(io.in.st_w.vld && wmb_state === w_data){

@@ -516,7 +516,7 @@ class LoadDC extends Module with LsuConfig{
   io.out.toLQ.create1_vld := io.out.toLQ.create1_dp_vld && !ld_dc_depd_imme_restart_req && io.in.cb_ld_dc_addr_hit && !io.in.fromSQ.ld_dc_addr1_dep_discard
 
   io.out.toLQ.create_dp_vld  := ld_dc_inst_vld && ld_dc_ld_inst && !ld_dc_vector_nop && !ld_dc_data.old &&
-    !ld_dc_data.page_so && !ld_dc_data.utlb_miss && io.in.fromLQ.ld_dc_inst_hit && !ld_dc_data.expt_vld_except_access_err
+    !ld_dc_data.page_so && !ld_dc_data.utlb_miss && !io.in.fromLQ.ld_dc_inst_hit && !ld_dc_data.expt_vld_except_access_err
 
   io.out.toLQ.create1_dp_vld := io.out.toLQ.create_dp_vld && ld_dc_data.acclr_en
 
