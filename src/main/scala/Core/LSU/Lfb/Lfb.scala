@@ -331,7 +331,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
   lfb_vb_pe_all_req := lfb_vb_pe_req  ||  lfb_vb_pe_rb_req    ||  lfb_vb_pe_pfu_req
   //------------------permit signal---------------------------
   lfb_vb_pe_req_permit  := !lfb_vb_req_unmask || lfb_create_vb_cancel ||  lfb_create_vb_success
-  val lfb_lf_sm_req_addr_tto6 = Wire(UInt((PA_WIDTH-6).W))
+  val lfb_lf_sm_req_addr_tto6 = WireInit(0.U((PA_WIDTH-6).W))
   val lfb_addr_entry_vb_pe_req_grnt = Wire(UInt(LFB_ADDR_ENTRY.W))
   lfb_vb_pe_req_ptr := UIntToOH(PriorityEncoder(VecInit(lfb_addr_entry_vb_pe_req).asUInt))
   for(i<- 0 until(LFB_ADDR_ENTRY)){
@@ -462,9 +462,7 @@ class Lfb extends Module with LsuConfig with DCacheConfig {
     Cat(Seq.fill(LFB_ADDR_ENTRY)(lfb_lf_sm_req_data_ptr(1))) & lfb_data_entry_addr_id(1)
   for(i<- 0 until(LFB_ADDR_ENTRY)){
     when(lfb_lf_sm_req_addr_ptr(i).asBool){
-      lfb_lf_sm_req_addr_tto6 := lfb_addr_entry_addr_tto4(i)
-    }.otherwise{
-      lfb_lf_sm_req_addr_tto6 := 0.U
+      lfb_lf_sm_req_addr_tto6 := lfb_addr_entry_addr_tto4(i)(PA_WIDTH-5,2)
     }
   }
   val lfb_lf_sm_req_depd       = (lfb_lf_sm_req_addr_ptr & VecInit(lfb_addr_entry_depd).asUInt).orR

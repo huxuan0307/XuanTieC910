@@ -77,7 +77,8 @@ class PcFifo extends Module with HasCircularQueuePtrHelper{
   val createPtr = RegInit(PcFifoPtr(false.B, 0.U))
 //  val tailPtr = RegInit(PcFifoPtr(true.B,  0.U))
   val pop_ptr = RegInit(PcFifoPtr(false.B, 0.U))
-  val is_full = isFull((createPtr+3.U),pop_ptr)//distanceBetween(tailPtr, createPtr) < 3.U
+  //val is_full = isFull((createPtr+3.U),pop_ptr)//distanceBetween(tailPtr, createPtr) < 3.U
+  val is_full = distanceBetween(createPtr, pop_ptr) > (PcFifoLen - 3).U
   val fifo_create_vld  = VecInit(Seq.fill(2)(RegInit(false.B)))
   val ifu_forward_data = VecInit(Seq.fill(2)(RegInit(0.U.asTypeOf((new ifuDataForward)))))
   for(i <- 0 until 2){

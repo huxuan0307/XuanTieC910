@@ -198,7 +198,7 @@ class IBStage extends Module with Config {
     //!ib_addr_cancel && todo
     !mispred_stall &&
     !ind_btb_rd_stall &&
-    !buf_stall
+    !buf_stall && !fifo_full_stall
   io.fifo_create_vld := pcfifo_create_vld
   io.ibctrl_pcfifo_if_ras_vld := ras_chgflw_vld
   io.ibctrl_pcfifo_if_ras_target_pc := io.ras_target_pc

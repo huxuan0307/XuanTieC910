@@ -51,7 +51,7 @@ class PCGen extends Module with Config {
   //false.B can be compiled
   //pc := Mux(io.redirect(3).valid,io.redirect(3).bits,Mux(io.redirect(2).valid,io.redirect(2).bits,Mux(io.redirect(1).valid,io.redirect(1).bits,Mux(io.redirect(0).valid,io.redirect(0).bits,(Cat(pcReg(VAddrBits-1,4), 0.U(4.W)) + 16.U)))))
   //pcWire := Mux(io.continue,Cat(pcReg(VAddrBits-1,4), 0.U(4.W)) + 16.U,pcReg)
-  when(io.IbufAllowEnq){
+  when(io.continue){
     pcReg := Mux(pcgen_chgflw,ifpc_chgflw_pre,Mux(io.continue,inc_pc,pcReg))
   }
 

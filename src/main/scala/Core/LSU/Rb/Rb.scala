@@ -1,5 +1,5 @@
 package Core.LSU.Rb
-import Core.LSU.{IdFifo8, RotData}
+import Core.LSU.{IdFifo8, RotData128}
 import Core.{BIUConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
@@ -703,7 +703,7 @@ class Rb extends Module with LsuConfig with BIUConfig{
   val rb_wb_data_unsettle = Cat(rb_wb_data, rb_wb_data)
 
   //rotate data
-  val wb_data_rot = Module(new RotData)
+  val wb_data_rot = Module(new RotData128)
   wb_data_rot.io.dataIn := rb_wb_data_unsettle
   wb_data_rot.io.rotSel := rb_ld_rot_sel
   val rb_ld_wb_data_128 = wb_data_rot.io.dataSettle
