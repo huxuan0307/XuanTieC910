@@ -285,6 +285,7 @@ class RFStageToIuPipe2Bundle extends Bundle with RFStageConfig {
   val vl : UInt = UInt(8.W)
   val vlmul : UInt = UInt(2.W)
   val vsew : UInt = UInt(3.W)
+  val inst = UInt(32.W)
 }
 
 class RFStageToLsuPipe3Bundle extends Bundle with RFStageConfig {
@@ -1406,6 +1407,7 @@ class RFStage extends Module with RFStageConfig {
   //----------------------------------------------------------
   io.data.out.toBju.iid  := biqReadData.iid
   io.data.out.toBju.opcode := biqOp
+  io.data.out.toBju.inst := biqReadData.inst
   //  io.data.out.toBju.src0
   //  io.data.out.toBju.src1
   // Todo: bju

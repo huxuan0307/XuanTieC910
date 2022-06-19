@@ -185,12 +185,12 @@ class RobExcept extends Module with RobExceptConfig {
   private val pipe4lt2 = CompareIidLess(pipe4Iid, pipe2Iid)
   private val pipe4lt0 = CompareIidLess(pipe4Iid, pipe0Iid)
   private val pipe4lte = CompareIidLess(pipe4Iid, exceptIid)
-  private val pipe3lt2 = CompareIidLess(pipe2Iid, pipe3Iid)
-  private val pipe3lt0 = CompareIidLess(pipe2Iid, pipe3Iid)
-  private val pipe3lte = CompareIidLess(pipe2Iid, pipe3Iid)
-  private val pipe2lt0 = CompareIidLess(pipe0Iid, pipe2Iid)
-  private val pipe2lte = CompareIidLess(exceptIid, pipe2Iid)
-  private val pipe0lte = CompareIidLess(exceptIid, pipe0Iid)
+  private val pipe3lt2 = CompareIidLess(pipe3Iid, pipe2Iid)
+  private val pipe3lt0 = CompareIidLess(pipe3Iid, pipe0Iid)
+  private val pipe3lte = CompareIidLess(pipe3Iid, exceptIid)
+  private val pipe2lt0 = CompareIidLess(pipe2Iid, pipe0Iid)
+  private val pipe2lte = CompareIidLess(pipe2Iid, exceptIid)
+  private val pipe0lte = CompareIidLess(pipe0Iid, exceptIid)
 
   private val exceptEntryWriteSel = Wire(Vec(NumExceptSource, Bool()))
   // select oldest completed pipe

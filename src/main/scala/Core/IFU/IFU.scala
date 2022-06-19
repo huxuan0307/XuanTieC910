@@ -102,7 +102,7 @@ class IFU extends Module with Config {
     ip_cache_reg := icache.io.cache_resp
   }
 
-  when(icache.io.refill_sm_busy || reg_update){
+  when(reg_update){
     ip_cache_reg_valid := false.B
   }
 
