@@ -237,7 +237,8 @@ class DCacheArb extends Module with LsuConfig {
     (!dcache_arb_serial_vld && io.in.fromIcc.ld_req)  -> "b0001000".U,
     (!dcache_arb_serial_vld && io.in.fromWmb.ld_req)  -> "b0000100".U,
     (!dcache_arb_serial_vld && io.in.fromMcic.ld_req) -> "b0000010".U,
-    true.B                                            -> "b0000001".U
+    !dcache_arb_serial_vld                            -> "b0000001".U,
+    true.B                                            -> "b0000000".U
   ))
 
   val dcache_arb_lfb_ld_sel_unmask  = dcache_arb_ld_sel(6)
@@ -280,6 +281,8 @@ class DCacheArb extends Module with LsuConfig {
   dcache_arb_ld_dp_sel_id(2) := dcache_arb_icc_ld_sel_unmask
   dcache_arb_ld_dp_sel_id(1) := dcache_arb_mcic_ld_sel_unmask
   dcache_arb_ld_dp_sel_id(0) := dcache_arb_ag_ld_sel_unmask
+
+  dontTouch(dcache_arb_ld_dp_sel_id)
 
   //------------------grnt   signal---------------------------
   io.out.dcache_arb_lfb_ld_grnt  := dcache_arb_lfb_ld_sel
@@ -369,7 +372,7 @@ class DCacheArb extends Module with LsuConfig {
     dcache_arb_snq_ld_dp_sel ||
     dcache_arb_wmb_ld_dp_sel ||
     dcache_arb_icc_ld_dp_sel && !io.in.fromIcc.ld_tag_read
-  io.out.ld_tag.gwen_b := lsu_dcache_ld_tag_gwen
+  io.out.ld_tag.gwen_b := !lsu_dcache_ld_tag_gwen
 
   val lsu_dcache_ld_tag_wen = Mux1H(Seq(
     dcache_arb_lfb_ld_dp_sel ->  io.in.fromLfb.ld_tag_wen,
@@ -378,7 +381,7 @@ class DCacheArb extends Module with LsuConfig {
     dcache_arb_wmb_ld_dp_sel ->  io.in.fromWmb.ld_tag_wen,
     dcache_arb_icc_ld_dp_sel ->  3.U(2.W)
   ))
-  io.out.ld_tag.wen_b := !lsu_dcache_ld_tag_wen
+  io.out.ld_tag.wen_b := ~lsu_dcache_ld_tag_wen
 
   //------------------for cache buffer-----------------------------
   io.out.lsu_dcache_ld_xx_gwen := lsu_dcache_ld_tag_gwen
@@ -404,7 +407,7 @@ class DCacheArb extends Module with LsuConfig {
     dcache_arb_ag_ld_sel   -> io.in.fromLoadAG.ld_data_req,
     dcache_arb_icc_ld_sel  -> io.in.fromIcc.ld_data_req
   ))
-  io.out.ld_data.sel_b := (!dcache_arb_ld_data_req).asTypeOf(Vec(8, Bool()))
+  io.out.ld_data.sel_b := (~dcache_arb_ld_data_req).asTypeOf(Vec(8, Bool()))
 
   io.out.ld_data.low_idx := MuxLookup(dcache_arb_ld_dp_sel_id.asUInt, 0.U(11.W), Seq(
     "b100_0000".U -> io.in.fromLfb.ld_data_idx,
@@ -431,11 +434,11 @@ class DCacheArb extends Module with LsuConfig {
 
   val lsu_dcache_ld_data_gwen = Mux(dcache_arb_lfb_ld_dp_sel, "b1111_1111".U, 0.U(8.W)) |
     Mux(dcache_arb_wmb_ld_dp_sel, io.in.fromWmb.ld_data_gwen, 0.U(8.W))
-  io.out.ld_data.gwen_b := (!lsu_dcache_ld_data_gwen).asTypeOf(Vec(8, Bool()))
+  io.out.ld_data.gwen_b := (~lsu_dcache_ld_data_gwen).asTypeOf(Vec(8, Bool()))
 
   val lsu_dcache_ld_data_wen = Mux(dcache_arb_lfb_ld_dp_sel, VecInit(Seq.fill(32)(true.B)).asUInt, 0.U(32.W)) |
     Mux(dcache_arb_wmb_ld_dp_sel, io.in.fromWmb.ld_data_wen, 0.U(32.W))
-  io.out.ld_data.wen_b := (!lsu_dcache_ld_data_wen).asTypeOf(Vec(8, UInt(4.W)))
+  io.out.ld_data.wen_b := (~lsu_dcache_ld_data_wen).asTypeOf(Vec(8, UInt(4.W)))
 
   //==========================================================
   //        Sel/Grnt signal for ST part
@@ -562,7 +565,7 @@ class DCacheArb extends Module with LsuConfig {
   val lsu_dcache_st_tag_wen = Mux(dcache_arb_lfb_st_dp_sel, io.in.fromLfb.st_tag_wen, 0.U(2.W))
 
   io.out.st_tag.gwen_b := !lsu_dcache_st_tag_gwen
-  io.out.st_tag.wen_b  := !lsu_dcache_st_tag_wen
+  io.out.st_tag.wen_b  := ~lsu_dcache_st_tag_wen
 
   //------------------dirty array-----------------------------
   //-----------gateclk--------------------
@@ -617,7 +620,7 @@ class DCacheArb extends Module with LsuConfig {
     Mux(dcache_arb_wmb_st_dp_sel,  io.in.fromWmb.st_dirty_wen, 0.U(7.W)) |
     Mux(dcache_arb_icc_st_dp_sel,  io.in.fromIcc.st_dirty_wen, 0.U(7.W))
 
-  io.out.st_dirty.wen_b := !lsu_dcache_st_dirty_wen
+  io.out.st_dirty.wen_b := ~lsu_dcache_st_dirty_wen
 
   //==========================================================
   //        Dcache write port information

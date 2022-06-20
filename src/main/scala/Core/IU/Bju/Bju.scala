@@ -173,6 +173,7 @@ class Bju extends Module{
   branch_pc := Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth-1,0) + SignExt(ex1_pipe_rf.offset(20,0),(PcWidth)) ,
     ex1_pipe_pcfifo_read.pc(PcWidth-1,0)  + 4.U)// TODO ZeroExt(Cat(ex1_pipe_rf.length.asUInt,~ex1_pipe_rf.length.asUInt),PcWidth)) // otherwise PC+4 TODO pc + pclengh
   val bju_tar_pc = Mux(is_jmp,jump_pc(PcWidth-1,0),branch_pc)
+  dontTouch(bju_tar_pc)
   // todo MMU ref
   //----------------------------------------------------------
   //                      BHT Check

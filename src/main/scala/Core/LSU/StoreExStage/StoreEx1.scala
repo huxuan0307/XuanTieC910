@@ -1,5 +1,6 @@
 package Core.LSU.StoreExStage
 import Core.Config.XLEN
+import Core.IDU.RF.{RFStageToFuCtrlBundle, RFStageToLsuPipe5Bundle}
 import Core.LsuConfig
 import chisel3._
 import chisel3.util._
@@ -10,8 +11,9 @@ class Cp0ToStEx1 extends Bundle with LsuConfig{
 }
 class RfPipe5ToStEx1 extends Bundle with LsuConfig{
   val gateclkSel  = Bool()
-  val sdiqEntry   = UInt(LSIQ_ENTRY.W)
   val sel         = Bool()
+
+  val sdiqEntry   = UInt(LSIQ_ENTRY.W)
   val src0        = UInt(XLEN.W)
   val srcv0Fr     = UInt(XLEN.W)
   val srcv0FrVld  = Bool()
@@ -24,7 +26,11 @@ class RfPipe5ToStEx1 extends Bundle with LsuConfig{
 //----------------------------------------------------------
 class StoreEx1In extends Bundle with LsuConfig{
   val cp0In    = new Cp0ToStEx1
-  val iduIn    = new RfPipe5ToStEx1
+  val pipe5 = new Bundle() {
+    val data  = new RFStageToLsuPipe5Bundle
+    val selCtrl = new RFStageToFuCtrlBundle
+  }
+
   val rtuFlush = Bool()
 }
 //==========================================================
@@ -54,13 +60,13 @@ class StoreEx1IO extends Bundle with LsuConfig{
 
 class StoreEx1 extends Module with LsuConfig{
   val io = IO(new StoreEx1IO)
-  val sd_ex1_clk_en = io.in.iduIn.gateclkSel
-  val sd_ex1_data_clk_en  = io.in.iduIn.gateclkSel && (!io.in.iduIn.srcv0Vld)
-  val sd_ex1_vdata_clk_en = io.in.iduIn.gateclkSel && (io.in.iduIn.srcv0Vld)
+  val sd_ex1_clk_en = io.in.pipe5.selCtrl.gateClkSel
+  val sd_ex1_data_clk_en  = io.in.pipe5.selCtrl.gateClkSel && (!io.in.pipe5.data.srcv0Vld)
+  val sd_ex1_vdata_clk_en = io.in.pipe5.selCtrl.gateClkSel && (io.in.pipe5.data.srcv0Vld)
   //==========================================================
   //                      encode sdid
   //==========================================================
-  io.out.rfEx1Sdid := OHToUInt(io.in.iduIn.sdiqEntry)
+  io.out.rfEx1Sdid := OHToUInt(io.in.pipe5.data.sdiqEntry)
   //==========================================================
   //                 Pipeline Register
   //==========================================================
@@ -68,8 +74,8 @@ class StoreEx1 extends Module with LsuConfig{
   //+----------+
   //| inst_vld |
   //+----------+
-  io.out.rfInstVldShort := io.in.iduIn.gateclkSel
-  val sd_rf_ex1_inst_vld = io.in.iduIn.sel && (!io.in.rtuFlush)
+  io.out.rfInstVldShort := io.in.pipe5.selCtrl.gateClkSel
+  val sd_rf_ex1_inst_vld = io.in.pipe5.selCtrl.sel && (!io.in.rtuFlush)
   val sd_ex1_inst_vld = RegInit(false.B)
   sd_ex1_inst_vld := sd_rf_ex1_inst_vld
   io.out.sdEx1InstVld := sd_ex1_inst_vld
@@ -82,23 +88,23 @@ class StoreEx1 extends Module with LsuConfig{
   val sd_ex1_srcv0_vld      = RegInit(false.B)
   val sd_ex1_srcv0_fr_vld   = RegInit(false.B)
   when(sd_ex1_clk_en){
-    sd_ex1_sdid_oh       := io.in.iduIn.sdiqEntry
-    sd_ex1_secd          := io.in.iduIn.stdata1Vld
-    sd_ex1_boundary      := io.in.iduIn.unalign
-    sd_ex1_srcv0_vld     := io.in.iduIn.srcv0Vld
-    sd_ex1_srcv0_fr_vld  := io.in.iduIn.srcv0FrVld
+    sd_ex1_sdid_oh       := io.in.pipe5.data.sdiqEntry
+    sd_ex1_secd          := io.in.pipe5.data.stdata1Vld
+    sd_ex1_boundary      := io.in.pipe5.data.unalign
+    sd_ex1_srcv0_vld     := io.in.pipe5.data.srcv0Vld
+    sd_ex1_srcv0_fr_vld  := io.in.pipe5.data.srcv0FrVld
   }
   val sd_ex1_src0_data      = RegInit(0.U(XLEN.W))
   val sd_ex1_srcv0_vr1_data = RegInit(0.U(XLEN.W))
   val sd_ex1_srcv0_vr0_data = RegInit(0.U(XLEN.W))
   val sd_ex1_srcv0_fr_data  = RegInit(0.U(XLEN.W))
   when(sd_ex1_data_clk_en){
-    sd_ex1_src0_data := io.in.iduIn.src0
+    sd_ex1_src0_data := io.in.pipe5.data.src0
   }
   when(sd_ex1_vdata_clk_en){
-    sd_ex1_srcv0_vr1_data := io.in.iduIn.srcv0Vr1
-    sd_ex1_srcv0_vr0_data := io.in.iduIn.srcv0Vr0
-    sd_ex1_srcv0_fr_data  := io.in.iduIn.srcv0Fr
+    sd_ex1_srcv0_vr1_data := io.in.pipe5.data.srcv0Vr1
+    sd_ex1_srcv0_vr0_data := io.in.pipe5.data.srcv0Vr0
+    sd_ex1_srcv0_fr_data  := io.in.pipe5.data.srcv0Fr
   }
   //==========================================================
   //        data select

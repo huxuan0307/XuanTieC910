@@ -1,5 +1,6 @@
 package Core.LSU.LoadExStage
 
+import Core.IDU.RF.{RFStageToFuCtrlBundle, RFStageToLsuPipe3Bundle}
 import Core.LsuConfig
 import Utils.Bits.sext
 import Utils._
@@ -7,35 +8,35 @@ import chisel3._
 import chisel3.util._
 
 class Pipe3In extends Bundle with LsuConfig{
-  val already_da = Bool()
-  val atomic = Bool()
-  val bkpta_data = Bool()
-  val bkptb_data = Bool()
-  val gateclk_sel = Bool()
-  val iid = UInt(7.W)
-  val inst_fls = Bool()
-  val inst_ldr = Bool()
-  val inst_size = UInt(2.W)
-  val inst_type = UInt(2.W)
-  val lch_entry = Vec(LSIQ_ENTRY, Bool())
-  val lsfifo = Bool()
-  val no_spec = Bool()
+  val already_da    = Bool()
+  val atomic        = Bool()
+  val bkpta_data    = Bool()
+  val bkptb_data    = Bool()
+//  val gateclk_sel   = Bool()
+//  val sel           = Bool()
+  val iid           = UInt(7.W)
+  val inst_fls      = Bool()
+  val inst_ldr      = Bool()
+  val inst_size     = UInt(2.W)
+  val inst_type     = UInt(2.W)
+  val lch_entry     = Vec(LSIQ_ENTRY, Bool())
+  val lsfifo        = Bool()
+  val no_spec       = Bool()
   val no_spec_exist = Bool()
-  val off_0_extend = Bool()
-  val offset = UInt(12.W)
-  val offset_plus = UInt(13.W)
-  val oldest = Bool()
-  val pc = UInt(15.W)
-  val preg = UInt(7.W)
-  val sel = Bool()
-  val shift = UInt(4.W)
-  val sign_extend = Bool()
-  val spec_fail = Bool()
-  val split = Bool()
-  val src0 = UInt(64.W)
-  val src1 = UInt(64.W)
-  val unalign_2nd = Bool()
-  val vreg = UInt(7.W)
+  val off_0_extend  = Bool()
+  val offset        = UInt(12.W)
+  val offset_plus   = UInt(13.W)
+  val oldest        = Bool()
+  val pc            = UInt(15.W)
+  val preg          = UInt(7.W)
+  val shift         = UInt(4.W)
+  val sign_extend   = Bool()
+  val spec_fail     = Bool()
+  val split         = Bool()
+  val src0          = UInt(64.W)
+  val src1          = UInt(64.W)
+  val unalign_2nd   = Bool()
+  val vreg          = UInt(7.W)
 }
 
 class LoadAG2DC extends Bundle with LsuConfig{
@@ -137,7 +138,10 @@ class LoadAGInput extends Bundle with LsuConfig{
     val ld_ag_addr = UInt(40.W)
     val ld_ag_borrow_addr_vld = Bool()
   }
-  val pipe3 = new Pipe3In
+  val pipe3 = new Bundle() {
+    val data = new RFStageToLsuPipe3Bundle
+    val selCtrl  = new RFStageToFuCtrlBundle
+  }
   val fromMMU = new Bundle{
     val buf0 = Bool()
     val ca0 = Bool()
@@ -226,14 +230,14 @@ class LoadAG extends Module with LsuConfig{
   //==========================================================
   //                        RF signal
   //==========================================================
-  val ld_rf_inst_vld     = io.in.pipe3.gateclk_sel
-  val ld_rf_inst_ldr     = io.in.pipe3.inst_ldr
-  val ld_rf_off_0_extend = io.in.pipe3.off_0_extend
+  val ld_rf_inst_vld     = io.in.pipe3.selCtrl.gateClkSel
+  val ld_rf_inst_ldr     = io.in.pipe3.data.instLdr
+  val ld_rf_off_0_extend = io.in.pipe3.data.off0Extend
 
   //==========================================================
   //                 Instance of Gated Cell
   //==========================================================
-  val ld_ag_clk_en = io.in.pipe3.gateclk_sel || ld_ag_inst_stall_gateclk_en
+  val ld_ag_clk_en = io.in.pipe3.selCtrl.gateClkSel || ld_ag_inst_stall_gateclk_en
 
   //==========================================================
   //                 Pipeline Register
@@ -247,7 +251,7 @@ class LoadAG extends Module with LsuConfig{
   //the inst goes to the AG stage next cycle
   when(io.in.fromRTU.yy_xx_flush){
     ld_ag_inst_vld := false.B
-  }.elsewhen(ld_ag_stall_vld || io.in.pipe3.sel){
+  }.elsewhen(ld_ag_stall_vld || io.in.pipe3.selCtrl.sel){
     ld_ag_inst_vld := true.B
   }.otherwise{
     ld_ag_inst_vld := false.B
@@ -270,29 +274,29 @@ class LoadAG extends Module with LsuConfig{
   //if there is a stall in the AG stage ,the inst info keep unchanged,
   //elseif there is inst in RF stage, the inst goes to the AG stage next cycle
   when(!ld_ag_stall_vld && ld_rf_inst_vld){
-    ld_ag_data.split           := io.in.pipe3.split
-    ld_ag_data.inst_type       := io.in.pipe3.inst_type
-    ld_ag_data.inst_size       := io.in.pipe3.inst_size
-    ld_ag_data.secd            := io.in.pipe3.unalign_2nd
-    ld_ag_data.already_da      := io.in.pipe3.already_da
-    ld_ag_data.lsiq_spec_fail  := io.in.pipe3.spec_fail
-    ld_ag_data.lsiq_bkpta_data := io.in.pipe3.bkpta_data
-    ld_ag_data.lsiq_bkptb_data := io.in.pipe3.bkptb_data
-    ld_ag_data.sign_extend     := io.in.pipe3.sign_extend
-    ld_ag_data.atomic          := io.in.pipe3.atomic
-    ld_ag_data.iid             := io.in.pipe3.iid
-    ld_ag_data.lsid            := io.in.pipe3.lch_entry
-    ld_ag_data.old             := io.in.pipe3.oldest
-    ld_ag_data.preg            := io.in.pipe3.preg
-    ld_ag_data.preg_dup        := WireInit(VecInit(Seq.fill(5)(io.in.pipe3.preg)))
-    ld_ag_data.ldfifo_pc       := io.in.pipe3.pc
-    ld_ag_data.vreg            := io.in.pipe3.vreg(5,0)
-    ld_ag_data.vreg_dup        := WireInit(VecInit(Seq.fill(4)(io.in.pipe3.vreg(5,0))))
-    ld_ag_data.inst_ldr        := io.in.pipe3.inst_ldr
-    ld_ag_data.inst_fls        := io.in.pipe3.inst_fls
-    ld_ag_data.lsfifo          := io.in.pipe3.lsfifo
-    ld_ag_data.no_spec         := io.in.pipe3.no_spec
-    ld_ag_data.no_spec_exist   := io.in.pipe3.no_spec_exist
+    ld_ag_data.split           := io.in.pipe3.data.split
+    ld_ag_data.inst_type       := io.in.pipe3.data.instType
+    ld_ag_data.inst_size       := io.in.pipe3.data.instSize
+    ld_ag_data.secd            := io.in.pipe3.data.unalign2Nd
+    ld_ag_data.already_da      := io.in.pipe3.data.alreadyDa
+    ld_ag_data.lsiq_spec_fail  := io.in.pipe3.data.specFail
+    ld_ag_data.lsiq_bkpta_data := io.in.pipe3.data.bkptaData
+    ld_ag_data.lsiq_bkptb_data := io.in.pipe3.data.bkptbData
+    ld_ag_data.sign_extend     := io.in.pipe3.data.signExtend
+    ld_ag_data.atomic          := io.in.pipe3.data.atomic
+    ld_ag_data.iid             := io.in.pipe3.data.iid
+    ld_ag_data.lsid            := VecInit(io.in.pipe3.data.lchEntry.asBools)
+    ld_ag_data.old             := io.in.pipe3.data.oldest
+    ld_ag_data.preg            := io.in.pipe3.data.preg
+    ld_ag_data.preg_dup        := WireInit(VecInit(Seq.fill(5)(io.in.pipe3.data.preg)))
+    ld_ag_data.ldfifo_pc       := io.in.pipe3.data.pc
+    ld_ag_data.vreg            := io.in.pipe3.data.vreg(5,0)
+    ld_ag_data.vreg_dup        := WireInit(VecInit(Seq.fill(4)(io.in.pipe3.data.vreg(5,0))))
+    ld_ag_data.inst_ldr        := io.in.pipe3.data.instLdr
+    ld_ag_data.inst_fls        := io.in.pipe3.data.instFls
+    ld_ag_data.lsfifo          := io.in.pipe3.data.lsfifo
+    ld_ag_data.no_spec         := io.in.pipe3.data.noSpec
+    ld_ag_data.no_spec_exist   := io.in.pipe3.data.noSpecExist
   }
   io.out.toDC.split := ld_ag_data.split
   io.out.toDC.inst_type := ld_ag_data.inst_type
@@ -329,8 +333,8 @@ class LoadAG extends Module with LsuConfig{
   //+--------------+
   //if there is a stall in the AG stage ,offset_shift is reset to 0
   //cache stall will not change shift
-  when(!ld_ag_stall_vld && io.in.pipe3.sel){
-    ld_ag_offset_shift := io.in.pipe3.shift
+  when(!ld_ag_stall_vld && io.in.pipe3.selCtrl.sel){
+    ld_ag_offset_shift := io.in.pipe3.data.shift
   }.elsewhen(ld_ag_stall_vld && ld_ag_cross_page_ldr_imme_stall_req){
     ld_ag_offset_shift := 1.U(4.W)
   }
@@ -343,21 +347,21 @@ class LoadAG extends Module with LsuConfig{
   when(ld_ag_cross_page_ldr_imme_stall_arb){
     ld_ag_offset(1) := 0.U(32.W)
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  !ld_rf_inst_ldr){
-    ld_ag_offset(1) := Mux(io.in.pipe3.offset(11), -1.S(32.W).asUInt, 0.U(32.W))
+    ld_ag_offset(1) := Mux(io.in.pipe3.data.offset(11), -1.S(32.W).asUInt, 0.U(32.W))
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  ld_rf_inst_ldr  &&  ld_rf_off_0_extend){
     ld_ag_offset(1) := 0.U(32.W)
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld){
-    ld_ag_offset(1) := io.in.pipe3.src1(63,32)
+    ld_ag_offset(1) := io.in.pipe3.data.src1(63,32)
   }
 
   when(ld_ag_cross_page_ldr_imme_stall_arb  &&  ld_ag_secd_imme_stall){
     ld_ag_offset(0) := 16.U(32.W)
   }.elsewhen(ld_ag_cross_page_ldr_imme_stall_arb){
     ld_ag_offset(0) := 0.U(32.W)
-  }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  ld_rf_inst_ldr){
-    ld_ag_offset(0) := Cat(Mux(io.in.pipe3.offset(11), -1.S(20.W).asUInt, 0.U(20.W)), io.in.pipe3.offset)
+  }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld  &&  !ld_rf_inst_ldr){
+    ld_ag_offset(0) := Cat(Mux(io.in.pipe3.data.offset(11), -1.S(20.W).asUInt, 0.U(20.W)), io.in.pipe3.data.offset)
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld){
-    ld_ag_offset(0) := io.in.pipe3.src1(31,0)
+    ld_ag_offset(0) := io.in.pipe3.data.src1(31,0)
   }
 
   //+-------------+
@@ -367,7 +371,7 @@ class LoadAG extends Module with LsuConfig{
   when(ld_ag_cross_page_ldr_imme_stall_arb){
     ld_ag_offset_plus := 0.U(13.W)
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld){
-    ld_ag_offset_plus := io.in.pipe3.offset_plus
+    ld_ag_offset_plus := io.in.pipe3.data.offsetPlus
   }
 
   //+------+
@@ -377,7 +381,7 @@ class LoadAG extends Module with LsuConfig{
   when(ld_ag_cross_page_ldr_imme_stall_arb){
     ld_ag_base := ld_ag_va
   }.elsewhen(!ld_ag_stall_vld &&  ld_rf_inst_vld){
-    ld_ag_base := io.in.pipe3.src0
+    ld_ag_base := io.in.pipe3.data.src0
   }
 
   //==========================================================
@@ -468,7 +472,7 @@ class LoadAG extends Module with LsuConfig{
   //----------------generate bytes_vld------------------------
   //-----------in le/bev2-----------------
   //the 2nd half boundary inst will +128, so va[3:0] of 2nd inst will not change
-  val ld_ag_le_bytes_vld_high_bits_full = MuxLookup(ld_ag_va_ori, 0.U(16.W), Seq(
+  val ld_ag_le_bytes_vld_high_bits_full = MuxLookup(ld_ag_va_ori(3,0), 0.U(16.W), Seq(
     "b0000".U -> "hffff".U,
     "b0001".U -> "hfffe".U,
     "b0010".U -> "hfffc".U,
@@ -505,6 +509,9 @@ class LoadAG extends Module with LsuConfig{
     "b1110".U -> "h7fff".U,
     "b1111".U -> "hffff".U
   ))
+
+  dontTouch(ld_ag_le_bytes_vld_high_bits_full)
+  dontTouch(ld_ag_le_bytes_vld_low_bits_full)
 
   val ld_ag_le_bytes_vld_cross          = ld_ag_le_bytes_vld_high_bits_full & ld_ag_le_bytes_vld_low_bits_full
   val ld_ag_le_bytes_vld_low_cross_bits = Mux(ld_ag_boundary_unmask, ld_ag_le_bytes_vld_low_bits_full, ld_ag_le_bytes_vld_cross)
@@ -743,11 +750,11 @@ class LoadAG extends Module with LsuConfig{
   ld_ag_stall_vld := io.out.toDC.stall_ori && !ld_ag_stall_mask
 
   //for performance,when ag stall,let oldest inst go
-  val rf_iid_older_than_ld_ag = (ld_ag_data.iid(6) ^ io.in.pipe3.iid(6)) ^ (ld_ag_data.iid(5,0) > io.in.pipe3.iid(5,0))
+  val rf_iid_older_than_ld_ag = (ld_ag_data.iid(6) ^ io.in.pipe3.data.iid(6)) ^ (ld_ag_data.iid(5,0) > io.in.pipe3.data.iid(5,0))
 
-  ld_ag_stall_mask := io.in.pipe3.sel && rf_iid_older_than_ld_ag
+  ld_ag_stall_mask := io.in.pipe3.selCtrl.sel && rf_iid_older_than_ld_ag
 
-  io.out.toDC.stall_restart_entry := Mux(ld_ag_stall_mask, ld_ag_data.lsid, io.in.pipe3.lch_entry)
+  io.out.toDC.stall_restart_entry := Mux(ld_ag_stall_mask, ld_ag_data.lsid, VecInit(io.in.pipe3.data.lchEntry.asBools))
 
   //==========================================================
   //        Generage to DC stage signal

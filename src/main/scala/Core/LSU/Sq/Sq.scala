@@ -1,7 +1,7 @@
 package Core.LSU.Sq
 import Core.IUConfig.MPPWidth
 import Core.Config.XLEN
-import Core.LSU.RotData
+import Core.LSU.RotData128
 import Core.LSU.StoreExStage.SqToStDc
 import Core.LsuConfig
 import Core.ROBConfig.IidWidth
@@ -386,7 +386,7 @@ class Sq extends Module with LsuConfig{
   //==========================================================
   //------------------settle data to register mode------------
   val sq_settle_rot_sel = sq_settle_rot_sel_vec.reduce(_ & _)
-  val rot_mem_format = Module(new RotData)
+  val rot_mem_format = Module(new RotData128)
   rot_mem_format.io.dataIn := io.in.sdEx1In.sd_ex1_data
   rot_mem_format.io.rotSel := sq_settle_rot_sel
   val sq_data_settle = rot_mem_format.io.dataSettle

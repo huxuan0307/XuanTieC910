@@ -2,6 +2,7 @@ package Core.IU
 
 import Core.Config.XLEN
 import Core.FuncOpType.width
+import Core.IDU.Opcode
 import Core.IUConfig
 import Core.IntConfig.NumPhysicRegsBits
 import Utils.{LookupTree, SignExt}
@@ -77,7 +78,8 @@ class Alu extends Module with IUConfig{
       AluOpcode.SLLW  -> (src1 << shamt),
       AluOpcode.SRLW  -> (src1(31, 0) >> shamt),
       AluOpcode.SRAW  -> (src1(31, 0).asSInt >> shamt).asUInt,
-      AluOpcode.LUI   -> (src2 << 12.U)
+      AluOpcode.LUI   -> (src2 << 12.U),
+      AluOpcode.AUI_PC -> (src1 + src2)
     ))
   }
   //==========================================================

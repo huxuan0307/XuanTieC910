@@ -1,5 +1,6 @@
 package Core.LSU
 
+import Core.Config.PcStart
 import Core.LsuConfig
 import chisel3._
 import chisel3.util._
@@ -73,24 +74,27 @@ class BiuRamHelper extends Module with LsuConfig{
   val read_state = RegInit(r_idle)
   val read_info  = RegInit(0.U.asTypeOf(new biu_ar))
   val read_cnt   = RegInit(0.U(4.W))
-  val read_addr  = RegInit(0.U(PA_WIDTH.W))
+  val read_addr_to6  = RegInit(0.U((PA_WIDTH-6).W))
+  val read_addr_5to4 = RegInit(0.U(2.W))
 
   when(io.in.ar.req && read_state === r_idle){
     read_state := r_resp
     read_info  := io.in.ar
-    read_cnt   := io.in.ar.len + 1.U
-    read_addr  := io.in.ar.addr
+    read_cnt   := io.in.ar.len + 1.U(4.W)
+    read_addr_to6  := (io.in.ar.addr - PcStart.U)(PA_WIDTH-1,6)
+    read_addr_5to4 := io.in.ar.addr(5,4)
   }
 
   when(read_state === r_resp){
     read_cnt  := read_cnt - 1.U
-    read_addr := read_addr + 16.U
+    read_addr_5to4 := read_addr_5to4 + 1.U
 
     when(read_cnt === 1.U){
       read_state := r_idle
     }
   }
 
+  val read_addr = Cat(read_addr_to6, read_addr_5to4, 0.U(4.W))
   val read_ramhelper = Seq.fill(2)(Module(new RAMHelper))
   val read_data = Wire(Vec(2, UInt(64.W)))
   for(i <- 0 until 2){
@@ -117,24 +121,27 @@ class BiuRamHelper extends Module with LsuConfig{
   val vb_state = RegInit(w_idle)
   val vb_info  = RegInit(0.U.asTypeOf(new biu_aw))
   val vb_cnt   = RegInit(0.U(4.W))
-  val vb_addr  = RegInit(0.U(PA_WIDTH.W))
+  val vb_addr_to6  = RegInit(0.U((PA_WIDTH-6).W))
+  val vb_addr_5to4 = RegInit(0.U(2.W))
 
   when(io.in.vict_aw.req && vb_state === w_idle){
     vb_state := w_data
     vb_info  := io.in.vict_aw
-    vb_cnt   := io.in.vict_aw.len + 1.U
-    vb_addr  := io.in.vict_aw.addr
+    vb_cnt   := io.in.vict_aw.len + 1.U(4.W)
+    vb_addr_to6  := (io.in.vict_aw.addr - PcStart.U)(PA_WIDTH-1,6)
+    vb_addr_5to4 := io.in.vict_aw.addr(5,4)
   }
 
   when(io.in.vict_w.vld && vb_state === w_data){
     vb_cnt  := vb_cnt - 1.U
-    vb_addr := vb_addr + 16.U
+    vb_addr_5to4 := vb_addr_5to4 + 1.U
 
     when(io.in.vict_w.last && vb_cnt === 1.U){
       vb_state := w_resp
     }
   }
 
+  val vb_addr = Cat(vb_addr_to6, vb_addr_5to4, 0.U(4.W))
   val vb_ramhelper = Seq.fill(2)(Module(new RAMHelper))
   val vb_data = io.in.vict_w.data.asTypeOf(Vec(2, UInt(64.W)))
   val vb_strb = Wire(Vec(16, UInt(8.W)))
@@ -159,24 +166,27 @@ class BiuRamHelper extends Module with LsuConfig{
   val wmb_state = RegInit(w_idle)
   val wmb_info  = RegInit(0.U.asTypeOf(new biu_aw))
   val wmb_cnt   = RegInit(0.U(4.W))
-  val wmb_addr  = RegInit(0.U(PA_WIDTH.W))
+  val wmb_addr_to6  = RegInit(0.U((PA_WIDTH-6).W))
+  val wmb_addr_5to4 = RegInit(0.U(2.W))
 
   when(io.in.st_aw.req && wmb_state === w_idle){
     wmb_state := w_data
     wmb_info  := io.in.st_aw
-    wmb_cnt   := io.in.st_aw.len + 1.U
-    wmb_addr  := io.in.st_aw.addr
+    wmb_cnt   := io.in.st_aw.len + 1.U(4.W)
+    wmb_addr_to6  := (io.in.st_aw.addr - PcStart.U)(PA_WIDTH-1,6)
+    wmb_addr_5to4 := io.in.st_aw.addr(5,4)
   }
 
   when(io.in.st_w.vld && wmb_state === w_data){
     wmb_cnt  := wmb_cnt - 1.U
-    wmb_addr := wmb_addr + 16.U
+    wmb_addr_5to4 := wmb_addr_5to4 + 1.U
 
     when(io.in.st_w.last && wmb_cnt === 1.U){
       wmb_state := w_resp
     }
   }
 
+  val wmb_addr = Cat(wmb_addr_to6, wmb_addr_5to4, 0.U(4.W))
   val wmb_ramhelper = Seq.fill(2)(Module(new RAMHelper))
   val wmb_data = io.in.st_w.data.asTypeOf(Vec(2, UInt(64.W)))
   val wmb_strb = Wire(Vec(16, UInt(8.W)))

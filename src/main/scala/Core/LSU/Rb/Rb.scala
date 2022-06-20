@@ -1,5 +1,5 @@
 package Core.LSU.Rb
-import Core.LSU.{IdFifo8, RotData}
+import Core.LSU.{IdFifo8, RotData128}
 import Core.{BIUConfig, LsuConfig}
 import chisel3._
 import chisel3.util._
@@ -703,7 +703,7 @@ class Rb extends Module with LsuConfig with BIUConfig{
   val rb_wb_data_unsettle = Cat(rb_wb_data, rb_wb_data)
 
   //rotate data
-  val wb_data_rot = Module(new RotData)
+  val wb_data_rot = Module(new RotData128)
   wb_data_rot.io.dataIn := rb_wb_data_unsettle
   wb_data_rot.io.rotSel := rb_ld_rot_sel
   val rb_ld_wb_data_128 = wb_data_rot.io.dataSettle
@@ -712,9 +712,9 @@ class Rb extends Module with LsuConfig with BIUConfig{
 
   //------------------select sign bit-------------------------
   io.out.toLoadWB.preg_sign_sel := MuxLookup(Cat(rb_ld_wb_sign_extend,rb_ld_wb_inst_size), "b0001".U, Seq(
-    Cat(1.U(1.W),BYTE.U) -> "b0010".U,
-    Cat(1.U(1.W),HALF.U) -> "b0100".U,
-    Cat(1.U(1.W),WORD.U) -> "b1000".U
+    Cat(1.U(1.W),0.U(1.W),BYTE.U) -> "b0010".U,
+    Cat(1.U(1.W),0.U(1.W),HALF.U) -> "b0100".U,
+    Cat(1.U(1.W),0.U(1.W),WORD.U) -> "b1000".U
   ))
 
   io.out.toLoadWB.vreg_sign_sel :=

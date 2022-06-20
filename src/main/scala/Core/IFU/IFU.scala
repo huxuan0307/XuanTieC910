@@ -95,6 +95,16 @@ class IFU extends Module with Config {
 //  val if_vld  = RegNext(if_data_valid)
 //  val ip_pc   = RegNext(if_pc)
 //  val ip_ubtb = RegNext(ubtb.io.ubtb_resp)
+  val ip_cache_reg = RegInit(0.U.asTypeOf(icache.io.cache_resp))
+  val ip_cache_reg_valid = RegInit(false.B)
+  when(!reg_update && RegNext(reg_update) && ipstage.io.out.valid && !icache.io.refill_sm_busy){
+    ip_cache_reg_valid := true.B
+    ip_cache_reg := icache.io.cache_resp
+  }
+
+  when(reg_update){
+    ip_cache_reg_valid := false.B
+  }
 
   ipstage.io.if_vld      := if_vld
   ipstage.io.pc          := ip_pc
@@ -102,7 +112,7 @@ class IFU extends Module with Config {
   ipstage.io.ubtb_resp   := ip_ubtb
   ipstage.io.btb_resp    := btb.io.btb_target
   ipstage.io.bht_resp    := bht.io.bht_resp //TODO:封装bht输出
-  ipstage.io.icache_resp := icache.io.cache_resp
+  ipstage.io.icache_resp := Mux(ip_cache_reg_valid, ip_cache_reg , icache.io.cache_resp)
   //ipstage.io.icache_resp := RegNext(io.cache_resp)
 
   bht.io.ip_bht_con_br_vld   := ipstage.io.ip_bht_con_br_vld
@@ -188,7 +198,9 @@ class IFU extends Module with Config {
     io.instData(i).no_spec      := false.B
     io.instData(i).bkptb_inst   := false.B
     io.instData(i).bkpta_inst   := false.B
-    io.instData(i).split_short  := false.B
+    val inst = ibuf.io.out(i).bits.inst
+    io.instData(i).split_short  := inst(11,7) =/= 0.U &&
+      (Cat(inst(15,12),inst(6,0)) === "b1001_0000010".U || inst(6,0) === "b1101111".U || Cat(inst(14,12),inst(6,0)) === "b000_1100111".U)
     io.instData(i).fence        := false.B
     io.instData(i).split_long   := false.B
     io.instData(i).high_hw_expt := false.B

@@ -1,6 +1,6 @@
 package Core.LSU.LoadExStage
 
-import Core.LSU.RotData
+import Core.LSU.RotData128
 import Core.LsuConfig
 import Utils.Bits.sext
 import Utils._
@@ -730,13 +730,13 @@ class LoadDA extends Module with LsuConfig{
   val ld_da_cb_bypass_data_for_merge = Mux(ld_da_merge_from_cb, ld_da_cb_bypass_data_am.asUInt, 0.U(128.W))
 
   val ld_da_dcache_data_after_merge = ld_da_cb_bypass_data_for_merge | ld_da_dcache_pass_data128_am
-
+  dontTouch(ld_da_dcache_data_after_merge)
   val ld_da_data_unrot = Wire(Vec(16, UInt(8.W)))
   for(i <- 0 until 16){
     ld_da_data_unrot(i) := Mux(inst_data.fwd_bytes_vld(i), ld_da_fwd_data_am(i), ld_da_dcache_data_after_merge(i*8+7, i*8))
   }
 
-  val data_rot = Module(new RotData)
+  val data_rot = Module(new RotData128)
   data_rot.io.dataIn := ld_da_data_unrot.asUInt
   data_rot.io.rotSel := share_data.data_rot_sel
   val ld_da_data_settle = data_rot.io.dataSettle
@@ -757,7 +757,7 @@ class LoadDA extends Module with LsuConfig{
     ld_da_ahead_preg_data_unsettle(i) := Mux(inst_data.fwd_bytes_vld_dup(i), ld_da_fwd_data_pe_am(i), ld_da_dcache_data128_ahead_am(i*8+7, i*8))
   }
 
-  val preg_data_rot = Module(new RotData)
+  val preg_data_rot = Module(new RotData128)
   preg_data_rot.io.dataIn := ld_da_ahead_preg_data_unsettle.asUInt
   preg_data_rot.io.rotSel := share_data.data_rot_sel
   val ld_da_ahead_preg_data_settle = preg_data_rot.io.dataSettle

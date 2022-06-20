@@ -7,7 +7,7 @@ import Core.IDU.IS.LsiqConfig.NumLsiqCreatePort
 import Core.IDU.IS._
 import Core.IDU.RF._
 import Core.IUConfig.PcFifoAddr
-import Core.IntConfig.NumPhysicRegsBits
+import Core.IntConfig.{NumPhysicRegs, NumPhysicRegsBits}
 import chisel3._
 import chisel3.util._
 
@@ -226,11 +226,15 @@ class IDUInput extends Bundle with AiqConfig with DepRegEntryConfig{
       val lsiqCtrl = new LsiqFromLsuBundle
     }
 
-    val RFfomLSU = new Bundle {
+    val RFfromLSU = new Bundle {
       val dc_stAddrUnalign = Bool()
       val dc_stAddrValid = Bool()
       val dc_stAddr1Valid = Bool()
       val dc_sdiqEntry = UInt(SdiqConfig.NumSdiqEntry.W)
+    }
+
+    val SDIQfromLsu = new Bundle() {
+      val sdiqCtrl = new SdiqFromLsuBundle
     }
   }
   val ISfromVFPU = Vec(2, new VFPU2IS)
@@ -281,6 +285,9 @@ class IDUOutput extends Bundle{
     val toBju = (new RFStageDataOutput).toBju
     val aluDstPregs = (new RFStageDataOutput).aluDstPregs //////todo: seem that same with toIux.dstPreg
     val vfpuDstVregs = (new RFStageDataOutput).vfpuDstVregs
+    val toLsuPipe3 = new RFStageToLsuPipe3Bundle
+    val toLsuPipe4 = new RFStageToLsuPipe4Bundle
+    val toLsuPipe5 = new RFStageToLsuPipe5Bundle
   }
   /**
   val RFtoIU = new RFStageToExuGateClkBundle
@@ -343,7 +350,11 @@ class IDUOutput extends Bundle{
   /**
   val tovfpu = new tovfpuBundle
    */
-
+  val toRtu = new Bundle() {
+    val sdiqOut = new Bundle() {
+      val pregDeallocMask: Vec[Bool] = Vec(NumPhysicRegs, Bool())
+    }
+  }
 }
 
 class IDUIO extends Bundle{
@@ -362,6 +373,7 @@ class IDU extends Module with Config {
   val aiq1 = Module(new ArithInstQueue1)
   val biq = Module(new Biq)
   val lsiq = Module(new Lsiq)
+  val sdiq = Module(new Sdiq)
   val rfstage = Module(new RFStage)
   val prf = Module(new Prf)
   //////todo: add 1ereg, 2 vreg, 2freg
@@ -584,9 +596,11 @@ class IDU extends Module with Config {
       cbundle.vlmul := isstage.io.out.toAiq0.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq0.create_data(i).VSEW
       cbundle.inst := isstage.io.out.toAiq0.create_data(i).OPCODE //todo: check it
+      cbundle.pc := isstage.io.out.toAiq0.create_data(i).PC
     //todo: find isstage.io.out.toAiq0.create_data(i).LCH_RDY_AIQ0... to where
   } //:= isstage.io.out.toAiq0.create_data //////todo: make it same
   //todo: find isstage.io.out.toAiq0.bypass_data.LCH_RDY_AIQ0... to where
+  aiq0.io.in.data.bypassData.pc := isstage.io.out.toAiq0.bypass_data.PC
   aiq0.io.in.data.bypassData.inst := isstage.io.out.toAiq0.bypass_data.OPCODE//isstage.io.out.toAiq0.bypass_data //////todo: make it same
   aiq0.io.in.data.bypassData.div := isstage.io.out.toAiq0.bypass_data.DIV
   aiq0.io.in.data.bypassData.iid := isstage.io.out.toAiq0.bypass_data.IID
@@ -684,9 +698,11 @@ class IDU extends Module with Config {
       cbundle.vlmul := isstage.io.out.toAiq1.create_data(i).VLMUL
       cbundle.vsew := isstage.io.out.toAiq1.create_data(i).VSEW
       cbundle.inst := isstage.io.out.toAiq1.create_data(i).OPCODE //todo: check it
+      cbundle.pc := DontCare
     //todo: find isstage.io.out.toAiq0.create_data(i).LCH_RDY_AIQ0... to where
   } //:= isstage.io.out.toAiq0.create_data //////todo: make it same
   //todo: find isstage.io.out.toAiq0.bypass_data.LCH_RDY_AIQ0... to where
+  aiq1.io.in.data.bypassData.pc := DontCare
   aiq1.io.in.data.bypassData.inst := isstage.io.out.toAiq1.bypass_data.OPCODE//isstage.io.out.toAiq0.bypass_data //////todo: make it same
   aiq1.io.in.data.bypassData.div := DontCare //////not use
   aiq1.io.in.data.bypassData.iid := isstage.io.out.toAiq1.bypass_data.IID
@@ -817,22 +833,39 @@ class IDU extends Module with Config {
   lsiq.io.in.fwd.aluValid := 0.U.asTypeOf(lsiq.io.in.fwd.aluValid)// todo in rfstage.io.fwd do not exist?
   lsiq.io.in.ctrl.fromRf.launchFailValid(0) := rfstage.io.ctrl.out.toIq(3).launchFailValid
   lsiq.io.in.ctrl.fromRf.launchFailValid(1) := rfstage.io.ctrl.out.toIq(4).launchFailValid
-  // Todo: Add launch valid dup
-  //  e.g. ctrl_xx_rf_pipe0_preg_lch_vld_dup0
-
   // Todo: add forward signal
   //  e.g. ctrl_aiq0_rf_pipe0_alu_reg_fwd_vld ctrl_viq1_rf_pipe7_vmla_vreg_fwd_vld
+  // Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
+  // alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe0_dst_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(0).bits   := rfstage.io.data.out.aluDstPregs(0)
+  lsiq.io.in.fuDstPreg(0).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).valid)
+  // alu1 : ctrl_xx_rf_pipe1_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe1_dst_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(1).bits   := rfstage.io.data.out.aluDstPregs(1)
+  lsiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).valid)
+  // mult : iu_idu_ex2_pipe1_mult_inst_vld_dupx <br>
+  //        iu_idu_ex2_pipe1_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
+  lsiq.io.in.fuDstPreg(2).bits  := io.in.RTfromIU.ex2_pipe1_preg_dupx
+  // div  : iu_idu_div_inst_vld <br>
+  //        iu_idu_div_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
+  lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+  // load : lsu_idu_dc_pipe3_load_inst_vld_dupx <br>
+  //        lsu_idu_dc_pipe3_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+  lsiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx
+  // vfpu0: vfpu_idu_ex1_pipe6_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe6_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).valid)
+  lsiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).bits)
+  // vfpu1: vfpu_idu_ex1_pipe7_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe7_preg_dupx <br>
+  lsiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).valid)
+  lsiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).bits)
 
-    lsiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).valid)
-    lsiq.io.in.fuDstPreg(0).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).valid)
-    lsiq.io.in.fuDstPreg(0).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(0).bits)
-    lsiq.io.in.fwd.loadValid       := 0.U.asTypeOf(lsiq.io.in.fwd.loadValid)
-    lsiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).valid)
-    lsiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).valid)
-    lsiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(5).bits)
-    lsiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(6).bits)
-    lsiq.io.in.fuDstPreg(1).bits   := 0.U.asTypeOf(lsiq.io.in.fuDstPreg(1).bits)
-
+  lsiq.io.in.fwd.loadValid       := 0.U.asTypeOf(lsiq.io.in.fwd.loadValid)
   lsiq.io.in.data.bypassData := isstage.io.out.toLsiq.bypass_data // is bind bundle
   lsiq.io.in.data.create.bar := isstage.io.out.toLsiq.create_bar
   lsiq.io.in.data.create.load   := isstage.io.out.toLsiq.create_load
@@ -847,29 +880,92 @@ class IDU extends Module with Config {
   lsiq.io.in.data.fromRf.readyClear(0) := rfstage.io.data.out.toLsiq0.readyClr
   lsiq.io.in.data.fromRf.readyClear(1) := rfstage.io.data.out.toLsiq1.readyClr
 
-  lsiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
-  lsiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+
   lsiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
   lsiq.io.in.wbPreg(0).valid := io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx
-  lsiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
-  lsiq.io.in.fuDstPreg(2).bits := io.in.RTfromIU.ex2_pipe1_preg_dupx
+
   lsiq.io.in.wbPreg(1).bits  := io.in.RTfromIU.ex2_pipe1_wb_preg_dupx
   lsiq.io.in.wbPreg(1).valid := io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx
 
-  lsiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx
-  lsiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
-  lsiq.io.in.loadPreg.bits      := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+
+  lsiq.io.in.loadPreg.bits      := io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx
   lsiq.io.in.loadPreg.valid     := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
   lsiq.io.in.wbPreg(2).bits    := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx
   lsiq.io.in.wbPreg(2).valid   := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx
 
-  lsiq.io.in.fromLsu      := io.in.fromLSU.LSIQfromLSU.lsiqCtrl
-  lsiq.io.in.fromRtu.flush  := io.in.fromRTU.flush
+  lsiq.io.in.fromLsu         := io.in.fromLSU.LSIQfromLSU.lsiqCtrl
+  lsiq.io.in.fromRtu.flush   := io.in.fromRTU.flush
   lsiq.io.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn
 
   // &ConnRule(s/_dupx/_dup1/); @62
   // &Instance("ct_idu_is_sdiq", "x_ct_idu_is_sdiq"); @63
   //todo: add sdiq
+  sdiq.io.in.fromCp0.yyClkEn         := io.in.fromCp0.yyClkEn
+  sdiq.io.in.fromCp0.icgEn           := io.in.fromCp0.icgEn
+  sdiq.io.in.fromCp0.iqBypassDisable := io.in.IQfromCp0sub.iq_bypass_disable
+  sdiq.io.in.fromPad.yyIcgScanEn :=  io.in.fromCp0.yyClkEn
+  for(i<-0 until (NumLsiqCreatePort)) {
+    sdiq.io.in.ctrl.createEnVec(i)      := isstage.io.out.iqCreateEn(4)(i).en
+    sdiq.io.in.ctrl.createGateClkVec(i) := isstage.io.out.iqCreateEn(4)(i).gateclk_en
+    sdiq.io.in.ctrl.createDpEnVec(i)    := isstage.io.out.iqCreateEn(4)(i).dp_en
+  }
+  sdiq.io.in.ctrl.fromRf := rfstage.io.ctrl.out.toIq(5)
+
+  // Todo: add forward signal
+  //  e.g. ctrl_aiq0_rf_pipe0_alu_reg_fwd_vld ctrl_viq1_rf_pipe7_vmla_vreg_fwd_vld
+  sdiq.io.in.fwd.aluValid        := 0.U.asTypeOf(sdiq.io.in.fwd.aluValid)// todo in rfstage.io.fwd do not exist?
+  sdiq.io.in.fwd.loadValid       := 0.U.asTypeOf(sdiq.io.in.fwd.loadValid)
+  // Include alu0, alu1, mul, div, load, vfpu0, vfpu1 <br>
+  // alu0 : ctrl_xx_rf_pipe0_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe0_dst_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(0).bits   := rfstage.io.data.out.aluDstPregs(0) // todo
+  sdiq.io.in.fuDstPreg(0).valid  := DontCare // todo
+  // alu1 : ctrl_xx_rf_pipe1_preg_lch_vld_dupx <br>
+  //        dp_xx_rf_pipe1_dst_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(1).bits   := rfstage.io.data.out.aluDstPregs(1)
+  sdiq.io.in.fuDstPreg(1).valid  := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(1).valid)
+  // mult : iu_idu_ex2_pipe1_mult_inst_vld_dupx <br>
+  //        iu_idu_ex2_pipe1_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(2).bits  := io.in.RTfromIU.ex2_pipe1_preg_dupx
+  sdiq.io.in.fuDstPreg(2).valid := io.in.RTfromIU.ex2_pipe1_mult_inst_vld_dupx
+  // div  : iu_idu_div_inst_vld <br>
+  //        iu_idu_div_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(3).bits  := io.in.RTfromIU.div_preg_dupx
+  sdiq.io.in.fuDstPreg(3).valid := io.in.RTfromIU.div_inst_vld
+  // load : lsu_idu_dc_pipe3_load_inst_vld_dupx <br>
+  //        lsu_idu_dc_pipe3_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(4).bits  := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+  sdiq.io.in.fuDstPreg(4).valid := io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx
+  // vfpu0: vfpu_idu_ex1_pipe6_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe6_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(5).bits   := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(5).bits)
+  sdiq.io.in.fuDstPreg(5).valid  := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(5).valid)
+  // vfpu1: vfpu_idu_ex1_pipe7_mfvr_inst_vld_dupx <br>
+  //        vfpu_idu_ex1_pipe7_preg_dupx <br>
+  sdiq.io.in.fuDstPreg(6).bits   := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(6).bits)
+  sdiq.io.in.fuDstPreg(6).valid  := 0.U.asTypeOf(sdiq.io.in.fuDstPreg(6).valid)
+
+  sdiq.io.in.data.createData := isstage.io.out.sdiq_create_data // is bind bundle
+  sdiq.io.in.data.fromRf.launchEntry      := VecInit(rfstage.io.data.out.toSdiq.launchEntryOH.asBools)
+  sdiq.io.in.data.fromRf.readyClear       := rfstage.io.data.out.toSdiq.readyClr
+  sdiq.io.in.data.fromRf.sdiqEntry        := VecInit(rfstage.io.data.out.toSdiq.issueEntryOH.asBools)
+  sdiq.io.in.data.fromRf.stAddr1Valid     := rfstage.io.data.out.toSdiq.stAddr1Valid
+  sdiq.io.in.data.fromRf.stAddrReadyClear := rfstage.io.data.out.toSdiq.stAddrReadyClear
+  sdiq.io.in.data.fromRf.stData1Valid     := rfstage.io.data.out.toSdiq.stData1Valid
+
+
+  sdiq.io.in.wbPreg(0).bits  := io.in.RTfromIU.ex2_pipe0_wb_preg_dupx
+  sdiq.io.in.wbPreg(0).valid := io.in.RTfromIU.ex2_pipe0_wb_preg_vld_dupx
+  sdiq.io.in.wbPreg(1).bits  := io.in.RTfromIU.ex2_pipe1_wb_preg_dupx
+  sdiq.io.in.wbPreg(1).valid := io.in.RTfromIU.ex2_pipe1_wb_preg_vld_dupx
+  sdiq.io.in.loadPreg.bits   := io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx
+  sdiq.io.in.loadPreg.valid  := io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld
+  sdiq.io.in.wbPreg(2).bits  := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx
+  sdiq.io.in.wbPreg(2).valid := io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx
+
+  sdiq.io.in.fromLsu         := io.in.fromLSU.SDIQfromLsu.sdiqCtrl
+  sdiq.io.in.fromRtu.flush   := io.in.fromRTU.flush
+  io.out.toRtu.sdiqOut       := sdiq.io.out.toRtu
   //sdiq
   // &ConnRule(s/_dupx/_dup2/); @66
   // &Instance("ct_idu_is_viq0_dummy", "x_ct_idu_is_viq0"); @67
@@ -901,18 +997,20 @@ class IDU extends Module with Config {
   rfstage.io.ctrl.in.issueEnVec(2).issueEn := biq.io.out.xxIssueEn
   rfstage.io.ctrl.in.issueEnVec(3).gateClkIssueEn := lsiq.io.out.gateClkIssueEn
   rfstage.io.ctrl.in.issueEnVec(3).issueEn := lsiq.io.out.issueEnVec(0) //////todo: is rfstage.io.ctrl.in.issueEnVec(3) wrong?
-  rfstage.io.ctrl.in.issueEnVec(4) := DontCare //////todo: add lsiq
-  rfstage.io.ctrl.in.issueEnVec(5) := DontCare //////todo: add sdiq
+  rfstage.io.ctrl.in.issueEnVec(4).gateClkIssueEn := lsiq.io.out.gateClkIssueEn  //////todo: add lsiq
+  rfstage.io.ctrl.in.issueEnVec(4).issueEn := lsiq.io.out.issueEnVec(1)  //////todo: add lsiq
+  rfstage.io.ctrl.in.issueEnVec(5).gateClkIssueEn := sdiq.io.out.gateClkIssueEn //////todo: add sdiq
+  rfstage.io.ctrl.in.issueEnVec(5).issueEn := sdiq.io.out.issueEn //////todo: add sdiq
   rfstage.io.ctrl.in.issueEnVec(6) := DontCare //////todo: add viq0
   rfstage.io.ctrl.in.issueEnVec(7) := DontCare //////todo: add viq1
   rfstage.io.ctrl.in.fromVfpu := io.in.RFfromVFPU
   rfstage.io.data.in.fromPad.yyIcgScanEn := io.in.fromPad.yyIcgScanEn //////todo: check it
   rfstage.io.data.in.fromHad.iduWbBrValid := io.in.RFfromHad.iduWbBrValid
   rfstage.io.data.in.fromHad.iduWbBrData := io.in.RFfromHad.iduWbBrData
-  rfstage.io.data.in.fromLsu.dc.stAddrValid := io.in.fromLSU.RFfomLSU.dc_stAddrValid
-  rfstage.io.data.in.fromLsu.dc.stAddr1Valid := io.in.fromLSU.RFfomLSU.dc_stAddr1Valid
-  rfstage.io.data.in.fromLsu.dc.stAddrUnalign := io.in.fromLSU.RFfomLSU.dc_stAddrUnalign
-  rfstage.io.data.in.fromLsu.dc.sdiqEntry := io.in.fromLSU.RFfomLSU.dc_sdiqEntry
+  rfstage.io.data.in.fromLsu.dc.stAddrValid := io.in.fromLSU.RFfromLSU.dc_stAddrValid
+  rfstage.io.data.in.fromLsu.dc.stAddr1Valid := io.in.fromLSU.RFfromLSU.dc_stAddr1Valid
+  rfstage.io.data.in.fromLsu.dc.stAddrUnalign := io.in.fromLSU.RFfromLSU.dc_stAddrUnalign
+  rfstage.io.data.in.fromLsu.dc.sdiqEntry := io.in.fromLSU.RFfromLSU.dc_sdiqEntry
   rfstage.io.data.in.aiq0.issueEn := aiq0.io.out.xxIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueGateClkEn := aiq0.io.out.xxGateClkIssueEn //////todo: check it
   rfstage.io.data.in.aiq0.issueReadData := aiq0.io.out.data.issueData
@@ -984,4 +1082,7 @@ class IDU extends Module with Config {
   io.out.RFData.toBju := rfstage.io.data.out.toBju
   io.out.RFData.aluDstPregs := rfstage.io.data.out.aluDstPregs
   io.out.RFData.vfpuDstVregs := rfstage.io.data.out.vfpuDstVregs
+  io.out.RFData.toLsuPipe3  := rfstage.io.data.out.toLsuPipe3
+  io.out.RFData.toLsuPipe4  := rfstage.io.data.out.toLsuPipe4
+  io.out.RFData.toLsuPipe5  := rfstage.io.data.out.toLsuPipe5
 }

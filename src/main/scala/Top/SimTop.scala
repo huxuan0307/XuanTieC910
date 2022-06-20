@@ -4,16 +4,17 @@ import Core.GlobalConfig.RobFoldEnable
 import Core.IDU.IDU
 import Core.IFU.IFU
 import Core.IU.IntegeUnit
-import Core.LSU.LSU
-import Core.RTU.RtuTop
-import Core.{Config, ROBConfig}
+import Core.LSU.{BiuRamHelper, LSU}
+import Core.RTU.{RtuTop, ToRobPipeCtrlBundle}
+import Core.{Config, LsuConfig, ROBConfig}
 import chisel3.util.UIntToOH
 import chisel3._
 
-class SimTop extends Module with Config with ROBConfig {
+class SimTop extends Module with Config with ROBConfig with LsuConfig{
   val io = IO(new SimTopIO)
   val ifu = Module(new IFU)
   val idu = Module(new IDU)
+  val lsu = Module(new LSU)
   val iu = Module(new IntegeUnit)
   val rtu = Module(new RtuTop)
 
@@ -82,9 +83,9 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg := iu.io.iuToRtu.rbusRslt(1).wbPreg
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_vld := iu.io.iuToRtu.rbusRslt(1).wbPregVld
   idu.io.in.PRFfromIU.ex2_pipe1_wb_preg_data := iu.io.iuToRtu.rbusRslt(1).wbData
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := DontCare //////todo: from LSU??
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := DontCare //////todo: from LSU??
-  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := DontCare //////todo: from LSU??
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_vld := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld
+  idu.io.in.PRFfromIU.lsu_wb_pipe3_wb_preg_data := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_data
   idu.io.in.PRFfromRTUsub.yyXxDebugOn := rtu.io.out.yyXx.debugOn
 
   //IDU ignore other signals
@@ -102,12 +103,13 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.IRfromCp0Sub.dlbDisable := false.B
   idu.io.in.IQfromCp0sub := DontCare
   idu.io.in.RFfromIU.stall := DontCare //////todo: add signals
+  //TODO: Rename IQfromIUsub
   idu.io.in.IQfromIUsub.wbPreg(0).bits := iu.io.iuToRtu.rbusRslt(0).wbPreg //DontCare //////todo: check it, and compare with PRFfromIU
   idu.io.in.IQfromIUsub.wbPreg(1).bits := iu.io.iuToRtu.rbusRslt(1).wbPreg
-  idu.io.in.IQfromIUsub.wbPreg(2).bits := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(2).bits := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg
   idu.io.in.IQfromIUsub.wbPreg(0).valid := iu.io.iuToRtu.rbusRslt(0).wbPregVld
   idu.io.in.IQfromIUsub.wbPreg(1).valid := iu.io.iuToRtu.rbusRslt(1).wbPregVld
-  idu.io.in.IQfromIUsub.wbPreg(2).valid := DontCare //////todo: check it, from lsu?
+  idu.io.in.IQfromIUsub.wbPreg(2).valid := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld
   idu.io.in.RFfromHad := DontCare
   idu.io.in.RFfromVFPU := DontCare
   idu.io.in.RFfromCp0sub := DontCare
@@ -115,9 +117,144 @@ class SimTop extends Module with Config with ROBConfig {
   idu.io.in.fromHpcp := DontCare
   idu.io.in.fromCp0 := DontCare
   idu.io.in.fromPad := DontCare
-  idu.io.in.fromLSU := DontCare //////todo: add LSU
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_preg_dupx := lsu.io.out.ld_ag.toIDU.pipe3_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_load_inst_vld := lsu.io.out.ld_ag.toIDU.pipe3_load_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_vload_inst_vld := lsu.io.out.ld_ag.toIDU.pipe3_vload_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.ag_pipe3_vreg_dupx := lsu.io.out.ld_ag.toIDU.pipe3_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_preg_dupx := lsu.io.out.ld_dc.toIDU.pipe3_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vreg_dupx := lsu.io.out.ld_dc.toIDU.pipe3_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_load_inst_vld_dupx := lsu.io.out.ld_ag.toIDU.pipe3_load_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_load_fwd_inst_vld_dupx := lsu.io.out.ld_dc.toIDU.pipe3_load_fwd_inst_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vload_inst_vld_dupx := lsu.io.out.ld_dc.toIDU.pipe3_vload_inst_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.dc_pipe3_vload_fwd_inst_vld := lsu.io.out.ld_dc.toIDU.pipe3_vload_fwd_inst_vld
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_preg_vld_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_preg_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_vreg_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_vreg_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.wb_pipe3_wb_vreg_vld_dupx := lsu.io.out.ld_wb.toIDU.pipe3_wb_vreg_vld_dup(1)  //////todo: check it, dup is same
+  idu.io.in.fromLSU.ISfromLSU.vmb_create0_entry := 0.U(8.W) //////8'b0 in origin src
+  idu.io.in.fromLSU.ISfromLSU.vmb_create1_entry := 0.U(8.W) //////8'b0 in origin src
+
+  //////todo: idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.alreadyDaVec := lsu.io.out
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.alreadyDaVec        := lsu.io.out.ctrl.toIDU.alreadyDa.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  for(i <- 0 until LSIQ_ENTRY){
+    idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.breakpointDataVec(i).a := lsu.io.out.ctrl.toIDU.bkptaData(i)
+    idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.breakpointDataVec(i).b := lsu.io.out.ctrl.toIDU.bkptbData(i)
+  }
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.lqFullVec           := lsu.io.out.ctrl.toIDU.lqFull.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.lqNotFull           := lsu.io.out.lq.lsu_idu_lq_not_full
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.rbFullVec           := lsu.io.out.ctrl.toIDU.rbFull.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.rbNotFull           := lsu.io.out.rb.toIDU.lsu_idu_rb_not_full
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.sqFullVec           := lsu.io.out.ctrl.toIDU.sqFull.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.sqNotFull           := lsu.io.out.sq.toIDU.SqNotFull
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.popValidVec         := lsu.io.out.ctrl.toIDU.lsiqPopVld.bits
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.popEntryVec         := lsu.io.out.ctrl.toIDU.lsiqPopEntry.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.popValid            := lsu.io.out.ctrl.toIDU.lsiqPopVld.valid
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.noFence             := lsu.io.out.rb.toIDU.lsu_idu_no_fence
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.secd                := lsu.io.out.ctrl.toIDU.secd.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.specFail            := lsu.io.out.ctrl.toIDU.specFail.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.tlbBusyVec          := lsu.io.out.ctrl.toIDU.tlbBusy.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.tlbWakeUpVec        := lsu.io.out.ctrl.toIDU.tlbWakeup.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.waitFenceVec        := lsu.io.out.ctrl.toIDU.waitFence.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.waitOldVec          := lsu.io.out.ctrl.toIDU.waitOld.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.wakeUpVec           := lsu.io.out.ctrl.toIDU.wakeup.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.lqFullGateClkEn     := lsu.io.out.ctrl.toIDU.lqFullGateclkEn
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.rbFullGateClkEn     := lsu.io.out.ctrl.toIDU.rbFullGateclkEn
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.sqFullGateClkEn     := lsu.io.out.ctrl.toIDU.sqFullGateclkEn
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.tlbBusyGateClkEn    := lsu.io.out.ctrl.toIDU.tlbBusyGateclkEn
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.unalignGateClkEnVec := lsu.io.out.ctrl.toIDU.unalignGateclkEn.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.waitFenceGateClkEn  := lsu.io.out.ctrl.toIDU.waitFenceGateclkEn
+  idu.io.in.fromLSU.LSIQfromLSU.lsiqCtrl.waitOldGateClkEn    := lsu.io.out.ctrl.toIDU.waitOldGateclkEn
+
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.dc.sdiqEntryVec  := lsu.io.out.st_dc.toIdu.sdiqEntry.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.dc.stAddr1Valid  := lsu.io.out.st_dc.toIdu.staddr1Vld
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.dc.stAddrUnalign := lsu.io.out.st_dc.toIdu.staddrUnalign
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.dc.stAddrValid   := lsu.io.out.st_dc.toIdu.staddrVld
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.ex1.sdiqEntryVec := lsu.io.out.st_ex1.toIdu.sdiqEntry.asTypeOf(Vec(LSIQ_ENTRY, Bool()))
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.ex1.freezeClear  := lsu.io.out.st_ex1.toIdu.sdiqFrzClr
+  idu.io.in.fromLSU.SDIQfromLsu.sdiqCtrl.ex1.popValid     := lsu.io.out.st_ex1.toIdu.sdiqPopVld
+
+  idu.io.in.fromLSU.RFfromLSU.dc_stAddrUnalign := lsu.io.out.st_dc.toIdu.staddrUnalign
+  idu.io.in.fromLSU.RFfromLSU.dc_stAddrValid   := lsu.io.out.st_dc.toIdu.staddrVld
+  idu.io.in.fromLSU.RFfromLSU.dc_stAddr1Valid  := lsu.io.out.st_dc.toIdu.staddr1Vld
+  idu.io.in.fromLSU.RFfromLSU.dc_sdiqEntry     := lsu.io.out.st_dc.toIdu.sdiqEntry
+
+  idu.io.in.fromLSU.IQfromLSU.load.dcFwdInstValid := lsu.io.out.ld_dc.toIDU.pipe3_load_fwd_inst_vld_dup(1)
+  idu.io.in.fromLSU.aiq0fromLSUsub.loadPreg.valid := lsu.io.out.ld_ag.toIDU.pipe3_load_inst_vld
+  idu.io.in.fromLSU.aiq0fromLSUsub.loadPreg.bits  := lsu.io.out.ld_ag.toIDU.pipe3_preg_dup(1)
+
   idu.io.in.ISfromVFPU := DontCare
   idu.io.in.ISfromIUsub.pcfifo_dis_inst_pid := iu.io.bjuToIdu.alloPid
+
+
+  //LSU
+  val Biu_RamHelper = Module(new BiuRamHelper)
+  Biu_RamHelper.io.in.ar := lsu.io.out.bus_arb.toBiu.ar
+  Biu_RamHelper.io.in.st_aw := lsu.io.out.bus_arb.toBiu.st_aw
+  Biu_RamHelper.io.in.vict_aw := lsu.io.out.bus_arb.toBiu.vict_aw
+  Biu_RamHelper.io.in.st_w := lsu.io.out.bus_arb.toBiu.st_w
+  Biu_RamHelper.io.in.vict_w := lsu.io.out.bus_arb.toBiu.vict_w
+
+  lsu.io.in.fromCp0 := 0.U.asTypeOf(lsu.io.in.fromCp0) //////todo: add Cp0
+  lsu.io.in.fromCp0.lsu_dcache_en := true.B
+  lsu.io.in.fromPad := 0.U.asTypeOf(lsu.io.in.fromPad) //////todo: add Pad
+  lsu.io.in.fromMMU := 0.U.asTypeOf(lsu.io.in.fromMMU) //////todo: add MMU
+  lsu.io.in.fromMMU.ld_ag.buf0        := true.B
+  lsu.io.in.fromMMU.ld_ag.ca0         := true.B
+  lsu.io.in.fromMMU.ld_ag.pa0         := lsu.io.out.ld_ag.toMMU.va0(PA_WIDTH-1,12)
+  lsu.io.in.fromMMU.ld_ag.pa0_vld     := lsu.io.out.ld_ag.toMMU.va0_vld
+  lsu.io.in.fromMMU.ld_ag.page_fault0 := false.B
+  lsu.io.in.fromMMU.ld_ag.sec0        := false.B
+  lsu.io.in.fromMMU.ld_ag.sh0         := false.B //TODO: figure out
+  lsu.io.in.fromMMU.ld_ag.so0         := false.B
+  lsu.io.in.fromMMU.ld_ag.stall0      := false.B
+  lsu.io.in.fromMMU.st_ag.buf1        := true.B
+  lsu.io.in.fromMMU.st_ag.ca1         := true.B
+  lsu.io.in.fromMMU.st_ag.pa1         := lsu.io.out.st_ag.toMmu.va1(PA_WIDTH-1,12)
+  lsu.io.in.fromMMU.st_ag.pa1Vld      := lsu.io.out.st_ag.toMmu.va1Vld
+  lsu.io.in.fromMMU.st_ag.pageFault1  := false.B
+  lsu.io.in.fromMMU.st_ag.sec1        := false.B
+  lsu.io.in.fromMMU.st_ag.sh1         := false.B //TODO: figure out
+  lsu.io.in.fromMMU.st_ag.so1         := false.B
+  lsu.io.in.fromMMU.st_ag.stall1      := false.B
+  lsu.io.in.fromMMU.data_req_size := true.B
+  lsu.io.in.ld_wb.fromHad := 0.U.asTypeOf(lsu.io.in.ld_wb.fromHad) //////todo: add Had
+  lsu.io.in.ld_dc.fromHad := 0.U.asTypeOf(lsu.io.in.ld_dc.fromHad) //////todo: add Had
+  lsu.io.in.rb.fromBiu := 0.U.asTypeOf(lsu.io.in.rb.fromBiu) //////todo: add Biu
+  lsu.io.in.rb.fromBiu.b_id   := Biu_RamHelper.io.out.b.id
+  lsu.io.in.rb.fromBiu.b_vld  := Biu_RamHelper.io.out.b.vld
+  lsu.io.in.rb.fromBiu.r_data := Biu_RamHelper.io.out.r.data
+  lsu.io.in.rb.fromBiu.r_id   := Biu_RamHelper.io.out.r.id
+  lsu.io.in.rb.fromBiu.r_resp := Biu_RamHelper.io.out.r.resp
+  lsu.io.in.rb.fromBiu.r_vld  := Biu_RamHelper.io.out.r.vld
+  lsu.io.in.rb.fromBiu.r_last := Biu_RamHelper.io.out.r.last
+  lsu.io.in.wmb.fromBiu := 0.U.asTypeOf(lsu.io.in.wmb.fromBiu) //////todo: add Biu
+  lsu.io.in.wmb.fromBiu.b_resp := Biu_RamHelper.io.out.b.resp
+  lsu.io.in.bus_arb.fromBiu := 0.U.asTypeOf(lsu.io.in.bus_arb.fromBiu) //////todo: add Biu
+  lsu.io.in.bus_arb.fromBiu := Biu_RamHelper.io.out.BiuGrnt
+  lsu.io.in.ld_dc.fromHad := 0.U.asTypeOf(lsu.io.in.ld_dc.fromHad) //////todo: add Had
+  lsu.io.in.fromRTU.yy_xx_flush := rtu.io.out.yyXx.flush
+  lsu.io.in.fromRTU.yy_xx_commit := rtu.io.out.yyXx.commitIid.map(_.valid)
+  lsu.io.in.fromRTU.yy_xx_commit_iid := rtu.io.out.yyXx.commitIid.map(_.bits)
+  lsu.io.in.fromRTU.lsu_async_flush := rtu.io.out.toLsu.asyncFlush
+  lsu.io.in.fromRTU.commitIidUpdata := rtu.io.out.toLsu.commitIidUpdateVal
+  lsu.io.in.ctrl.rfPipeIn.ldPipeSel := idu.io.out.RFCtrl.toLu.sel
+  lsu.io.in.ctrl.rfPipeIn.ldPipGateSel := idu.io.out.RFCtrl.toLu.gateClkSel //////todo: check it, pipe3
+  lsu.io.in.ctrl.rfPipeIn.stPipeAddrSel := idu.io.out.RFCtrl.toSt.sel
+  lsu.io.in.ctrl.rfPipeIn.stPipeAddrGateSel := idu.io.out.RFCtrl.toSt.gateClkSel //////todo: check it, pipe4
+  lsu.io.in.ctrl.rfPipeIn.stPipeDataGateSel := idu.io.out.RFCtrl.toSd.gateClkSel //////todo: check it, pipe5
+  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(0) := idu.io.out.IStoLSU.vmb_create(0).gateclk_en
+  lsu.io.in.ctrl.idu_lsu_vmb_create_gateclk_enVec(1) := idu.io.out.IStoLSU.vmb_create(1).gateclk_en
+  lsu.io.in.ld_ag.pipe3.data      := idu.io.out.RFData.toLsuPipe3
+  lsu.io.in.ld_ag.pipe3.selCtrl   := idu.io.out.RFCtrl.toLu
+  lsu.io.in.st_ag.pipe4.data      := idu.io.out.RFData.toLsuPipe4
+  lsu.io.in.st_ag.pipe4.selCtrl   := idu.io.out.RFCtrl.toSt
+  lsu.io.in.sd_ex1.pipe5.data     := idu.io.out.RFData.toLsuPipe5
+  lsu.io.in.sd_ex1.pipe5.selCtrl  := idu.io.out.RFCtrl.toSd
+  dontTouch(lsu.io)
+
+
+
+
 
   //IU
   for (i <- 0 to 1) {
@@ -357,6 +494,30 @@ class SimTop extends Module with Config with ROBConfig {
   rtu.io.in.fromIdu.toPst.vregDeallocMaskOH := 0.U.asTypeOf(rtu.io.in.fromIdu.toPst.vregDeallocMaskOH) //////todo: add sdiq, idu.io.out.sdiq.....
   rtu.io.in.fromIdu.fenceIdle := 0.U.asTypeOf(rtu.io.in.fromIdu.fenceIdle) //////todo: find out
   rtu.io.in.fromLsu := 0.U.asTypeOf(rtu.io.in.fromLsu)
+  //TODO: LSU to RTU Bundle
+  rtu.io.in.fromLsu.wbPregData(0).valid := lsu.io.out.ld_wb.toRTU.pipe3_wb_preg_vld
+  rtu.io.in.fromLsu.wbPregData(0).bits  := lsu.io.out.ld_wb.toRTU.pipe3_wb_preg_expand.asTypeOf(rtu.io.in.fromLsu.wbPregData(0).bits)
+  rtu.io.in.fromLsu.wbVFregData.fregValid := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_fr_vld
+  rtu.io.in.fromLsu.wbVFregData.vregValid := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_vr_vld
+  rtu.io.in.fromLsu.wbVFregData.pregOH    := lsu.io.out.ld_wb.toRTU.pipe3_wb_vreg_expand.asTypeOf(rtu.io.in.fromLsu.wbVFregData.pregOH)
+  //TODO: pipe3 cmplt bundle
+  val rtu_pipe3_cmplt = WireInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  rtu_pipe3_cmplt.iid    := lsu.io.out.ld_wb.toRTU.pipe3_iid
+  rtu_pipe3_cmplt.cmplt  := lsu.io.out.ld_wb.toRTU.pipe3_cmplt
+  rtu_pipe3_cmplt.abnormal := lsu.io.out.ld_wb.toRTU.pipe3_abnormal
+  rtu_pipe3_cmplt.flush  := lsu.io.out.ld_wb.toRTU.pipe3_flush
+  val rtu_pipe3_cmplt_reg0 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  val rtu_pipe3_cmplt_reg1 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  val rtu_pipe3_cmplt_reg2 = RegInit(0.U.asTypeOf(Output(new ToRobPipeCtrlBundle)))
+  rtu_pipe3_cmplt_reg0 := rtu_pipe3_cmplt
+  rtu_pipe3_cmplt_reg1 := rtu_pipe3_cmplt_reg0
+  rtu_pipe3_cmplt_reg2 := rtu_pipe3_cmplt_reg1
+  rtu.io.in.fromLsu.pipeCtrlVec(0) := rtu_pipe3_cmplt_reg2
+  //TODO: pipe4 cmplt bundle
+  rtu.io.in.fromLsu.pipeCtrlVec(1).iid    := lsu.io.out.st_wb.toRTU.iid
+  rtu.io.in.fromLsu.pipeCtrlVec(1).cmplt  := lsu.io.out.st_wb.toRTU.cmplt
+  rtu.io.in.fromLsu.pipeCtrlVec(1).abnormal := lsu.io.out.st_wb.toRTU.abnormal
+  rtu.io.in.fromLsu.pipeCtrlVec(1).flush  := lsu.io.out.st_wb.toRTU.flush
   //  rtu.io.in.fromLsu.pipeCtrlVec := 0.U.asTypeOf(rtu.io.in.fromLsu.pipeCtrlVec)
   //  rtu.io.in.fromLsu.wbPregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbPregData)
   //  rtu.io.in.fromLsu.wbVFregData := 0.U.asTypeOf(rtu.io.in.fromLsu.wbVFregData)

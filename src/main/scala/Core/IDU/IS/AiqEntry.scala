@@ -33,6 +33,7 @@ class AiqEntryData extends Bundle with AiqConfig {
   val iid : UInt = UInt(InstructionIdWidth.W)
   // Replace opcode with inst
   val inst : UInt = UInt(InstBits.W)
+  val pc = UInt(15.W)
 }
 
 trait EntryHasDiv {
@@ -166,6 +167,7 @@ class AiqEntry extends Module with AiqConfig {
     data.vl             := create.data.vl
     data.special        := create.data.special
     data.launchPreg     := create.data.launchPreg
+    data.pc    := create.data.pc
   }
 
   io.out.valid                  := valid
@@ -190,6 +192,7 @@ class AiqEntry extends Module with AiqConfig {
   io.out.readData.vl            := data.vl
   io.out.readData.special       := data.special
   io.out.readData.launchPreg    := data.launchPreg
+  io.out.readData.pc := data.pc
 
   //==========================================================
   //              Source Dependency Information

@@ -4,7 +4,7 @@ import Core.GlobalConfig._
 import Core.IntConfig.{InstBits, NumLogicRegsBits, NumPhysicRegsBits}
 import Core.ROBConfig.NumCreateEntry
 import Core.IDU.IS.LsiqConfig.NumLsiqEntry
-import Core.IDU.IS.{BarType, LsiqEntryData}
+import Core.IDU.IS.{BarType, LsiqEntryData, SdiqEntryData}
 import chisel3._
 import chisel3.util._
 
@@ -192,7 +192,7 @@ class ISStageOutput extends Bundle{
     val create0_srcvm_rdy_for_bypass = Bool()
     val bar_inst_vld = Bool()
   }
-  val sdiq_create_data = Vec(2, new SDIQData)
+  val sdiq_create_data = Vec(2, new SdiqEntryData)
   val toViq0 = new Bundle{
     val bypass_data = new VIQData
     val create_data = Vec(2, new VIQData)
@@ -1173,6 +1173,7 @@ class ISStage extends Module{
     io.out.toAiq0.create_data(i).src_vld  := aiq0_create_data(i).src_vld
     io.out.toAiq0.create_data(i).IID      := aiq0_create_iid(i)
     io.out.toAiq0.create_data(i).OPCODE   := aiq0_create_data(i).opcode
+    io.out.toAiq0.create_data(i).PC       := aiq0_create_data(i).LSU_PC
   }
 
   io.out.toAiq0.bypass_data.VL           := aiq0_create_data(0).VL
@@ -1214,6 +1215,7 @@ class ISStage extends Module{
   io.out.toAiq0.bypass_data.src_vld  := aiq0_create_data(0).src_vld
   io.out.toAiq0.bypass_data.IID      := aiq0_create_iid(0)
   io.out.toAiq0.bypass_data.OPCODE   := aiq0_create_data(0).opcode
+  io.out.toAiq0.bypass_data.PC       := aiq0_create_data(0).LSU_PC
 
   io.out.toAiq0.src_rdy_for_bypass(0) := aiq0_create_data(0).src0_bp_rdy(1)
   io.out.toAiq0.src_rdy_for_bypass(1) := aiq0_create_data(0).src1_bp_rdy(1)
@@ -1601,17 +1603,24 @@ class ISStage extends Module{
     dp_sdiq_create_sti_sel(i) := !sdiq_create_data(i).STR
     io.out.toAiq.sdiq_create_src_sel(i) := dp_sdiq_create_sti_sel(i)
 
-    io.out.sdiq_create_data(i).LOAD            := sdiq_create_data(i).LOAD
-    io.out.sdiq_create_data(i).STADDR1_IN_STQ  := 0.U
-    io.out.sdiq_create_data(i).STADDR0_IN_STQ  := 0.U
-    io.out.sdiq_create_data(i).STDATA1_VLD     := 0.U
-    io.out.sdiq_create_data(i).UNALIGN         := 0.U
-    io.out.sdiq_create_data(i).SRCV0_LSU_MATCH := sdiq_create_data(i).srcv2_lsu_match
-    io.out.sdiq_create_data(i).SRCV0_DATA      := sdiq_create_data(i).srcv2_data.asUInt(8,0).asTypeOf(new srcData9)
-    io.out.sdiq_create_data(i).SRC0_LSU_MATCH  := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_lsu_match, sdiq_create_data(i).src2_lsu_match)
-    io.out.sdiq_create_data(i).SRC0_DATA       := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_data, sdiq_create_data(i).src2_data.asUInt(8,0).asTypeOf(new srcData9))
-    io.out.sdiq_create_data(i).SRCV0_VLD       := sdiq_create_data(i).srcv_vld(2)
-    io.out.sdiq_create_data(i).SRC0_VLD        := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src_vld(1), sdiq_create_data(i).src_vld(2))
+    io.out.sdiq_create_data(i).load            := sdiq_create_data(i).LOAD
+    io.out.sdiq_create_data(i).stAddr1InStq  := 0.U
+    io.out.sdiq_create_data(i).stAddr0InStq  := 0.U
+    io.out.sdiq_create_data(i).stData1Valid     := 0.U
+    io.out.sdiq_create_data(i).unalign         := 0.U
+    io.out.sdiq_create_data(i).srcV0.lsuMatch := sdiq_create_data(i).srcv2_lsu_match
+    io.out.sdiq_create_data(i).srcV0.preg     := sdiq_create_data(i).srcv2_data.preg
+    io.out.sdiq_create_data(i).srcV0.wb     := sdiq_create_data(i).srcv2_data.wb
+    io.out.sdiq_create_data(i).srcV0.ready     := sdiq_create_data(i).srcv2_data.rdy
+
+    io.out.sdiq_create_data(i).src0.lsuMatch := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_lsu_match, sdiq_create_data(i).src2_lsu_match)
+    io.out.sdiq_create_data(i).src0.ready    := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_data.rdy, sdiq_create_data(i).src2_data.rdy)
+    io.out.sdiq_create_data(i).src0.wb       := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_data.wb, sdiq_create_data(i).src2_data.wb)
+    io.out.sdiq_create_data(i).src0.preg     := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src1_data.preg, sdiq_create_data(i).src2_data.preg)
+
+
+    io.out.sdiq_create_data(i).srcV0Valid       := sdiq_create_data(i).srcv_vld(2)
+    io.out.sdiq_create_data(i).src0Valid        := Mux(dp_sdiq_create_sti_sel(i), sdiq_create_data(i).src_vld(1), sdiq_create_data(i).src_vld(2))
   }
 
   //----------------------------------------------------------
