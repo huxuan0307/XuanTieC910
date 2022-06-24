@@ -567,7 +567,7 @@ class LoadAG extends Module with LsuConfig{
   //==========================================================
   val ld_ag_pa = Cat(ld_ag_pn, ld_ag_va(11,0))
   io.out.toDC.pa := ld_ag_pa
-
+  dontTouch(ld_ag_pa)
   //grs inst use va, rather than pa
   val ld_ag_addr0 = ld_ag_pa
 

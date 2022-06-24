@@ -691,6 +691,7 @@ class LoadDA extends Module with LsuConfig{
   ld_da_data256_way(0) := ld_da_dcache_data_bank.asUInt
   ld_da_data256_way(1) := Cat(ld_da_dcache_data_bank.asUInt(127,0), ld_da_dcache_data_bank.asUInt(255,128))
 
+  dontTouch(ld_da_data256_way)
   io.out.ld_da_data256 := Mux(borrow_data.settle_way, ld_da_data256_way(1), ld_da_data256_way(0))
 
   //------------------cache data settle-----------------------
