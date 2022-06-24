@@ -120,13 +120,13 @@ class StAgToIdu extends Bundle with LsuConfig{
   val waitOldGateclkEn = Bool()
 }
 class StAgToMmu extends Bundle with LsuConfig{
- val abort1    = Bool()
- val id1       = UInt(IidWidth.W)
- val stInst1   = Bool()
- val stamoPa   = UInt(ADDR_PA_WIDTH.W)
- val stamoVld  = Bool()
- val va1       = UInt(64.W) // todo va? virtual addr? 39?
- val va1Vld    = Bool()
+  val abort1    = Bool()
+  val id1       = UInt(IidWidth.W)
+  val stInst1   = Bool()
+  val stamoPa   = UInt(ADDR_PA_WIDTH.W)
+  val stamoVld  = Bool()
+  val va1       = UInt(64.W) // todo va? virtual addr? 39?
+  val va1Vld    = Bool()
 }
 class StAgToDc extends Bundle with LsuConfig{
   val alreadyDa               = Bool()
@@ -444,7 +444,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //0 means 4k
   //1 means 2M
   //2 means don't care
-  val st_ag_page_so = Mux(st_ag_stamo_inst,io.in.lmIn.pageCa,(io.in.mmuIn.ca1 && io.in.mmuIn.pa1Vld))
+  val st_ag_page_so = Mux(st_ag_stamo_inst,io.in.lmIn.pageSo,(io.in.mmuIn.so1 && io.in.mmuIn.pa1Vld))
   val st_ag_page_ca = Mux(st_ag_stamo_inst,io.in.lmIn.pageCa,io.in.mmuIn.ca1 && io.in.mmuIn.pa1Vld)  //TODO ca means can access?
   val st_ag_page_wa = st_ag_page_ca && io.in.cp0In.wa // TODO wa means wrong access?
   val st_ag_page_buf = Mux(st_ag_stamo_inst,io.in.lmIn.pageSec,io.in.mmuIn.sh1) // buffer store second page
@@ -500,6 +500,8 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   }
   val st_ag_inst_vls = false.B  //TODO  st_ag_inst_vls = 1'b0
   val st_ag_expt_misalign_no_page   = st_ag_unalign && (st_ag_st_inst && !io.in.cp0In.mm || ag_pipe.atomic || st_ag_inst_vls)
+
+  // todo st_ag_unalign   is high
   io.out.toDc.exptMisalignNoPage   := st_ag_expt_misalign_no_page
   val st_ag_expt_misalign_with_page = st_ag_unalign_so && st_ag_page_so && io.in.mmuIn.pa1Vld && st_ag_st_inst
   io.out.toDc.exptMisalignWithPage := st_ag_expt_misalign_with_page
@@ -553,10 +555,10 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   val st_ag_atomic_no_cmit_restart_arb = st_ag_atomic_no_cmit_restart_req
   //-----------generate total siangl--------------------------
   // &Force("output","st_ag_stall_ori"); @1160
-  val st_ag_stall_ori = (st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || ag_pipe.mmuReq) && !st_ag_atomic_no_cmit_restart_req
+  val st_ag_stall_ori = (st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || io.in.mmuIn.stall1) && !st_ag_atomic_no_cmit_restart_req
   st_ag_stall_vld := st_ag_stall_ori && !st_ag_stall_mask
-  val st_ag_stall_restart = st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || ag_pipe.mmuReq || st_ag_atomic_no_cmit_restart_req
-  val iid_is_old = Wire(Bool())// TODO add iid compare
+  val st_ag_stall_restart = st_ag_cross_page_str_imme_stall_req || st_ag_dcache_stall_req || io.in.mmuIn.stall1 || st_ag_atomic_no_cmit_restart_req
+  val iid_is_old = Wire(Bool())
   val st_ag_iid_compare = Module(new CompareIid)
   st_ag_iid_compare.io.iid0 := io.in.pipe4.data.iid
   st_ag_iid_compare.io.iid1 := ag_pipe.iid
@@ -570,7 +572,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //-----------lsiq signal----------------
   val st_ag_mask_lsid = Mux(st_ag_inst_vld,ag_pipe.lchEntry,0.U(LSIQ_ENTRY.W))
   io.out.toIdu.waitOldGateclkEn := st_ag_atomic_no_cmit_restart_arb
-  io.out.toIdu.waitOld          := Mux(st_ag_inst_vld,ag_pipe.lchEntry,0.U(LSIQ_ENTRY.W))
+  io.out.toIdu.waitOld          := Mux(st_ag_atomic_no_cmit_restart_arb,st_ag_mask_lsid,0.U(LSIQ_ENTRY.W))
   //==========================================================
   //        Generage to DC stage signal
   //==========================================================

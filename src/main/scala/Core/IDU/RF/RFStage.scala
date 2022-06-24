@@ -1498,7 +1498,7 @@ class RFStage extends Module with RFStageConfig {
   private val pipe4SrcNoReadyVec = Wire(Vec(LsiqConfig.NumSrcLs, Bool()))
   pipe4SrcNoReadyVec(0) := lsiq1ReadData.srcValid(0) && !lsiq1ReadData.srcVec(0).wb // Todo: && !fwd
   pipe4SrcNoReadyVec(1) := lsiq1ReadData.srcValid(1) && !lsiq1ReadData.srcVec(1).wb // Todo: && !fwd
-  pipe4SrcNoReadyVec(2) := true.B // Todo: v-ext
+  pipe4SrcNoReadyVec(2) := false.B // Todo: v-ext
 
   //----------------------------------------------------------
   //                 Source Not Ready Signal
