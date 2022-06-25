@@ -344,7 +344,7 @@ class RFStageToLsuPipe4Bundle extends Bundle with RFStageConfig with LsuConfig w
   val offset         = UInt(OFFSET_WIDTH.W)
   val offsetPlus     = UInt((OFFSET_WIDTH+1).W)
   val oldest         = Bool()
-  val pc             = Bool()
+  val pc             = UInt(15.W)
   val sdiqEntry      = UInt(LSIQ_ENTRY.W)
   val shift          = UInt(SHITF_WIDTH.W)
   val specFail       = Bool()
