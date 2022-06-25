@@ -429,8 +429,8 @@ class IDU extends Module with Config {
   iq_create_entry.aiq1_aiq := aiq1.io.out.entryEnqOHVec
   iq_create_entry.biq_aiq := biq.io.out.entryEnqOHVec
   iq_create_entry.lsiq_aiq := lsiq.io.out.entryEnqOHVec
-  iq_create_entry.sdiq_aiq := DontCare
-  iq_create_entry.sdiq_dp := DontCare
+  iq_create_entry.sdiq_aiq := sdiq.io.out.data.createEntry
+  iq_create_entry.sdiq_dp := sdiq.io.out.data.createEntry
   iq_create_entry.viq0_viq := DontCare
   iq_create_entry.viq1_viq := DontCare
 
@@ -1031,7 +1031,10 @@ class IDU extends Module with Config {
   rfstage.io.data.in.lsiq1.issueGateClkEn := lsiq.io.out.gateClkIssueEn
   rfstage.io.data.in.lsiq1.issueReadData := lsiq.io.out.data.issueReadData(1)
   rfstage.io.data.in.lsiq1.issueEntryOH := lsiq.io.out.data.issueEntryVec(1).asTypeOf(rfstage.io.data.in.lsiq1.issueEntryOH)
-  rfstage.io.data.in.sdiq := DontCare //////todo: add sdiq
+  rfstage.io.data.in.sdiq.issueEn        := sdiq.io.out.issueEn
+  rfstage.io.data.in.sdiq.issueGateClkEn := sdiq.io.out.gateClkIssueEn
+  rfstage.io.data.in.sdiq.issueReadData  := sdiq.io.out.data.issueReadData
+  rfstage.io.data.in.sdiq.issueEntryOH   := sdiq.io.out.data.issueEntry
   rfstage.io.data.in.vfiq0 := DontCare
   rfstage.io.data.in.vfiq1 := DontCare
   rfstage.io.data.r <> prf.io.r//DontCare

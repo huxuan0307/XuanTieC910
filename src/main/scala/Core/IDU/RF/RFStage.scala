@@ -341,8 +341,8 @@ class RFStageToLsuPipe4Bundle extends Bundle with RFStageConfig with LsuConfig w
   val mmuReq         = Bool()
   val noSpec         = Bool()
   val off0Extend     = Bool()
-  val offset         = UInt(OFFSET_WIDTH.W)
-  val offsetPlus     = UInt((OFFSET_WIDTH+1).W)
+  val offset         = UInt(12.W)
+  val offsetPlus     = UInt(13.W)
   val oldest         = Bool()
   val pc             = UInt(15.W)
   val sdiqEntry      = UInt(LSIQ_ENTRY.W)
@@ -1715,6 +1715,23 @@ class RFStage extends Module with RFStageConfig {
     fwdSrcPregs(readPortMap((0, 2))) := aiq0_data.issueReadData.srcVec(2).preg
   }.elsewhen(rfPipe3PrfSrcPregUpdateVldVec(1)) {
     fwdSrcPregs(readPortMap((3, 1))) := lsiq0_data.issueReadData.srcVec(1).preg
+  }
+
+  //pipe4
+  private val rfPipe4PrfSrcPregUpdateVldVec = Wire(Vec(NumSrcLsX, Bool()))
+  rfPipe4PrfSrcPregUpdateVldVec.foreach(_ := pipeIssueEn(4))
+
+  when(rfPipe4PrfSrcPregUpdateVldVec(0)) {
+    prfSrcPregs(readPortMap((4, 0))) := lsiq1_data.issueReadData.srcVec(0).preg
+  }
+  when(rfPipe4PrfSrcPregUpdateVldVec(1)) {
+    prfSrcPregs(readPortMap((4, 1))) := lsiq1_data.issueReadData.srcVec(1).preg
+  }
+
+  //pipe5
+  private val rfPipe5PrfSrcPregUpdateVldVec = pipeIssueEn(5)
+  when(rfPipe5PrfSrcPregUpdateVldVec) {
+    prfSrcPregs(readPortMap((5, 0))) := sdiq_data.issueReadData.src0.preg
   }
 
   // Todo: output

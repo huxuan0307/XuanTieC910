@@ -275,7 +275,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   when(st_ag_cross_page_str_imme_stall_arb){
     st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str){
-    st_ag_offset_h := Cat(Fill(XLEN/2, io.in.pipe4.data.shift(SHITF_WIDTH-1)))
+    st_ag_offset_h := Cat(Fill(XLEN/2, io.in.pipe4.data.offset(11)))
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld && !st_rf_inst_str && st_rf_off_0_extend){
     st_ag_offset_h := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
@@ -286,7 +286,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   }.elsewhen(st_ag_cross_page_str_imme_stall_arb){
     st_ag_offset_l := 0.U(32.W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld  &&  !st_rf_inst_str){
-    st_ag_offset_l := sext(XLEN/2,io.in.pipe4.data.shift)
+    st_ag_offset_l := sext(XLEN/2,io.in.pipe4.data.offset)
   }.elsewhen(!st_ag_stall_vld && st_rf_inst_vld){
     st_ag_offset_l := io.in.pipe4.data.src1(XLEN/2-1,0)
   }
@@ -295,9 +295,9 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //| offset_plus |
   //+-------------+
   //use this imm as offset when the ld/st inst need split and !secd
-  val st_ag_offset_plus = RegInit(0.U((OFFSET_WIDTH+1).W))
+  val st_ag_offset_plus = RegInit(0.U(13.W))
   when(st_ag_cross_page_str_imme_stall_arb){
-    st_ag_offset_plus := 0.U((OFFSET_WIDTH+1).W)
+    st_ag_offset_plus := 0.U(13.W)
   }.elsewhen(!st_ag_stall_vld &&  st_rf_inst_vld){
     st_ag_offset_plus := io.in.pipe4.data.offsetPlus
   }
@@ -326,7 +326,7 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   val st_ag_va_plus           = st_ag_base  + sext(XLEN,st_ag_offset_plus)
   val st_ag_va_plus_sel       = st_ag_secd  && !ag_pipe.instStr
   val st_ag_va                = Mux(st_ag_va_plus_sel, st_ag_va_plus,st_ag_va_ori)
-  io.out.toDc.vpn            := st_ag_va(PA_WIDTH-1,OFFSET_WIDTH)
+  io.out.toDc.vpn            := st_ag_va(PA_WIDTH-1,12)
   //==========================================================
   //        Generate inst type
   //========================================================== TODO rename "bXX".U
@@ -461,13 +461,18 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //==========================================================
   //        Generate physical address
   //==========================================================
-  val st_ag_pa    = Cat(st_ag_pn(PA_WIDTH-13,0), st_ag_va(OFFSET_WIDTH-1,0))
+  val st_ag_pa    = Cat(st_ag_pn(PA_WIDTH-13,0), st_ag_va(11,0))
   val st_ag_va_am = Mux(ag_pipe.syncFence||st_ag_tlbi_all_inst||st_ag_dcache_all_inst||st_ag_icache_all_inst||st_ag_l2cache_inst
     ,0.U(PA_WIDTH.W)
     ,st_ag_va  )
-  val st_ag_addr =  Mux(ag_pipe.mmuReq || st_ag_stamo_inst
+  val st_ag_addr_ppn =  Mux(ag_pipe.mmuReq || st_ag_stamo_inst
     ,st_ag_pn
-    ,st_ag_va_am(PA_WIDTH-1,OFFSET_WIDTH))
+    ,st_ag_va_am(PA_WIDTH-1,12))
+
+  val st_ag_addr_offset = Mux(st_ag_tlbi_inst, 0.U(12.W), st_ag_va_am(11,0))
+
+  val st_ag_addr = Cat(st_ag_addr_ppn, st_ag_addr_offset)
+
   //==========================================================
   //        Generage dcache request information
   //==========================================================
@@ -532,12 +537,12 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   //for timing, if there is a carry adding last 12 bits, or there is '1' in high
   //bits, it will stall
   //---------------------cross 4k-----------------------------
-  val st_ag_4k_sum_ori = Cat(0.U(1.W),st_ag_base(OFFSET_WIDTH,0)) + Cat(st_ag_offset(XLEN-1),st_ag_offset_aftershift(OFFSET_WIDTH,0))
-  val st_ag_off_high_bits_all_0_ori = !(st_ag_offset_aftershift(XLEN-1,OFFSET_WIDTH).orR)
-  val st_ag_off_high_bits_all_1_ori = st_ag_offset_aftershift(XLEN-1,OFFSET_WIDTH).andR
+  val st_ag_4k_sum_ori = Cat(0.U(1.W),st_ag_base(11,0)) + Cat(st_ag_offset(XLEN-1),st_ag_offset_aftershift(11,0))
+  val st_ag_off_high_bits_all_0_ori = !(st_ag_offset_aftershift(XLEN-1,12).orR)
+  val st_ag_off_high_bits_all_1_ori = st_ag_offset_aftershift(XLEN-1,12).andR
   val st_ag_off_high_bits_not_eq = !st_ag_off_high_bits_all_0_ori && !st_ag_off_high_bits_all_1_ori
-  val st_ag_4k_sum_plus = Cat(0.U(1.W), st_ag_base(OFFSET_WIDTH-1,0)) + st_ag_offset_plus(OFFSET_WIDTH,0)
-  val st_ag_4k_sum_12 = Mux(st_ag_va_plus_sel ,st_ag_4k_sum_plus(OFFSET_WIDTH) ,st_ag_4k_sum_ori(OFFSET_WIDTH) )
+  val st_ag_4k_sum_plus = Cat(0.U(1.W), st_ag_base(11,0)) + st_ag_offset_plus(12,0)
+  val st_ag_4k_sum_12 = Mux(st_ag_va_plus_sel ,st_ag_4k_sum_plus(12) ,st_ag_4k_sum_ori(12) )
   val st_ag_cross_4k = st_ag_4k_sum_12 || st_ag_off_high_bits_not_eq
   //only str will trigger secd stall, and will stall at the first split
   val st_ag_boundary_stall = ag_pipe.instStr && st_ag_secd

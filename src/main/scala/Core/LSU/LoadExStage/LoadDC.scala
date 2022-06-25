@@ -451,7 +451,7 @@ class LoadDC extends Module with LsuConfig{
   val ld_dc_va_offset = Mux(ld_dc_data.boundary && !ld_dc_data.secd && !ld_dc_expt_misalign_no_page, Cat(ld_dc_addr0(11,4), 0.U(4.W)), ld_dc_addr0(11,0))
   val ld_dc_va = Cat(ld_dc_data.vpn, ld_dc_va_offset)
 
-  val ld_dc_addr1_11to4 = ld_dc_data.addr1_tto4
+  val ld_dc_addr1_11to4 = ld_dc_data.addr1_tto4(7,0)
   io.out.ld_dc_addr1_11to4 := ld_dc_addr1_11to4
   // for preload addr check
   val ld_dc_pfu_va_11to4 = Mux(ld_dc_data.boundary && !ld_dc_data.secd, ld_dc_addr1_11to4, ld_dc_addr0(11,4))
@@ -525,7 +525,7 @@ class LoadDC extends Module with LsuConfig{
 
   io.out.toLQ.create1_gateclk_en := io.out.toLQ.create_gateclk_en && ld_dc_data.acclr_en
 
-  val ld_dc_addr1 = Cat(ld_dc_addr0,ld_dc_addr1_11to4,0.U(4.W))
+  val ld_dc_addr1 = Cat(ld_dc_addr0(PA_WIDTH-1,12),ld_dc_addr1_11to4,0.U(4.W))
   io.out.ld_dc_addr1 := ld_dc_addr1
 
   //==========================================================
