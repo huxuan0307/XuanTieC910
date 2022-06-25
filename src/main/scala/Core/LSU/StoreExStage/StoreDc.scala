@@ -476,9 +476,9 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   //==========================================================
   //                 Forward to st_data
   //==========================================================
-  io.out.toIdu.staddr1Vld    := (st_dc_sq_create_dp_vld && !io.in.sqIn.full || st_dc_inst_vld && st_dc_vector_nop  && !st_dc_utlb_miss_vld) && !st_dc_already_da &&  st_dc_staddr
+  io.out.toIdu.staddrVld    := (st_dc_sq_create_dp_vld && !io.in.sqIn.full || st_dc_inst_vld && st_dc_vector_nop  && !st_dc_utlb_miss_vld) && !st_dc_already_da &&  st_dc_staddr
   io.out.toIdu.staddrUnalign := st_dc_boundary_first
-  io.out.toIdu.staddrVld     := st_dc_secd
+  io.out.toIdu.staddr1Vld     := st_dc_secd
   io.out.toIdu.sdiqEntry     := st_dc_sdid_oh
   //==========================================================
   //        Generage to DA stage signal
