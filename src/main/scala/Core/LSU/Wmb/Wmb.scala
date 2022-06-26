@@ -779,7 +779,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   //==========================================================
   //------------------grnt signal-----------------------------
   val wmb_create_not_vld = Wire(Vec(WMB_ENTRY, Bool()))
-  wmb_create_not_vld := wmb_create_ptr.zip(wmb_entry_out).map(x => x._1 && x._2.vld)
+  wmb_create_not_vld := wmb_create_ptr.zip(wmb_entry_out).map(x => x._1 && !x._2.vld)
 
   val wmb_create_permit = wmb_create_not_vld.asUInt.orR
 

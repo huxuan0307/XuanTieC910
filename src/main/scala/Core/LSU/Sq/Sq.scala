@@ -677,7 +677,7 @@ class Sq extends Module with LsuConfig{
   }
   val sq_pop_to_ce_req_unmask = sq_pop_req_unmask && (!sq_pop_dcache_all_inst || sq_req_icc_success && io.in.iccIn.idle)
   //because change mechanism, cache miss atomic can write, so must wait for hit_idx
-  val sq_pop_to_ce_req = sq_pop_to_ce_req_unmask  && io.in.rtuIn.flush
+  val sq_pop_to_ce_req = sq_pop_to_ce_req_unmask  && !io.in.rtuIn.flush
   val sq_pop_merge_data_req_unmask = sq_pop_req_unmask && io.out.toWmb.ce.popWoSt
   //------------------pop grnt--------------------------------
   val sq_entry_pop_to_ce_grnt   = Cat(Seq.fill(LSIQ_ENTRY)(io.in.wmbIn.popToCeGrnt))  & VecInit(sq_entry_pop_req).asUInt
@@ -775,7 +775,7 @@ class Sq extends Module with LsuConfig{
       entry.io.in.sqIn.dataDiscardGrntX      := sq_entry_data_discard_grnt(i).asBool
       entry.io.in.sqIn.fwdMultiDepdSetX      := sq_entry_fwd_multi_depd_set(i).asBool
       entry.io.in.sqIn.popToCeGrntB          := sq_entry_pop_to_ce_grnt_b
-      entry.io.in.sqIn.popToCeGrntX          := sq_entry_pop_to_ce_grnt(i)
+      entry.io.in.sqIn.popToCeGrntX          := sq_entry_pop_to_ce_grnt(i).asBool
       entry.io.in.sqIn.popPtrX               := io.out.toWmb.ce.popPtr(i).asBool
   }
 }
