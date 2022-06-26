@@ -497,6 +497,7 @@ class SqEntry extends Module with LsuConfig {
   io.out.ageVecSurplus1Ptr_x := sq_entry_vld && (!sq_entry_in_wmb_ce) && sq_entry_age_vec_less2
   //---------------------pop req------------------------------
   io.out.popReq_x := sq_pop_ptr && sq_entry_vld && sq_entry_cmit && sq_entry_data_vld && sq_entry_no_restart && !sq_entry_in_wmb_ce
+  dontTouch(io.out.popReq_x)
   //==========================================================
   //                 Dependency check
   //==========================================================
