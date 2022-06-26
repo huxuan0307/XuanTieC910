@@ -385,7 +385,7 @@ class Sq extends Module with LsuConfig{
   //            Settle data to memory mode
   //==========================================================
   //------------------settle data to register mode------------
-  val sq_settle_rot_sel = sq_settle_rot_sel_vec.reduce(_ & _)
+  val sq_settle_rot_sel = sq_settle_rot_sel_vec.reduce(_ | _)
   val rot_mem_format = Module(new RotData128)
   rot_mem_format.io.dataIn := io.in.sdEx1In.sd_ex1_data
   rot_mem_format.io.rotSel := sq_settle_rot_sel
