@@ -776,6 +776,6 @@ class Sq extends Module with LsuConfig{
       entry.io.in.sqIn.fwdMultiDepdSetX      := sq_entry_fwd_multi_depd_set(i).asBool
       entry.io.in.sqIn.popToCeGrntB          := sq_entry_pop_to_ce_grnt_b
       entry.io.in.sqIn.popToCeGrntX          := sq_entry_pop_to_ce_grnt(i)
-      entry.io.in.sqIn.popPtrX               := io.out.toWmb.ce.popPtr(i)
+      entry.io.in.sqIn.popPtrX               := io.out.toWmb.ce.popPtr(i).asBool
   }
 }
