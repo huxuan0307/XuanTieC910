@@ -790,14 +790,14 @@ class LSU extends Module {
   sq.io.in.sdEx1In.toSqEntry.ex1InstVld := storeex1.io.out.sdEx1InstVld
   sq.io.in.sdEx1In.toSqEntry.rfEx1Sdid := storeex1.io.out.rfEx1Sdid
   sq.io.in.sdEx1In.toSqEntry.rfInstVldShort := storeex1.io.out.rfInstVldShort
-  sq.io.in.daIn.bkptaData := storeda.io.out.bkptaData
-  sq.io.in.daIn.bkptbData := storeda.io.out.bkptbData
-  sq.io.in.daIn.iid := storeda.io.out.iid
-  sq.io.in.daIn.instVld := storeda.io.out.instVld
-  sq.io.in.daIn.stDaIn := storeda.io.out.toSq //////todo: check it, sqDcacheDirty, not snqDcacheDirty, not all need
-  sq.io.in.daIn.addr := 0.U.asTypeOf(sq.io.in.daIn.addr) //////todo: check it, not need?
-  sq.io.in.dcIn.sqda := storedc.io.out.toDa.toSqDa //////todo: not all need
-  sq.io.in.dcIn.sq := storedc.io.out.toSq
+  sq.io.in.stDaIn.bkptaData := storeda.io.out.bkptaData
+  sq.io.in.stDaIn.bkptbData := storeda.io.out.bkptbData
+  sq.io.in.stDaIn.iid := storeda.io.out.iid
+  sq.io.in.stDaIn.instVld := storeda.io.out.instVld
+  sq.io.in.stDaIn.stDaIn := storeda.io.out.toSq //////todo: check it, sqDcacheDirty, not snqDcacheDirty, not all need
+  sq.io.in.stDaIn.addr := 0.U.asTypeOf(sq.io.in.stDaIn.addr) //////todo: check it, not need?
+  sq.io.in.stDcIn.sqda := storedc.io.out.toDa.toSqDa //////todo: not all need
+  sq.io.in.stDcIn.sq := storedc.io.out.toSq
   sq.io.in.wmbIn.addr := wmbce.io.out.toWmb.addr
   //////todo: can not find some signal wmbin, bkptab, data128,...
   sq.io.in.wmbIn.dcacheSwInst := wmbce.io.out.toWmb.dcache_sw_inst

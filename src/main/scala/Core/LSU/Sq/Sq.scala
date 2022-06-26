@@ -53,8 +53,8 @@ class SqIn extends Bundle with LsuConfig{
   val ldDaIn   = new LdDaToSqEntry
   val rbIn     = new RbToSq
   val rtuIn    = new RtuToSqEntry
-  val daIn     = new StDaToSqTotal
-  val dcIn     = new StDcToSqTotal
+  val stDaIn     = new StDaToSqTotal
+  val stDcIn     = new StDcToSqTotal
   val wmbIn    = new WmbToSq
 }
 //==========================================================
@@ -156,9 +156,9 @@ class Sq extends Module with LsuConfig{
   //                 Instance of Gated Cell
   //==========================================================
   val sq_pop_depd_ff = RegInit(false.B)
-  val sq_clk_en = !io.out.toCtrl.empty || io.in.dcIn.sq.sqCreateGateclkEn || sq_pop_depd_ff
+  val sq_clk_en = !io.out.toCtrl.empty ||  io.in.stDcIn.sq.sqCreateGateclkEn || sq_pop_depd_ff
   val sq_pop_req_unmask = Wire(Bool())
-  val sq_create_pop_clk_en = io.in.dcIn.sq.sqCreateGateclkEn || sq_pop_req_unmask
+  val sq_create_pop_clk_en =  io.in.stDcIn.sq.sqCreateGateclkEn || sq_pop_req_unmask
   val sq_wakeup_queue_clk_en = io.in.ldDaIn.sqGlobalDiscardVld || sq_pop_depd_ff || io.in.rtuIn.flush
   val sq_newest_fwd_req_data_vld_short = Wire(Bool())
   val sq_fwd_data_pe_clk_en = sq_newest_fwd_req_data_vld_short
@@ -174,8 +174,8 @@ class Sq extends Module with LsuConfig{
   entries.zipWithIndex.foreach{
     case(entry, i) =>
       // binded io, dispatch from input
-      entry.io.in.dcIn         := io.in.dcIn
-      entry.io.in.daIn         := io.in.daIn
+      entry.io.in.stDcIn       := io.in.stDcIn
+      entry.io.in.stDaIn       := io.in.stDaIn
       entry.io.in.cp0In        := io.in.cp0In
       entry.io.in.dcacheIn     := io.in.dcacheIn
       entry.io.in.sdEx1In      := io.in.sdEx1In.toSqEntry
@@ -349,33 +349,28 @@ class Sq extends Module with LsuConfig{
   //------------------create ptr------------------------------
   //ptr 0 find empty entry from No.0
   val sq_create_ptr = Wire(UInt(LSIQ_ENTRY.W))
-  val create_ptr_idx = PriorityEncoder((~((sq_entry_vld).asUInt)).asUInt) //sq_entry_vld.takeWhile(_ == false.B).length // todo  use  PriorityEncoderOH
+  val create_ptr_idx = PriorityEncoder((~((sq_entry_vld).asUInt)).asUInt) //sq_entry_vld.takeWhile(_ == false.B).length
   sq_create_ptr := Mux(sq_entry_vld.reduce(_ && _) , 0.U(LSIQ_ENTRY.W),
     UIntToOH(create_ptr_idx))
 
   //------------------full signal-----------------------------
   val sq_has_cmit = sq_entry_cmit.reduce(_ || _)
   val sq_full     = sq_entry_vld.reduce(_ && _)
-  for (i <- 0 until LSIQ_ENTRY) {
-    if(create_ptr_idx == i.U){
-
-    }
-  }
 //  val sq_empty_less2 = Mux(sq_entry_vld.reduce(_ && _) , true.B,
 //    sq_entry_vld.drop(create_ptr_idx-1).reduce(_ && _) )
   val sq_empty_less2 = ((sq_entry_vld).asUInt | sq_create_ptr).andR
   io.out.toDc.instHit := sq_entry_inst_hit.reduce(_ || _)
-  io.out.toDc.full    := sq_full || (!io.in.dcIn.sqda.old) && sq_empty_less2 && (!sq_has_cmit)
+  io.out.toDc.full    := sq_full || (! io.in.stDcIn.sqda.old) && sq_empty_less2 && (!sq_has_cmit)
   //------------------empty signal----------------------------
   io.out.toCtrl.empty := !sq_entry_vld.reduce(_ || _)
   //------------------create signal---------------------------
-  val sq_create_success = io.in.dcIn.sq.sqCreateVld && (! io.out.toDc.full) && (!io.in.rtuIn.flush)
+  val sq_create_success =  io.in.stDcIn.sq.sqCreateVld && (! io.out.toDc.full) && (!io.in.rtuIn.flush)
   val sq_entry_create_vld        = Wire(UInt(LSIQ_ENTRY.W))
   val sq_entry_create_dp_vld     = Wire(UInt(LSIQ_ENTRY.W))
   val sq_entry_create_gateclk_en = Wire(UInt(LSIQ_ENTRY.W))
   sq_entry_create_vld        := Cat(Seq.fill(LSIQ_ENTRY)(sq_create_success)) & sq_create_ptr
-  sq_entry_create_dp_vld     := Cat(Seq.fill(LSIQ_ENTRY)(io.in.dcIn.sq.sqCreateDpVld)) & sq_create_ptr
-  sq_entry_create_gateclk_en := Cat(Seq.fill(LSIQ_ENTRY)(io.in.dcIn.sq.sqCreateGateclkEn)) & sq_create_ptr
+  sq_entry_create_dp_vld     := Cat(Seq.fill(LSIQ_ENTRY)( io.in.stDcIn.sq.sqCreateDpVld)) & sq_create_ptr
+  sq_entry_create_gateclk_en := Cat(Seq.fill(LSIQ_ENTRY)( io.in.stDcIn.sq.sqCreateGateclkEn)) & sq_create_ptr
   val sq_create_same_addr_newest = sq_entry_st_dc_same_addr_newer.reduce(_ || _)
   //------------------create age_vec signal-------------------
   val sq_create_vld     = sq_entry_create_vld
@@ -514,7 +509,7 @@ class Sq extends Module with LsuConfig{
   //| pop addr | pop_page_info |
   //+----------+---------------+
   // surplus
-  val age_vec_sp =  (sq_entry_age_vec_surplus1_ptr).asUInt
+  val age_vec_sp =  OHToUInt((sq_entry_age_vec_surplus1_ptr).asUInt)
   val sq_pe_age_vec_surplus1_page_ca     = age_vec_sp &  (sq_entry_page_ca).asUInt
   val sq_pe_age_vec_surplus1_page_wa     = age_vec_sp &  (sq_entry_page_wa).asUInt
   val sq_pe_age_vec_surplus1_page_so     = age_vec_sp &  (sq_entry_page_so).asUInt
@@ -534,7 +529,7 @@ class Sq extends Module with LsuConfig{
   val sq_pe_age_vec_surplus1_inst_mode = sq_entry_inst_mode(age_vec_sp)
   val sq_pe_age_vec_surplus1_priv_mode = sq_entry_priv_mode(age_vec_sp)
   // zero ptr
-  val age_vec_zero =  (sq_entry_age_vec_zero_ptr).asUInt
+  val age_vec_zero =  OHToUInt((sq_entry_age_vec_zero_ptr).asUInt)
   dontTouch(age_vec_zero)
   val sq_pe_age_vec_zero_page_ca      = age_vec_zero &  (sq_entry_page_ca).asUInt
   val sq_pe_age_vec_zero_page_wa      = age_vec_zero &  (sq_entry_page_wa).asUInt

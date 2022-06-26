@@ -87,8 +87,8 @@ class SqEntryIn extends Bundle with LsuConfig{
   val rtuIn    = new RtuToSqEntry
   val sdEx1In  = new SdEx1ToSqEntry
   val sqIn     = new SqToSqEntry
-  val daIn     = new StDaToSqTotal
-  val dcIn     = new StDcToSqTotal
+  val stDaIn     = new StDaToSqTotal
+  val stDcIn     = new StDcToSqTotal
   val wmbSqPopGrnt = Bool()
 }
 //==========================================================
@@ -250,29 +250,29 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_priv_mode        = RegInit(0.U(MPPWidth.W))
   val sq_entry_rot_sel          = RegInit(0.U(ROT_SEL_WIDTH_8.W))
   when(sq_entry_create_dp_vld){
-    sq_entry_sync_fence := io.in.dcIn.sqda.syncFence
-    sq_entry_atomic     := io.in.dcIn.sqda.atomic
-    sq_entry_icc        := io.in.dcIn.sqda.icc
-    sq_entry_inst_flush := io.in.dcIn.sq.instFlush
-    sq_entry_inst_type  := io.in.dcIn.sqda.instType
-    sq_entry_inst_size  := io.in.dcIn.sqda.instSize
-    sq_entry_inst_mode  := io.in.dcIn.sqda.instMode
-    sq_entry_fence_mode := io.in.dcIn.sqda.fenceMode
-    sq_entry_iid        := io.in.dcIn.sq.iid
-    sq_entry_sdid       := io.in.dcIn.sq.sdid
-    sq_entry_page_share := io.in.dcIn.sqda.pageShare
-    sq_entry_page_so    := io.in.dcIn.sqda.pageSo
-    sq_entry_page_ca    := io.in.dcIn.sqda.pageCa
-    sq_entry_page_wa    := io.in.dcIn.sqda.pageWa
-    sq_entry_page_buf   := io.in.dcIn.sqda.pageBuf
-    sq_entry_page_sec   := io.in.dcIn.sqda.pageSec
-    sq_entry_wo_st      := io.in.dcIn.sq.woStInst
-    sq_entry_boundary   := io.in.dcIn.sqda.boundary
-    sq_entry_secd       := io.in.dcIn.sqda.secd
-    sq_entry_addr0      := io.in.dcIn.sq.addr0
-    sq_entry_bytes_vld  := io.in.dcIn.sq.bytesVld
+    sq_entry_sync_fence := io.in.stDcIn.sqda.syncFence
+    sq_entry_atomic     := io.in.stDcIn.sqda.atomic
+    sq_entry_icc        := io.in.stDcIn.sqda.icc
+    sq_entry_inst_flush := io.in.stDcIn.sq.instFlush
+    sq_entry_inst_type  := io.in.stDcIn.sqda.instType
+    sq_entry_inst_size  := io.in.stDcIn.sqda.instSize
+    sq_entry_inst_mode  := io.in.stDcIn.sqda.instMode
+    sq_entry_fence_mode := io.in.stDcIn.sqda.fenceMode
+    sq_entry_iid        := io.in.stDcIn.sq.iid
+    sq_entry_sdid       := io.in.stDcIn.sq.sdid
+    sq_entry_page_share := io.in.stDcIn.sqda.pageShare
+    sq_entry_page_so    := io.in.stDcIn.sqda.pageSo
+    sq_entry_page_ca    := io.in.stDcIn.sqda.pageCa
+    sq_entry_page_wa    := io.in.stDcIn.sqda.pageWa
+    sq_entry_page_buf   := io.in.stDcIn.sqda.pageBuf
+    sq_entry_page_sec   := io.in.stDcIn.sqda.pageSec
+    sq_entry_wo_st      := io.in.stDcIn.sq.woStInst
+    sq_entry_boundary   := io.in.stDcIn.sqda.boundary
+    sq_entry_secd       := io.in.stDcIn.sqda.secd
+    sq_entry_addr0      := io.in.stDcIn.sq.addr0
+    sq_entry_bytes_vld  := io.in.stDcIn.sq.bytesVld
     sq_entry_priv_mode  := io.in.cp0In.privMode
-    sq_entry_rot_sel    := io.in.dcIn.sq.rotSelRev
+    sq_entry_rot_sel    := io.in.stDcIn.sq.rotSelRev
   }
   //+------+
   //| cmit |
@@ -289,7 +289,7 @@ class SqEntry extends Module with LsuConfig {
   //+----------+
   val sq_entry_data_vld = RegInit(false.B)
   when(sq_entry_create_dp_vld){
-    sq_entry_data_vld := io.in.dcIn.sq.sqDataVld
+    sq_entry_data_vld := io.in.stDcIn.sq.sqDataVld
   }.elsewhen(sq_entry_data_set){
     sq_entry_data_vld := true.B
   }
@@ -332,10 +332,10 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_bkptb_data   = RegInit(false.B)
   val sq_entry_vstart_vld   = RegInit(false.B)
   when(sq_entry_st_da_info_set){
-    sq_entry_spec_fail    := io.in.daIn.stDaIn.wb.specFail
-    sq_entry_bkpta_data   := io.in.daIn.bkptaData
-    sq_entry_bkptb_data   := io.in.daIn.bkptbData
-    sq_entry_vstart_vld   := io.in.daIn.stDaIn.wbVstartVld
+    sq_entry_spec_fail    := io.in.stDaIn.stDaIn.wb.specFail
+    sq_entry_bkpta_data   := io.in.stDaIn.bkptaData
+    sq_entry_bkptb_data   := io.in.stDaIn.bkptbData
+    sq_entry_vstart_vld   := io.in.stDaIn.stDaIn.wbVstartVld
   }
   val sq_entry_dcache_info_vld  = RegInit(false.B)
   val sq_entry_no_restart       = RegInit(false.B)
@@ -344,7 +344,7 @@ class SqEntry extends Module with LsuConfig {
     sq_entry_no_restart      := false.B
   }.elsewhen(sq_entry_st_da_info_set){
     sq_entry_dcache_info_vld := true.B
-    sq_entry_no_restart      := io.in.daIn.stDaIn.sqNoRestart
+    sq_entry_no_restart      := io.in.stDaIn.stDaIn.sqNoRestart
   }
   //+-------------+
   //| dcache info |
@@ -358,8 +358,8 @@ class SqEntry extends Module with LsuConfig {
     sq_entry_dcache_mesi := sq_entry_update_dcache_mesi
     sq_entry_dcache_way   := sq_entry_update_dcache_way
   }.elsewhen(sq_entry_st_da_info_set){
-    sq_entry_dcache_mesi := io.in.daIn.stDaIn.sqDcacheMesi
-    sq_entry_dcache_way   := io.in.daIn.stDaIn.sqDcacheWay
+    sq_entry_dcache_mesi := io.in.stDaIn.stDaIn.sqDcacheMesi
+    sq_entry_dcache_way   := io.in.stDaIn.stDaIn.sqDcacheWay
   }
   //+---------+
   //| age_vec |
@@ -385,7 +385,7 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_cmit_iid_pre_hit = Seq.fill(NumCommitEntry)(Wire(Bool()))
   for(i <- 0 until NumCommitEntry){
     when(sq_entry_create_dp_vld){
-      sq_entry_cmit_iid_hit(i) := io.in.dcIn.sq.cmitIidCrtHit(i)
+      sq_entry_cmit_iid_hit(i) := io.in.stDcIn.sq.cmitIidCrtHit(i)
     }.elsewhen(sq_entry_depd_set){
       sq_entry_cmit_iid_hit(i) := sq_entry_cmit_iid_pre_hit(i)
     }
@@ -393,14 +393,14 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_st_data_sdid_hit = RegInit(false.B)
   val sq_entry_sdid_hit = Wire(Bool())
   when(sq_entry_create_dp_vld){
-    sq_entry_st_data_sdid_hit := io.in.dcIn.sq.sdidHit
+    sq_entry_st_data_sdid_hit := io.in.stDcIn.sq.sdidHit
   }.elsewhen(sq_entry_vld && !sq_entry_data_vld){
     sq_entry_st_data_sdid_hit := sq_entry_sdid_hit
   }
   val sq_entry_bond_first_only = RegInit(false.B)
   val sq_bond_secd_create_vld = Wire(Bool())
   when(sq_entry_create_dp_vld){
-    sq_entry_bond_first_only := io.in.dcIn.sq.boundaryFirst
+    sq_entry_bond_first_only := io.in.stDcIn.sq.boundaryFirst
   }.elsewhen(sq_bond_secd_create_vld){
     sq_entry_bond_first_only := false.B
   }
@@ -427,12 +427,12 @@ class SqEntry extends Module with LsuConfig {
     !sq_entry_data_vld
   val sq_entry_cmit_data_vld = !sq_entry_cmit_data_not_vld
   //---------------------st_da info siganl--------------------
-  sq_entry_st_da_info_set := sq_entry_vld && io.in.daIn.instVld &&
-    !io.in.daIn.stDaIn.sqEccStall && !sq_entry_no_restart &&
-    (io.in.daIn.stDaIn.secd === sq_entry_secd) && (io.in.daIn.iid === sq_entry_iid)
+  sq_entry_st_da_info_set := sq_entry_vld && io.in.stDaIn.instVld &&
+    !io.in.stDaIn.stDaIn.sqEccStall && !sq_entry_no_restart &&
+    (io.in.stDaIn.stDaIn.secd === sq_entry_secd) && (io.in.stDaIn.iid === sq_entry_iid)
   //-------------------boundary secd signal-------------------
   sq_bond_secd_create_vld := sq_entry_vld && io.in.sqIn.createSuccess &&
-    io.in.dcIn.sqda.secd && (io.in.dcIn.sq.iid === sq_entry_iid)
+    io.in.stDcIn.sqda.secd && (io.in.stDcIn.sq.iid === sq_entry_iid)
   //---------------------data update signal-------------------
   sq_entry_sdid_hit := sq_entry_sdid === io.in.sdEx1In.rfEx1Sdid
   val sq_entry_settle_data_hit = sq_entry_vld && !sq_entry_data_vld && sq_entry_st_data_sdid_hit
@@ -440,8 +440,8 @@ class SqEntry extends Module with LsuConfig {
   //-----------------------fwd signal-------------------------
   //to decrease multi forward depd
   val sq_entry_newer_than_st_dc = Wire(Bool())
-  val sq_entry_addr_11to4_hit_st_dc = sq_entry_addr0(11,4) === io.in.dcIn.sq.addr0(11,4)
-  val sq_entry_st_dc_bv_do_hit = !(PopCount(io.in.dcIn.sq.bytesVld & sq_entry_bytes_vld) === 0.U)
+  val sq_entry_addr_11to4_hit_st_dc = sq_entry_addr0(11,4) === io.in.stDcIn.sq.addr0(11,4)
+  val sq_entry_st_dc_bv_do_hit = !(PopCount(io.in.stDcIn.sq.bytesVld & sq_entry_bytes_vld) === 0.U)
   sq_entry_same_addr_newest_clr := sq_entry_vld && io.in.sqIn.createSuccess && !sq_entry_newer_than_st_dc &&
     sq_entry_addr_11to4_hit_st_dc && sq_entry_st_dc_bv_do_hit
   //to sq_create_fwd_newest
@@ -451,7 +451,7 @@ class SqEntry extends Module with LsuConfig {
   //                 sq iid check
   //==========================================================
   //check iid to judge whether to create sq
-  val sq_entry_inst_hit = sq_entry_vld && !sq_entry_no_restart && (io.in.dcIn.sqda.secd === sq_entry_secd) && (io.in.dcIn.sq.iid === sq_entry_iid)
+  val sq_entry_inst_hit = sq_entry_vld && !sq_entry_no_restart && (io.in.stDcIn.sqda.secd === sq_entry_secd) && (io.in.stDcIn.sq.iid === sq_entry_iid)
   //==========================================================
   //            Compare dcache write port(dcwp)
   //==========================================================
@@ -474,7 +474,7 @@ class SqEntry extends Module with LsuConfig {
   //-------------------age_vec after create-------------------
   //sq entry newer than st_dc
   val sqCompareStDc = Module(new CompareIid)
-  sqCompareStDc.io.iid0 := io.in.dcIn.sq.iid
+  sqCompareStDc.io.iid0 := io.in.stDcIn.sq.iid
   sqCompareStDc.io.iid1 := sq_entry_iid
   val sq_entry_iid_newer_than_st_dc = sqCompareStDc.io.older
   val sq_entry_st_dc_create_age_vec = sq_entry_vld && !sq_entry_in_wmb_ce && !sq_entry_pop_to_ce_grnt && !sq_entry_newer_than_st_dc
@@ -602,7 +602,7 @@ class SqEntry extends Module with LsuConfig {
   //                 Generate pop signal
   //==========================================================
   sq_entry_flush_pop_vld := io.in.rtuIn.flush && !sq_entry_cmit
-  sq_entry_expt_pop_vld := sq_entry_st_da_info_set && io.in.daIn.stDaIn.wb.exptVld
+  sq_entry_expt_pop_vld := sq_entry_st_da_info_set && io.in.stDaIn.stDaIn.wb.exptVld
   sq_entry_pop_vld := sq_entry_vld && sq_entry_in_wmb_ce && io.in.wmbSqPopGrnt
   //==========================================================
   //                 Generate interface
