@@ -169,6 +169,7 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_create_dp_vld      = io.in.sqIn.createDpVldX
   val sq_entry_create_gateclk_en  = io.in.sqIn.createGateclkEnX
   val sq_pop_ptr                  = io.in.sqIn.popPtrX
+  dontTouch(sq_pop_ptr)
   //-----------grnt signal----------------
   val sq_entry_data_discard_grnt  = io.in.sqIn.dataDiscardGrntX
   val sq_entry_fwd_multi_depd_set = io.in.sqIn.fwdMultiDepdSetX
