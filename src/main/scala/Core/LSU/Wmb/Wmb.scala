@@ -314,7 +314,7 @@ class WmbIO extends Bundle{
 class Wmb extends Module with LsuConfig with BIUConfig{
   val io = IO(new WmbIO)
 
-  val ptr_init = Seq(false.B,false.B,false.B,false.B,false.B,false.B,false.B,true.B)
+  val ptr_init = Seq(true.B,false.B,false.B,false.B,false.B,false.B,false.B,false.B)
   //Reg
   val wmb_create_ptr = RegInit(VecInit(ptr_init))
   val wmb_read_ptr = RegInit(VecInit(ptr_init))
@@ -1442,7 +1442,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
 
   val wmb_biu_aw_size_maintain = (wmb_write_req_page_so || wmb_write_req_page_nc_atomic) && !wmb_write_req_sync_fence_inst
 
-  io.out.toBiu.aw_addr := Cat(wmb_write_req_addr(PA_WIDTH-1,4), Mux(wmb_biu_aw_size_maintain, wmb_write_req_addr(4,0), 0.U(4.W)))
+  io.out.toBiu.aw_addr := Cat(wmb_write_req_addr(PA_WIDTH-1,4), Mux(wmb_biu_aw_size_maintain, wmb_write_req_addr(3,0), 0.U(4.W)))
 
   io.out.toBiu.aw_len := Mux(wmb_write_biu_dcache_line, 3.U(2.W), 0.U(2.W))
 

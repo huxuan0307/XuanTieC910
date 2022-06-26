@@ -836,7 +836,8 @@ class WmbEntry extends Module with LsuConfig{
 
   //if has sent read req and other condition, don't compare index
   val wmb_entry_read_ptr_unconditional_shift_imme = wmb_entry_vld && wmb_read_ptr &&
-    (wmb_entry_read_req_success && !inst_info.page_ca || wmb_entry_dcache_sw_inst && wmb_entry_write_resp ||
+    (wmb_entry_read_req_success || wmb_entry_st_inst && !inst_info.page_ca ||
+      wmb_entry_dcache_sw_inst && wmb_entry_write_resp ||
       wmb_entry_dcache_all_inst || wmb_entry_sync_fence_inst ||
       wmb_entry_dcache_addr_l1_inst && !inst_info.page_share && wmb_entry_write_resp ||
       wmb_entry_dcache_addr_inst && !inst_info.page_ca && wmb_entry_write_resp ||

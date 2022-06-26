@@ -513,8 +513,8 @@ class SqEntry extends Module with LsuConfig {
   // 7      ld              st              :4    whole     1             forward
   // 8      ld(addr1)       st              :4    x         x             !acclr_en
   val sqCompareLdDc = Module(new CompareIid)
-  sqCompareLdDc.io.iid0 := io.in.ldDcIn.iid
-  sqCompareLdDc.io.iid1 := sq_entry_iid
+  sqCompareLdDc.io.iid1 := io.in.ldDcIn.iid
+  sqCompareLdDc.io.iid0 := sq_entry_iid
   val sq_entry_iid_older_than_ld_dc = sqCompareLdDc.io.older
   val sq_entry_older_than_ld_dc = sq_entry_iid_older_than_ld_dc || sq_entry_cmit
   //-----------addr compare---------------
