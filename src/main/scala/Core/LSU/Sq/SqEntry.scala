@@ -428,7 +428,7 @@ class SqEntry extends Module with LsuConfig {
   val sq_entry_cmit_data_vld = !sq_entry_cmit_data_not_vld
   //---------------------st_da info siganl--------------------
   sq_entry_st_da_info_set := sq_entry_vld && io.in.daIn.instVld &&
-    !io.in.daIn.stDaIn.sqEccStall && !io.in.daIn.stDaIn.sqNoRestart &&
+    !io.in.daIn.stDaIn.sqEccStall && !sq_entry_no_restart &&
     (io.in.daIn.stDaIn.secd === sq_entry_secd) && (io.in.daIn.iid === sq_entry_iid)
   //-------------------boundary secd signal-------------------
   sq_bond_secd_create_vld := sq_entry_vld && io.in.sqIn.createSuccess &&
