@@ -332,7 +332,7 @@ class Sq extends Module with LsuConfig{
 
       //============================================================================
 
-      sq_entry_pop_req(i)               := entry.io.out.dcacheWay_x
+      sq_entry_pop_req(i)               := entry.io.out.popReq_x
       sq_entry_iid(i)                   := entry.io.out.iid_v
       sq_entry_spec_fail(i)             := entry.io.out.specFail_x
       sq_entry_bkpta_data(i)            := entry.io.out.bkptaData_x
