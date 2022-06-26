@@ -531,15 +531,15 @@ class LoadDC extends Module with LsuConfig{
   //==========================================================
   //                 Generate check signal to lq/sq/wmb
   //==========================================================
-  io.out.toChk.atomic_inst_vld := ld_dc_inst_vld && ld_dc_ld_inst &&
+  io.out.toChk.ld_inst_vld     := ld_dc_inst_vld && ld_dc_ld_inst &&
     !ld_dc_data.page_so && !ld_dc_data.utlb_miss && !ld_dc_data.expt_vld_except_access_err
 
-  io.out.toChk.ld_addr1_vld    := io.out.toChk.atomic_inst_vld && ld_dc_data.fwd_bypass_en
+  io.out.toChk.ld_bypass_vld   := io.out.toChk.ld_inst_vld && ld_dc_data.fwd_bypass_en
 
-  io.out.toChk.ld_bypass_vld   := ld_dc_inst_vld && ld_dc_ld_inst && ld_dc_data.acclr_en &&
+  io.out.toChk.ld_addr1_vld    := ld_dc_inst_vld && ld_dc_ld_inst && ld_dc_data.acclr_en &&
     !ld_dc_data.page_so && !ld_dc_data.utlb_miss && !ld_dc_data.expt_vld_except_access_err
 
-  io.out.toChk.ld_inst_vld     := ld_dc_inst_vld && !ld_dc_vector_nop && ld_dc_data.atomic &&
+  io.out.toChk.atomic_inst_vld := ld_dc_inst_vld && !ld_dc_vector_nop && ld_dc_data.atomic &&
     !ld_dc_data.utlb_miss && !ld_dc_data.expt_vld_except_access_err
 
   //==========================================================
