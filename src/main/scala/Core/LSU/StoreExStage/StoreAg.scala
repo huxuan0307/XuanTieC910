@@ -321,7 +321,8 @@ class StoreAg extends Module with LsuConfig with DCacheConfig {
   // for secd boundary,use addr+offset as va
   val st_ag_secd = RegInit(false.B)
   st_ag_secd := ag_pipe.unalign2nd
-  val st_ag_offset_aftershift = st_ag_offset << OHToUInt(st_ag_offset)
+  val st_ag_offset_aftershift = Wire(UInt(XLEN.W))
+  st_ag_offset_aftershift := st_ag_offset << OHToUInt(st_ag_offset_shift)
   val st_ag_va_ori            = st_ag_base  + st_ag_offset_aftershift
   val st_ag_va_plus           = st_ag_base  + sext(XLEN,st_ag_offset_plus)
   val st_ag_va_plus_sel       = st_ag_secd  && !ag_pipe.instStr
