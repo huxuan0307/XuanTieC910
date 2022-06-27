@@ -49,7 +49,7 @@ class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   compare_dcwp_hit_dirty_din := Mux(io.in.originDcacheWay ,io.in.dcacheIn.dirtyDin.bits(1), io.in.dcacheIn.dirtyDin.bits(0))
   val compare_dcwp_hit_dirty_wen = WireInit(0.U.asTypeOf(new DcacheDirtyDataEn))
   compare_dcwp_hit_dirty_wen := Mux(io.in.originDcacheWay ,io.in.dcacheIn.dirtyWen.bits(1), io.in.dcacheIn.dirtyWen.bits(0))
-  val compare_dcwp_hit_up_vld = Mux(io.in.originDcacheWay , io.in.originDcacheMesi.valid, compare_dcwp_hit_idx)
+  val compare_dcwp_hit_up_vld = io.in.dcacheIn.dirtyGwen && io.in.originDcacheMesi.valid && compare_dcwp_hit_idx
   // choose dcache or sq by Wen
   // MESI?
   val compare_dcwp_hit_dirty  = Mux(compare_dcwp_hit_dirty_wen.dirty , compare_dcwp_hit_dirty_din.dirty, io.in.originDcacheMesi.dirty)
