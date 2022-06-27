@@ -839,7 +839,7 @@ class Rob extends Module {
         instrCommit.io.clock   := clock
         instrCommit.io.coreid  := 0.U
         instrCommit.io.index   := (i * NumFoldInstMax + j).U
-        instrCommit.io.valid   := RegNext(commitValid && (j.U < instNum))
+        instrCommit.io.valid   := RegNext(commitValid && (j.U < instNum) && !io.out.toRetire.instExtra.instFlush)
         instrCommit.io.pc      := RegNext(Cat(pcVec(j), 0.U(1.W))(63, 0) | BigInt("80000000", 16).U)
         instrCommit.io.instr   := RegNext(instVec(j))
         instrCommit.io.special := RegNext(0.U)
