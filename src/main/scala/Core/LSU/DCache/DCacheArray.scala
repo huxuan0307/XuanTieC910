@@ -139,7 +139,7 @@ class DCacheDirtyArray extends Module {
   //==========================================================
   //              Instance dcache array
   //==========================================================
-  val dirty_array = Module(new ct_spsram_512x52)
+  val dirty_array = Module(new ct_spsram_512x7)
 
   dirty_array.A    := io.dirty_idx
   dirty_array.CEN  := io.dirty_sel_b

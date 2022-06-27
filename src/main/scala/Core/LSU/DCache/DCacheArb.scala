@@ -457,7 +457,8 @@ class DCacheArb extends Module with LsuConfig {
     (!dcache_arb_serial_vld && io.in.fromSnq.st_req)  -> "b001000".U,
     (!dcache_arb_serial_vld && io.in.fromIcc.st_req)  -> "b000100".U,
     (!dcache_arb_serial_vld && io.in.fromWmb.st_req)  -> "b000010".U,
-    true.B                                            -> "b000001".U
+    !dcache_arb_serial_vld                            -> "b000001".U,
+    true.B                                            -> "b000000".U
   ))
 
   dcache_arb_lfb_st_sel_unmask := dcache_arb_st_sel(5)
