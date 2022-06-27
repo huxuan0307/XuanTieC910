@@ -73,7 +73,7 @@ class StDcToSq extends Bundle with LsuConfig{
   val cmitIidCrtHit        = Vec(NumCommitEntry,UInt(IidWidth.W))
   val boundaryFirst        = Bool()
   val instFlush            = Bool()
-  val rotSelRev            = UInt(ROT_SEL_WIDTH.W)
+  val rotSelRev            = UInt(ROT_SEL_WIDTH_8.W)
   val sdid                 = UInt(SDID_WIDTH.W)
   val sdidHit              = Bool()
   val sqCreateDpVld        = Bool()
@@ -436,7 +436,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   io.out.toDa.toPwdDa.chkStInstVld := st_dc_inst_vld && st_dc_st_inst && !st_dc_vector_nop && !st_dc_expt_vld_except_access_err && !st_dc_utlb_miss && !st_dc_page_so
   io.out.toDa.toPwdDa.chkStatomicInstVld := st_dc_inst_vld && st_dc_atomic && !(st_dc_vector_nop) && !(st_dc_expt_vld_except_access_err) && !(st_dc_utlb_miss) && !(st_dc_page_so)
   //------------------data pre_select----------------
-  io.out.toSq.rotSelRev :=Cat(Reverse(UIntToOH(st_dc_rot_sel)(ROT_SEL_WIDTH-1,1)),UIntToOH(st_dc_rot_sel)(0))
+  io.out.toSq.rotSelRev := UIntToOH(st_dc_rot_sel(2,0))
   //==========================================================
   //        Compare cache write port
   //==========================================================
