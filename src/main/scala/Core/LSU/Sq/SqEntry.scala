@@ -652,7 +652,7 @@ class SqEntry extends Module with LsuConfig {
   io.out.newestFwdReqDataVld_x := sq_entry_newest_fwd_req_data_vld
   io.out.newestFwdReqDataVldShort_x := sq_entry_newest_fwd_req_data_vld_short
   //-----------others---------------------
-  io.out.stDcCreateAgeVec_x := sq_entry_age_vec
+  io.out.stDcCreateAgeVec_x := sq_entry_st_dc_create_age_vec
   io.out.settleDataHit_x := sq_entry_settle_data_hit
   io.out.stDcSameAddrNewer_x := sq_entry_st_dc_same_addr_newer
   io.out.addr1DepDiscard_x := sq_entry_addr1_dep_discard
