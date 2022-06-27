@@ -633,7 +633,9 @@ class Retire extends Module {
   //flop and then signal IFU to changeflow
   io.out.toIfu.changeFlowValid := RegNext(inst0InstFlush)
   //at this time, flush change flow pc is in retire inst0 cur pc
-  io.out.toIfu.changeFlowPc := rob.instVec(0).pc
+
+  val pc0Vec = io.in.fromRob.instVec(0).debug.pc
+  io.out.toIfu.changeFlowPc := RegNext(Cat(pc0Vec(0), 0.U(1.W))(63, 0) | BigInt("80000000", 16).U)
 
   //==========================================================
   //                    Debug Interface

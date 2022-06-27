@@ -34,8 +34,9 @@ class SimTop extends Module with Config with ROBConfig with LsuConfig{
   ifu.io.bpu_update.rtu_retire_condbr_taken(2) := rtu.io.out.toIfu.retireVec(2).condBrTaken
   ifu.io.rtu_ifu_chgflw_vld := rtu.io.out.toIfu.changeFlowValid
   ifu.io.rtu_ifu_chgflw_pc := rtu.io.out.toIfu.changeFlowPc
-  ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld
-  ifu.io.bru_redirect.bits := iu.io.bjuToIfu.tarPc // Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
+  ifu.io.bru_redirect.valid := iu.io.bjuToIfu.chgflwVld || rtu.io.out.toIfu.changeFlowValid
+  ifu.io.bru_redirect.bits := Mux(rtu.io.out.toIfu.changeFlowValid, rtu.io.out.toIfu.changeFlowPc, iu.io.bjuToIfu.tarPc)
+  // Cat(iu.io.bjuToIfu.tarPc,0.U(1.W)) + 4.U //////todo: replace it with other way
   ifu.io.idu_ifu_id_stall := idu.io.out.IDtoIFU.stall
   ifu.io.iu_ifu_mispred_stall := iu.io.bjuToIfu.misPredStall
   ifu.io.iu_ifu_pcfifo_full := iu.io.bjuToIfu.pcFifoFull

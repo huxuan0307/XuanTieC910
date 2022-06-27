@@ -42,7 +42,7 @@ class LsuDcacheInfoUpdateIO extends Bundle with DCacheConfig{
 class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   val io = IO(new LsuDcacheInfoUpdateIO)
   //create dcache write port idx hit
-  val compare_dcwp_hit_idx = io.in.compareDcwpAddr(OFFSET_WIDTH+INDEX_WIDTH-1,INDEX_WIDTH-1) === io.in.dcacheIn.idx
+  val compare_dcwp_hit_idx = io.in.compareDcwpAddr(OFFSET_WIDTH+INDEX_WIDTH-1,OFFSET_WIDTH) === io.in.dcacheIn.idx
   io.out.compareDcwpHitIdx := compare_dcwp_hit_idx
   //-----------------update if dcache hit---------------------
   val compare_dcwp_hit_dirty_din = WireInit(0.U.asTypeOf(new DcacheDirtyDataEn))
@@ -57,7 +57,7 @@ class LsuDcacheInfoUpdate extends Module with DCacheConfig{
   val compare_dcwp_hit_valid  = Mux(compare_dcwp_hit_dirty_wen.valid , compare_dcwp_hit_dirty_din.valid, io.in.originDcacheMesi.valid)
   //---------------update if dcache miss----------------------
   //dcache set&way inst will NOT APPEAR dcache miss update
-  val compare_dcwp_miss_up_pre = io.in.dcacheIn.dirtyGwen && !io.in.compareDcwpSwInst && !io.in.originDcacheMesi.valid
+  val compare_dcwp_miss_up_pre = io.in.dcacheIn.tagGwen && !io.in.compareDcwpSwInst && !io.in.originDcacheMesi.valid
   val compare_dcwp_tag = io.in.compareDcwpAddr(PA_WIDTH-1,OFFSET_WIDTH+INDEX_WIDTH-1)
   val compare_dcwp_miss_up_way_sel = Seq.fill(WAYS)(Wire(Bool()))
   val compare_dcwp_miss_up_way = Seq.fill(WAYS)(Wire(Bool()))
