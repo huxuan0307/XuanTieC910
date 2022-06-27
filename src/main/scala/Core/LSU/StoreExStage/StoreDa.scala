@@ -449,28 +449,40 @@ class StoreDa extends Module with LsuConfig with DCacheConfig {
   //when inst is in dc stage, then only dcache dirty array may be changed
   //when inst is in da stage, then tag & dirty array may be changed
   //-------update dirty info if index hit in dc stage---------
+  val st_da_dirty_dc_update = Wire(Vec(WAYS, new DcacheDirtyDataEn))
+  for(i <- 0 until WAYS) {
+    st_da_dirty_dc_update(i) :=  Mux(st_da_dcwp_dc_hit_idx, st_da_dcwp_dc_dirty_wen(i), 0.U.asTypeOf(new DcacheDirtyDataEn))
+  }
 
-  val dcache_dirty_array = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
+  val dcache_dirty_array = Seq.fill(WAYS)(WireInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
   dcache_dirty_array(0).valid := st_da_dcache_dirty_array(0).asBool
   dcache_dirty_array(0).dirty := st_da_dcache_dirty_array(2).asBool
   dcache_dirty_array(0).share := st_da_dcache_dirty_array(1).asBool
   dcache_dirty_array(1).valid := st_da_dcache_dirty_array(3).asBool
   dcache_dirty_array(1).dirty := st_da_dcache_dirty_array(5).asBool
   dcache_dirty_array(1).share := st_da_dcache_dirty_array(4).asBool
-  val st_da_dirty_dc_update      = io.in.dcacheIn.dirtyWen.bits
-  val st_da_dirty_dc_update_dout = Seq.fill(WAYS)(RegInit(0.U.asTypeOf(new DcacheDirtyDataEn)))
-  for(i<- 0 until WAYS){
-    st_da_dirty_dc_update_dout(i).valid := (st_da_dirty_dc_update(i).valid && st_da_dcwp_dc_dirty_din(i).valid ) || (dcache_dirty_array(i).valid  && (!st_da_dirty_dc_update(i).valid ))
-    st_da_dirty_dc_update_dout(i).dirty := (st_da_dirty_dc_update(i).dirty && st_da_dcwp_dc_dirty_din(i).dirty ) || (dcache_dirty_array(i).dirty  && (!st_da_dirty_dc_update(i).dirty ))
-    st_da_dirty_dc_update_dout(i).share := (st_da_dirty_dc_update(i).share && st_da_dcwp_dc_dirty_din(i).share ) || (dcache_dirty_array(i).share  && (!st_da_dirty_dc_update(i).share ))
+
+  val st_da_dirty_dc_update_dout = Wire(Vec(WAYS, new DcacheDirtyDataEn))
+  for(i <- 0 until WAYS) {
+    st_da_dirty_dc_update_dout(i).valid := Mux(st_da_dirty_dc_update(i).valid, st_da_dcwp_dc_dirty_din(i).valid, dcache_dirty_array(i).valid)
+    st_da_dirty_dc_update_dout(i).dirty := Mux(st_da_dirty_dc_update(i).dirty, st_da_dcwp_dc_dirty_din(i).dirty, dcache_dirty_array(i).dirty)
+    st_da_dirty_dc_update_dout(i).share := Mux(st_da_dirty_dc_update(i).share, st_da_dcwp_dc_dirty_din(i).share, dcache_dirty_array(i).share)
   }
+
+  dontTouch(st_da_dirty_dc_update)
+  dontTouch(st_da_dirty_dc_update_dout)
+
    //select cache hit info
-  val st_da_dcache_dirty_dc_up_hit_info = Mux(st_da_hit_way(0), st_da_dirty_dc_update_dout(0),st_da_dirty_dc_update_dout(1))
+  val st_da_dcache_dirty_dc_up_hit_info = WireInit(0.U.asTypeOf((new DcacheDirtyDataEn)))
+  st_da_dcache_dirty_dc_up_hit_info.valid :=st_da_hit_way(0) && st_da_dirty_dc_update_dout(0).valid || st_da_hit_way(1) && st_da_dirty_dc_update_dout(1).valid
+  st_da_dcache_dirty_dc_up_hit_info.dirty :=st_da_hit_way(0) && st_da_dirty_dc_update_dout(0).dirty || st_da_hit_way(1) && st_da_dirty_dc_update_dout(1).dirty
+  st_da_dcache_dirty_dc_up_hit_info.share :=st_da_hit_way(0) && st_da_dirty_dc_update_dout(0).share || st_da_hit_way(1) && st_da_dirty_dc_update_dout(1).share
+
   val st_da_dcache_dc_up = WireInit(0.U.asTypeOf((new DcacheDirtyDataEn)))
 
-  st_da_dcache_dc_up.dirty         := st_da_dcache_dirty_dc_up_hit_info.dirty && st_da_dcwp_dc_hit_idx
-  st_da_dcache_dc_up.share         := st_da_dcache_dirty_dc_up_hit_info.share && st_da_dcwp_dc_hit_idx
-  st_da_dcache_dc_up.valid         := st_da_dcache_dirty_dc_up_hit_info.valid && st_da_dcwp_dc_hit_idx
+  st_da_dcache_dc_up.dirty         := st_da_dcache_dirty_dc_up_hit_info.dirty
+  st_da_dcache_dc_up.share         := st_da_dcache_dirty_dc_up_hit_info.share
+  st_da_dcache_dc_up.valid         := st_da_dcache_dirty_dc_up_hit_info.valid
   val st_da_dcache_dc_up_way           = st_da_dcache_way
   //-------------update dcache info in da stage---------------
   val da_dcache_info_update = Module(new LsuDcacheInfoUpdate)
