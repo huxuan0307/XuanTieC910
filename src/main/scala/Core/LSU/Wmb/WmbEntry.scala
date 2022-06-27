@@ -402,9 +402,9 @@ class WmbEntry extends Module with LsuConfig{
   //| cache_information |
   //+-------------------+
   when(io.in.WmbEntry.create_dp_vld){
-    dcache_info.valid := io.in.fromSQ.update_dcache_dirty
+    dcache_info.valid := io.in.fromSQ.update_dcache_valid
     dcache_info.share := io.in.fromSQ.update_dcache_share
-    dcache_info.dirty := io.in.fromSQ.update_dcache_valid
+    dcache_info.dirty := io.in.fromSQ.update_dcache_dirty
     dcache_info.way   := io.in.fromSQ.update_dcache_way
   }.elsewhen(wmb_entry_dcache_update_vld){
     dcache_info := update_dcache_info
