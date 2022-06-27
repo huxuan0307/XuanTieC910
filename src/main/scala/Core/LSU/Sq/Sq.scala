@@ -468,7 +468,7 @@ class Sq extends Module with LsuConfig{
   val sq_data_discard_newest_id = (sq_entry_same_addr_newest).asUInt & io.in.ldDaIn.sqFwdId
   val sq_data_discard_has_newest = sq_data_discard_newest_id.orR
   val sq_entry_wakeup_queue_set_id = Mux(sq_data_discard_has_newest , sq_data_discard_newest_id, sq_data_discard_id_sel)
-  val sq_entry_data_discard_grnt = Cat(Seq.fill(ROT_SEL_WIDTH_8)(io.in.ldDaIn.sqDataDiscardVld)) &  (sq_entry_vld).asUInt & sq_entry_wakeup_queue_set_id
+  val sq_entry_data_discard_grnt = Cat(Seq.fill(SQ_ENTRY)(io.in.ldDaIn.sqDataDiscardVld)) &  (sq_entry_vld).asUInt & sq_entry_wakeup_queue_set_id
   //==========================================================
   //            maintain restart wakeup queue
   //==========================================================
@@ -478,7 +478,7 @@ class Sq extends Module with LsuConfig{
   //+--------------+
   //the queue stores the instructions waiting for wakeup
   val sq_wakeup_queue = RegInit(0.U(LSIQ_ENTRY.W))
-  val sq_wakeup_queue_next = RegInit(0.U(LSIQ_ENTRY.W))
+  val sq_wakeup_queue_next = WireInit(0.U(LSIQ_ENTRY.W))
   when(io.in.rtuIn.flush){
     sq_wakeup_queue := 0.U(LSIQ_ENTRY.W)
   }.elsewhen(io.in.ldDaIn.sqGlobalDiscardVld|| sq_pop_depd_ff){
@@ -496,7 +496,7 @@ class Sq extends Module with LsuConfig{
     sq_pop_depd_ff := false.B
   }
   //------------------update wakeup queue---------------------
-  val sq_wakeup_queue_grnt = sq_wakeup_queue | (Cat(Seq.fill(ROT_SEL_WIDTH_8)(io.in.ldDaIn.sqGlobalDiscardVld)) & io.in.ldDaIn.lsid )
+  val sq_wakeup_queue_grnt = sq_wakeup_queue | (Cat(Seq.fill(LSIQ_ENTRY)(io.in.ldDaIn.sqGlobalDiscardVld)) & io.in.ldDaIn.lsid )
   sq_wakeup_queue_next := Mux(sq_pop_depd_ff, 0.U(LSIQ_ENTRY.W),sq_wakeup_queue_grnt)
   //-------------------------wakeup---------------------------
   io.out.toCtrl.globalDepdWakeup :=  Mux(sq_pop_depd_ff, sq_wakeup_queue_grnt, 0.U(LSIQ_ENTRY.W))
@@ -715,6 +715,6 @@ class Sq extends Module with LsuConfig{
       entry.io.in.sqIn.fwdMultiDepdSetX      := sq_entry_fwd_multi_depd_set(i).asBool
       entry.io.in.sqIn.popToCeGrntB          := sq_entry_pop_to_ce_grnt_b
       entry.io.in.sqIn.popToCeGrntX          := sq_entry_pop_to_ce_grnt(i).asBool
-      entry.io.in.sqIn.popPtrX               := (UIntToOH(age_vec_zero))(i).asBool
+      entry.io.in.sqIn.popPtrX               := toWmbce.popPtr(i).asBool
   }
 }
