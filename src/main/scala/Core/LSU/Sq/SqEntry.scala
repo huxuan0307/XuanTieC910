@@ -637,9 +637,9 @@ class SqEntry extends Module with LsuConfig {
   io.out.privMode_v := sq_entry_priv_mode
   io.out.data_v := sq_entry_data
   io.out.rotSel_v := sq_entry_rot_sel
-  io.out.dcacheValid_x := sq_entry_update_dcache_mesi.valid
-  io.out.dcacheShare_x := sq_entry_update_dcache_mesi.share
-  io.out.dcacheDirty_x := sq_entry_update_dcache_mesi.dirty
+  io.out.dcacheValid_x := sq_entry_dcache_mesi.valid
+  io.out.dcacheShare_x := sq_entry_dcache_mesi.share
+  io.out.dcacheDirty_x := sq_entry_dcache_mesi.dirty
   io.out.dcacheWay_x := sq_entry_dcache_way
   io.out.depd_x := sq_entry_depd
   io.out.dcacheInfo_vld_x := sq_entry_dcache_info_vld

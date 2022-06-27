@@ -570,7 +570,7 @@ class Sq extends Module with LsuConfig{
     toWmbce.popInstSize   := sq_pe_age_vec_zero_inst_size
     toWmbce.popInstMode   := sq_pe_age_vec_zero_inst_mode
     toWmbce.popBytesVld   := sq_pe_age_vec_zero_bytes_vld
-    toWmbce.popPtr        := age_vec_zero
+    toWmbce.popPtr        := sq_entry_age_vec_zero_ptr.asUInt
     toWmbce.popPrivMode   := sq_pe_age_vec_zero_priv_mode
   }.elsewhen(sq_pe_sel_age_vec_surplus1_entry_vld){
     toWmbce.popAddr       := sq_pe_age_vec_surplus1_addr
@@ -589,7 +589,7 @@ class Sq extends Module with LsuConfig{
     toWmbce.popInstSize   := sq_pe_age_vec_surplus1_inst_size
     toWmbce.popInstMode   := sq_pe_age_vec_surplus1_inst_mode
     toWmbce.popBytesVld   := sq_pe_age_vec_surplus1_bytes_vld
-    toWmbce.popPtr        := age_vec_sp
+    toWmbce.popPtr        := sq_entry_age_vec_surplus1_ptr.asUInt
     toWmbce.popPrivMode   := sq_pe_age_vec_surplus1_priv_mode
   }
   io.out.toWmb.ce := toWmbce
@@ -664,8 +664,8 @@ class Sq extends Module with LsuConfig{
   io.out.toWmb.bkptbData := (io.in.wmbIn.sqPtr &  (sq_entry_bkptb_data).asUInt).orR
   io.out.toWmb.vstartVld := (io.in.wmbIn.sqPtr &  (sq_entry_vstart_vld).asUInt).orR
   val wmb_ce_dcache_mesi = WireInit(0.U.asTypeOf(new DcacheDirtyDataEn))
-  wmb_ce_dcache_mesi.share := (io.in.wmbIn.sqPtr &  (sq_entry_dcache_valid).asUInt).orR
-  wmb_ce_dcache_mesi.valid := (io.in.wmbIn.sqPtr &  (sq_entry_dcache_share).asUInt).orR
+  wmb_ce_dcache_mesi.share := (io.in.wmbIn.sqPtr &  (sq_entry_dcache_share).asUInt).orR
+  wmb_ce_dcache_mesi.valid := (io.in.wmbIn.sqPtr &  (sq_entry_dcache_valid).asUInt).orR
   wmb_ce_dcache_mesi.dirty := (io.in.wmbIn.sqPtr &  (sq_entry_dcache_dirty).asUInt).orR
   io.out.toWmb.dcacheShare := wmb_ce_dcache_mesi.share
   io.out.toWmb.dcacheValid := wmb_ce_dcache_mesi.valid
