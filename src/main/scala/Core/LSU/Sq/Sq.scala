@@ -509,17 +509,17 @@ class Sq extends Module with LsuConfig{
   //+----------+---------------+
   // surplus
   val age_vec_sp =  OHToUInt((sq_entry_age_vec_surplus1_ptr).asUInt)
-  val sq_pe_age_vec_surplus1_page_ca     = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_ca).asUInt
-  val sq_pe_age_vec_surplus1_page_wa     = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_wa).asUInt
-  val sq_pe_age_vec_surplus1_page_so     = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_so).asUInt
-  val sq_pe_age_vec_surplus1_page_buf    = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_buf).asUInt
-  val sq_pe_age_vec_surplus1_page_sec    = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_sec).asUInt
-  val sq_pe_age_vec_surplus1_page_share  = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_share).asUInt
-  val sq_pe_age_vec_surplus1_atomic      = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_atomic).asUInt
-  val sq_pe_age_vec_surplus1_icc         = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_icc).asUInt
-  val sq_pe_age_vec_surplus1_wo_st       = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_wo_st).asUInt
-  val sq_pe_age_vec_surplus1_sync_fence  = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_sync_fence).asUInt
-  val sq_pe_age_vec_surplus1_inst_flush  = sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_inst_flush).asUInt
+  val sq_pe_age_vec_surplus1_page_ca     = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_ca).asUInt).orR
+  val sq_pe_age_vec_surplus1_page_wa     = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_wa).asUInt).orR
+  val sq_pe_age_vec_surplus1_page_so     = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_so).asUInt).orR
+  val sq_pe_age_vec_surplus1_page_buf    = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_buf).asUInt).orR
+  val sq_pe_age_vec_surplus1_page_sec    = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_sec).asUInt).orR
+  val sq_pe_age_vec_surplus1_page_share  = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_page_share).asUInt).orR
+  val sq_pe_age_vec_surplus1_atomic      = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_atomic).asUInt).orR
+  val sq_pe_age_vec_surplus1_icc         = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_icc).asUInt).orR
+  val sq_pe_age_vec_surplus1_wo_st       = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_wo_st).asUInt).orR
+  val sq_pe_age_vec_surplus1_sync_fence  = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_sync_fence).asUInt).orR
+  val sq_pe_age_vec_surplus1_inst_flush  = (sq_entry_age_vec_surplus1_ptr.asUInt &  (sq_entry_inst_flush).asUInt).orR
 
   val sq_pe_age_vec_surplus1_addr      = sq_entry_addr0(age_vec_sp)
   val sq_pe_age_vec_surplus1_bytes_vld = sq_entry_bytes_vld(age_vec_sp)
@@ -530,17 +530,17 @@ class Sq extends Module with LsuConfig{
   // zero ptr
   val age_vec_zero =  OHToUInt((sq_entry_age_vec_zero_ptr).asUInt)
   dontTouch(age_vec_zero)
-  val sq_pe_age_vec_zero_page_ca      = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_ca).asUInt
-  val sq_pe_age_vec_zero_page_wa      = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_wa).asUInt
-  val sq_pe_age_vec_zero_page_so      = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_so).asUInt
-  val sq_pe_age_vec_zero_page_buf     = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_buf).asUInt
-  val sq_pe_age_vec_zero_page_sec     = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_sec).asUInt
-  val sq_pe_age_vec_zero_page_share   = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_share).asUInt
-  val sq_pe_age_vec_zero_atomic       = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_atomic).asUInt
-  val sq_pe_age_vec_zero_icc          = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_icc).asUInt
-  val sq_pe_age_vec_zero_wo_st        = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_wo_st).asUInt
-  val sq_pe_age_vec_zero_sync_fence   = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_sync_fence).asUInt
-  val sq_pe_age_vec_zero_inst_flush   = sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_inst_flush).asUInt
+  val sq_pe_age_vec_zero_page_ca      = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_ca).asUInt).orR
+  val sq_pe_age_vec_zero_page_wa      = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_wa).asUInt).orR
+  val sq_pe_age_vec_zero_page_so      = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_so).asUInt).orR
+  val sq_pe_age_vec_zero_page_buf     = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_buf).asUInt).orR
+  val sq_pe_age_vec_zero_page_sec     = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_sec).asUInt).orR
+  val sq_pe_age_vec_zero_page_share   = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_page_share).asUInt).orR
+  val sq_pe_age_vec_zero_atomic       = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_atomic).asUInt).orR
+  val sq_pe_age_vec_zero_icc          = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_icc).asUInt).orR
+  val sq_pe_age_vec_zero_wo_st        = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_wo_st).asUInt).orR
+  val sq_pe_age_vec_zero_sync_fence   = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_sync_fence).asUInt).orR
+  val sq_pe_age_vec_zero_inst_flush   = (sq_entry_age_vec_zero_ptr.asUInt &  (sq_entry_inst_flush).asUInt).orR
 
   val sq_pe_age_vec_zero_addr      = sq_entry_addr0(age_vec_zero)
   val sq_pe_age_vec_zero_bytes_vld = sq_entry_bytes_vld(age_vec_zero)
