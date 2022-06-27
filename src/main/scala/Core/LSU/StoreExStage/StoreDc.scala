@@ -496,7 +496,7 @@ class StoreDc extends Module with LsuConfig with DCacheConfig{
   io.out.toDa.dcacheTagArray := io.in.dcacheIn.lsuStTagDout
   io.out.toDa.dcacheDirtyArray := io.in.dcacheIn.lsuStDirtyDout
   for(i <- 0 until 2){
-    io.out.toDa.tagHit(i) := st_dc_addr0(PA_WIDTH-1,OFFSET_WIDTH+INDEX_WIDTH) === io.in.dcacheIn.lsuStTagDout(25+26*i,26*i)
+    io.out.toDa.tagHit(i) := st_dc_addr0(PA_WIDTH-1,14) === io.in.dcacheIn.lsuStTagDout(25+26*i,26*i)
   }
   //==========================================================
   //        Generage lsiq signal
