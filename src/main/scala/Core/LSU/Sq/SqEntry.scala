@@ -307,9 +307,9 @@ class SqEntry extends Module with LsuConfig {
   //| wakeup_queue |
   //+--------------+
   val sq_entry_wakeup_queue = RegInit(0.U(LSIQ_ENTRY.W))
-  when(sq_entry_create_dp_vld){
+  when(sq_entry_data_set && !sq_entry_data_discard_grnt || sq_entry_data_set_ff || io.in.rtuIn.flush){
     sq_entry_wakeup_queue := 0.U(LSIQ_ENTRY.W)
-  }.elsewhen(sq_entry_data_set){
+  }.elsewhen(sq_entry_data_set && sq_entry_data_discard_grnt){
     sq_entry_wakeup_queue := io.in.ldDaLsid
   }.elsewhen(sq_entry_data_discard_grnt){
     sq_entry_wakeup_queue := io.in.ldDaLsid | sq_entry_wakeup_queue
