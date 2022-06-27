@@ -1292,25 +1292,25 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_write_req_dcache_way = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.dcache_way)).asUInt).orR
 
   val wmb_write_dcache_bytes_vld = Mux1H(Seq(
-    wmb_write_dcache_ptr_set(0) -> wmb_entry_out(0).bytes_vld,
-    wmb_write_dcache_ptr_set(1) -> wmb_entry_out(1).bytes_vld,
-    wmb_write_dcache_ptr_set(2) -> wmb_entry_out(2).bytes_vld,
-    wmb_write_dcache_ptr_set(3) -> wmb_entry_out(3).bytes_vld,
-    wmb_write_dcache_ptr_set(4) -> wmb_entry_out(4).bytes_vld,
-    wmb_write_dcache_ptr_set(5) -> wmb_entry_out(5).bytes_vld,
-    wmb_write_dcache_ptr_set(6) -> wmb_entry_out(6).bytes_vld,
-    wmb_write_dcache_ptr_set(7) -> wmb_entry_out(7).bytes_vld
+    wmb_write_dcache_ptr(0) -> wmb_entry_out(0).bytes_vld,
+    wmb_write_dcache_ptr(1) -> wmb_entry_out(1).bytes_vld,
+    wmb_write_dcache_ptr(2) -> wmb_entry_out(2).bytes_vld,
+    wmb_write_dcache_ptr(3) -> wmb_entry_out(3).bytes_vld,
+    wmb_write_dcache_ptr(4) -> wmb_entry_out(4).bytes_vld,
+    wmb_write_dcache_ptr(5) -> wmb_entry_out(5).bytes_vld,
+    wmb_write_dcache_ptr(6) -> wmb_entry_out(6).bytes_vld,
+    wmb_write_dcache_ptr(7) -> wmb_entry_out(7).bytes_vld
   ))
 
   val wmb_write_dcache_data = Mux1H(Seq(
-    wmb_write_dcache_ptr_set(0) -> wmb_entry_out(0).data,
-    wmb_write_dcache_ptr_set(1) -> wmb_entry_out(1).data,
-    wmb_write_dcache_ptr_set(2) -> wmb_entry_out(2).data,
-    wmb_write_dcache_ptr_set(3) -> wmb_entry_out(3).data,
-    wmb_write_dcache_ptr_set(4) -> wmb_entry_out(4).data,
-    wmb_write_dcache_ptr_set(5) -> wmb_entry_out(5).data,
-    wmb_write_dcache_ptr_set(6) -> wmb_entry_out(6).data,
-    wmb_write_dcache_ptr_set(7) -> wmb_entry_out(7).data
+    wmb_write_dcache_ptr(0) -> wmb_entry_out(0).data,
+    wmb_write_dcache_ptr(1) -> wmb_entry_out(1).data,
+    wmb_write_dcache_ptr(2) -> wmb_entry_out(2).data,
+    wmb_write_dcache_ptr(3) -> wmb_entry_out(3).data,
+    wmb_write_dcache_ptr(4) -> wmb_entry_out(4).data,
+    wmb_write_dcache_ptr(5) -> wmb_entry_out(5).data,
+    wmb_write_dcache_ptr(6) -> wmb_entry_out(6).data,
+    wmb_write_dcache_ptr(7) -> wmb_entry_out(7).data
   ))
 
   val wmb_write_dcache_stall = (wmb_write_dcache_ptr.asUInt & VecInit(wmb_entry_out.map(_.write_stall)).asUInt).orR
@@ -1382,7 +1382,7 @@ class Wmb extends Module with LsuConfig with BIUConfig{
   val wmb_dcache_arb_ld_data_req_unmask =
     Cat(wmb_dcache_data_region.asUInt,wmb_dcache_data_region.asUInt) &
     Cat(VecInit(Seq.fill(4)(wmb_dcache_data_high_sel)).asUInt,VecInit(Seq.fill(4)(!wmb_dcache_data_high_sel)).asUInt) &
-    VecInit(Seq.fill(4)(wmb_dcache_arb_req_unmask)).asUInt
+    VecInit(Seq.fill(8)(wmb_dcache_arb_req_unmask)).asUInt
 
   io.out.toDcacheArb.ld_data_req := wmb_dcache_arb_ld_data_req_unmask
   io.out.toDcacheArb.ld_data_gateclk_en := wmb_dcache_arb_ld_data_req_unmask
