@@ -2,6 +2,7 @@ package Core.IDU.DecodeTable
 
 import Core.IDU.FuncUnit._
 import Core.IDU.Opcode.AluOpcode._
+import Core.IDU.Opcode.SpecialOpcode._
 import ISA.RV64Diff.trapInst
 import ISA.RV64I._
 import Utils.Bits.BinaryConst.{F, T}
@@ -15,7 +16,7 @@ object AluDecodeTable {
     //            |    |       rs1|
     //            |    |    rd |  |
     lui   -> List(ALU, LUI, T, F, F),
-    auipc -> List(ALU, AUI_PC, T, F, F),
+    auipc -> List(ALU, AUI_PC, T, F, F), // todo auipc -> List(ALU, SPECIAL, T, F, F),
     addi  -> List(ALU, ADD, T, T, F),
     slti  -> List(ALU, SLT, T, T, F),
     sltiu -> List(ALU, SLT, T, T, F),
@@ -44,6 +45,7 @@ object AluDecodeTable {
     sra   -> List(ALU, SRA, T, T, T),
     or    -> List(ALU, OR,  T, T, T),
     and   -> List(ALU, AND, T, T, T),
-    trapInst -> List(ALU, ADD, F, T, T)
+    trapInst -> List(ALU, ADD, F, T, T),
+    pseudo_auipc -> List(SPECIAL, PSEUDO_AUIPC, T, F, F),
   )
 }
