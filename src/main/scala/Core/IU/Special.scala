@@ -81,7 +81,8 @@ class Special extends Module{
   //==========================================================
   //                     AUIPC result
   //==========================================================
-  val special_ex1_offset = ex1_pipe.specialImm << 12.U // auipc , left shift 12bits for jalr
+  val is_pesudo = ex1_pipe.opcode === SpecialOpType.PSEUDO_AUIPC
+  val special_ex1_offset = Mux(is_pesudo,Cat(ex1_pipe.specialImm ,0.U(1.W)),ex1_pipe.specialImm << 12.U) // auipc , left shift 12bits for jalr
   val special_auipc_rslt = ex1_pipe_pc + special_ex1_offset
   // 3. vector inst
   //==========================================================

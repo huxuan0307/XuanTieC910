@@ -11,7 +11,8 @@ import Core.IDU.IS.SdiqConfig.NumSrcSd
 import Core.IDU.IS.VfiqConfig.NumSrcVf
 import Core.IDU.IS._
 import Core.IDU.Opcode.AluOpcode.AUI_PC
-import Core.IDU.Opcode.Opcode
+import Core.IDU.Opcode.{Opcode, SpecialOpcode}
+import Core.IDU.Opcode.SpecialOpcode.PSEUDO_AUIPC
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig._
 import Core.{DCacheConfig, LsuConfig}
@@ -896,6 +897,11 @@ class RFStage extends Module with RFStageConfig {
     iu0_imm_sel(1) -> sext(XLEN, aiq0Inst(31, 20)),
   ))
 
+  private val special_imm : UInt = Mux(aiq0Op === SpecialOpcode.PSEUDO_AUIPC,
+    Cat(aiq0Inst(31), aiq0Inst(19,12), aiq0Inst(20), aiq0Inst(30,21)).asUInt,
+    aiq0Inst(31, 12)
+  )
+
   private val biqInst = Wire(UInt(32.W))
   private val biqFu :: biqOp :: biqRd :: biqRs1 :: biqRs2 :: Nil = ListLookup(biqInst, DefaultInst.inst, bjuDecodeTable)
 
@@ -1275,7 +1281,7 @@ class RFStage extends Module with RFStageConfig {
   io.data.out.toIu0.exptVec := aiq0ReadData.exceptVec.bits
   io.data.out.toIu0.exptVld := aiq0ReadData.exceptVec.valid
   io.data.out.toIu0.highHwExpt := aiq0ReadData.highHwExcept
-  io.data.out.toIu0.specialImm := iu0_imm(19, 0)
+  io.data.out.toIu0.specialImm := special_imm(19,0)
   io.data.out.toIu0.pid := aiq0ReadData.pid
   // output to cp0
   io.ctrl.out.toCp0.iid := aiq0ReadData.iid
