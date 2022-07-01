@@ -286,7 +286,7 @@ class SimTop extends Module with Config with ROBConfig with LsuConfig{
   iu.io.alu1Sel.gateSel := idu.io.out.RFCtrl.toAlu1.gateClkSel
   iu.io.isIn.issue := false.B //////todo: ISStage add idu_iu_is_div_issue
   iu.io.isIn.gateClkIssue := false.B //////todo: idu_iu_is_div_gateclk_issue ???
-  iu.io.specialPid := DontCare //////todo: check idu_iu_rf_pipe0_pid and idu_iu_rf_pipe1_pid ???
+  iu.io.specialPid := idu.io.out.RFData.toIu0.pid
   iu.io.bjuSel.sel := idu.io.out.RFCtrl.toBju.sel
   iu.io.bjuSel.gateSel := idu.io.out.RFCtrl.toBju.gateClkSel
   iu.io.mulSel.sel := idu.io.out.RFCtrl.toMul.sel
