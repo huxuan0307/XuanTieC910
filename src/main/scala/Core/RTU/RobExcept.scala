@@ -5,6 +5,7 @@ import Core.ExceptionConfig._
 import Core.IntConfig._
 import Core.ROBConfig._
 import Core.VectorUnitConfig._
+import Utils.CompareIidOlder
 import chisel3._
 import chisel3.util._
 
@@ -158,22 +159,6 @@ class RobExcept extends Module with RobExceptConfig {
   //==========================================================
   //                 Exception Cmplt Order
   //==========================================================
-  def IidFlag(iid: UInt) : Bool = {
-    iid(NumRobEntryBits)
-  }
-  def IidNum(iid: UInt) : UInt = {
-    iid(NumRobEntryBits - 1, 0)
-  }
-
-  def CompareIidLess(left: UInt, right: UInt) : Bool = {
-    val res = Wire(Bool())
-    res := Mux(
-      IidFlag(left) === IidFlag(right),
-      IidNum(left) < IidNum(right),
-      IidNum(left) > IidNum(right)
-    )
-    res
-  }
 
   private val pipe4Iid = io.in.fromLsu.pipe4.iid
   private val pipe3Iid = io.in.fromLsu.pipe3.iid
@@ -181,16 +166,16 @@ class RobExcept extends Module with RobExceptConfig {
   private val pipe0Iid = io.in.fromIu.pipe0.iid
   private val exceptIid = exceptEntryData.iid
 
-  private val pipe4lt3 = CompareIidLess(pipe4Iid, pipe3Iid)
-  private val pipe4lt2 = CompareIidLess(pipe4Iid, pipe2Iid)
-  private val pipe4lt0 = CompareIidLess(pipe4Iid, pipe0Iid)
-  private val pipe4lte = CompareIidLess(pipe4Iid, exceptIid)
-  private val pipe3lt2 = CompareIidLess(pipe3Iid, pipe2Iid)
-  private val pipe3lt0 = CompareIidLess(pipe3Iid, pipe0Iid)
-  private val pipe3lte = CompareIidLess(pipe3Iid, exceptIid)
-  private val pipe2lt0 = CompareIidLess(pipe2Iid, pipe0Iid)
-  private val pipe2lte = CompareIidLess(pipe2Iid, exceptIid)
-  private val pipe0lte = CompareIidLess(pipe0Iid, exceptIid)
+  private val pipe4lt3 = CompareIidOlder(pipe4Iid, pipe3Iid)
+  private val pipe4lt2 = CompareIidOlder(pipe4Iid, pipe2Iid)
+  private val pipe4lt0 = CompareIidOlder(pipe4Iid, pipe0Iid)
+  private val pipe4lte = CompareIidOlder(pipe4Iid, exceptIid)
+  private val pipe3lt2 = CompareIidOlder(pipe3Iid, pipe2Iid)
+  private val pipe3lt0 = CompareIidOlder(pipe3Iid, pipe0Iid)
+  private val pipe3lte = CompareIidOlder(pipe3Iid, exceptIid)
+  private val pipe2lt0 = CompareIidOlder(pipe2Iid, pipe0Iid)
+  private val pipe2lte = CompareIidOlder(pipe2Iid, exceptIid)
+  private val pipe0lte = CompareIidOlder(pipe0Iid, exceptIid)
 
   private val exceptEntryWriteSel = Wire(Vec(NumExceptSource, Bool()))
   // select oldest completed pipe
@@ -423,9 +408,9 @@ class RobExcept extends Module with RobExceptConfig {
   private val ssfPipe4Iid = io.in.fromLsu.pipe4.splitSpecFailIid.bits
   private val ssfPipe3Iid = io.in.fromLsu.pipe3.splitSpecFailIid.bits
 
-  private val ssfPipe4lt3 = CompareIidLess(ssfPipe4Iid, ssfPipe3Iid)
-  private val ssfPipe4ltSm = CompareIidLess(ssfPipe4Iid, ssfIid)
-  private val ssfPipe3ltSm = CompareIidLess(ssfPipe3Iid, ssfIid)
+  private val ssfPipe4lt3 = CompareIidOlder(ssfPipe4Iid, ssfPipe3Iid)
+  private val ssfPipe4ltSm = CompareIidOlder(ssfPipe4Iid, ssfIid)
+  private val ssfPipe3ltSm = CompareIidOlder(ssfPipe3Iid, ssfIid)
 
   //if older split spec fail occurs, update ssf_iid with older iid
   //and hold ssf sm state if it is not idle
