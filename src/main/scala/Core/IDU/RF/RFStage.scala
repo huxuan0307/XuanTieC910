@@ -11,7 +11,7 @@ import Core.IDU.IS.SdiqConfig.NumSrcSd
 import Core.IDU.IS.VfiqConfig.NumSrcVf
 import Core.IDU.IS._
 import Core.IDU.Opcode.AluOpcode.AUI_PC
-import Core.IDU.Opcode.{Opcode, SpecialOpcode}
+import Core.IDU.Opcode.{BjuOpcode, Opcode, SpecialOpcode}
 import Core.IDU.Opcode.SpecialOpcode.PSEUDO_AUIPC
 import Core.IDU.RF.PrfConfig.NumPregReadPort
 import Core.IntConfig._
@@ -739,11 +739,13 @@ class RFStage extends Module with RFStageConfig {
   //prepare src vld signals
   private val pipe0src2Valid = pipeInstValidVec(0) && io.data.in.aiq0.issueReadData.srcValid(2)
   private val pipe1src2Valid = pipeInstValidVec(1) && io.data.in.aiq1.issueReadData.srcValid(2)
+  private val pipe2src0Valid = pipeInstValidVec(2) && io.data.in.biq.issueReadData.srcValid(0)
   private val pipe3src1Valid = pipeInstValidVec(3) && io.data.in.lsiq0.issueReadData.srcValid(1)
   private val pipe5src0Valid = pipeInstValidVec(5) && io.data.in.sdiq.issueReadData.src0Valid
   //preg read port share priority:
   //pipe0 src2 > pipe3 src1, pipe1 src1 > pipe5 src0
   //so launch fail pipe3/5 when pipe0/1 shares preg read port
+  private val pipe2PregLaunchFail = pipe2src0Valid
   private val pipe3PregLaunchFail = pipe3src1Valid && pipe0src2Valid
   private val pipe5PregLaunchFail = pipe5src0Valid && pipe1src2Valid
 
@@ -791,6 +793,7 @@ class RFStage extends Module with RFStageConfig {
   private val pipeOtherLaunchFailVec = WireInit(VecInit(Seq.fill(NumIssue)(false.B)))
   pipeOtherLaunchFailVec := DontCare // 1,2,
   pipeOtherLaunchFailVec(0) := pipe0VdivMtvrLaunchFail
+//  pipeOtherLaunchFailVec(2) := pipe2PregLaunchFail
   pipeOtherLaunchFailVec(3) := pipe3PregLaunchFail || pipe3VregLaunchFail
   pipeOtherLaunchFailVec(4) := pipe4VregLaunchFail
   pipeOtherLaunchFailVec(5) := pipe5PregLaunchFail
@@ -1183,6 +1186,7 @@ class RFStage extends Module with RFStageConfig {
     ),
     (2,1) -> Seq (
       //Todo: fix this iu0_imm
+      (biqOp === BjuOpcode.JAL) -> sext( XLEN, Cat(biqInst(31), biqInst(19,12), biqInst(20), biqInst(30,21), 0.U(1.W))),
       !biqReadData.srcValid(1)  -> iu0_imm,                         // !srcValid      -> use imm
       biqReadData.srcVec(1).wb  -> prfRdataVec(readPortMap(2, 1)),  // has write back -> use reg
     ),
