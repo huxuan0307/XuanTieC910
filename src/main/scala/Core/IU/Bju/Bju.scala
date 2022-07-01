@@ -7,7 +7,7 @@ import Core.IU.{IduRfPipe2, unitSel}
 import Core.IUConfig.PcFifoAddr
 import Core.IntConfig.InstructionIdWidth
 import Core.ROBConfig.{IidWidth, NumRobReadEntry}
-import Utils.{LookupTree, SignExt, ZeroExt}
+import Utils.{CompareIidOlder, LookupTree, SignExt, ZeroExt}
 import Core.IDU.Opcode.BjuOpcode
 import Core.RTU.{CompareIid, PcFifoData}
 
@@ -87,6 +87,10 @@ class Bju extends Module{
   val flush = io.in.rtuIn.rtuFlush.flush
   //  PcFifo inst
   val pc_fifo = Module(new PcFifo)
+  val idu_mispred_stall = RegInit(false.B)
+  val ifu_mispred_stall = RegInit(false.B)
+  val bju_chgflw_vld = Wire(Bool())
+
   //----------------------------------------------------------
   //       Pred Store stage: PcFifo predict store from IDU
   //----------------------------------------------------------
@@ -117,29 +121,22 @@ class Bju extends Module{
   ex1_pipe_inst_vld        := Mux(flush, false.B, io.in.sel.sel)
   //----------------------------------------------------------
   //                   RF IID Age compare
+  //----------------------------------------------------------
   //during the mispred changeflow and retire, BJU exe inst may
   //older or newer than the previous mispred inst.
   //BJU will save and compare age by IID: new mispred could be generated
   //only when it is older
   //timing optimization: move ex1 iid age compare to rf stage
-  val ex_iid_compare = Module(new CompareIid)
-  ex_iid_compare.io.iid0 := io.in.rfPipe2.iid
-  ex_iid_compare.io.iid1 := ex1_pipe_rf.iid
-  val rfOlderEx1 = ex_iid_compare.io.older
+  val rfOlderEx1 = CompareIidOlder(io.in.rfPipe2.iid, ex1_pipe_rf.iid)
 
   val mispred_iid = RegInit(0.U(InstructionIdWidth.W))
-  val mispred_iid_compare = Module(new CompareIid)
-  mispred_iid_compare.io.iid0 := io.in.rfPipe2.iid
-  mispred_iid_compare.io.iid1 := ex1_pipe_rf.iid
-  val mispredOlderEx1 = mispred_iid_compare.io.older
+  val rfOlderMispred = CompareIidOlder(io.in.rfPipe2.iid, mispred_iid)
 
-  val idu_mispred_stall = RegInit(false.B)
-  val ifu_mispred_stall = RegInit(false.B)
-  val bju_chgflw_vld = Wire(Bool())
+  bju_rf_iid_oldest := (!bju_chgflw_vld || rfOlderEx1) && (!idu_mispred_stall || rfOlderMispred)
+
   //==========================================================
   //                  EX1 Execution Logic
   //==========================================================
-   bju_rf_iid_oldest    := (!idu_mispred_stall|| rfOlderEx1) && (!bju_chgflw_vld || mispredOlderEx1) //TODO what this
   val (src1, src2, op) = (ex1_pipe_rf.src0, ex1_pipe_rf.src1, ex1_pipe_rf.opcode)
   //----------------------------------------------------------
   //               Branch direction determination
@@ -186,8 +183,8 @@ class Bju extends Module{
   //---------------------------------------------------------- @742
   //pcfifo create pc of jalr is predict pc minus offset
   //so only need compare to src0
-  val bju_tarpc_cmp_fail = ex1_pipe_pcfifo_read.pc =/= ex1_pipe_rf.src0(PcWidth+1,0)
-  val bju_jmp_mispred = false.B//todo: after complete RFstage: (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred)   // todo: && page fault
+  val bju_tarpc_cmp_fail = ex1_pipe_pcfifo_read.pc =/= ex1_pipe_rf.src0(PcWidth + 1, 0)
+  val bju_jmp_mispred = (is_jmp&&bju_tarpc_cmp_fail) ||  (is_jmp && !ex1_pipe_rf.rts && ex1_pipe_pcfifo_read.jmpMispred) // todo: && page fault
   //----------------------------------------------------------
   //                Change Flow (cancel) signal                 @change flow signal @ct_iu_bju.v @752
   //----------------------------------------------------------
