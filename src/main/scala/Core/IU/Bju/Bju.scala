@@ -168,7 +168,9 @@ class Bju extends Module{
   //                BJU jump address calculation
   //---------------------------------------------------------
   val jump_pc = Wire(UInt((PcWidth).W))
-  jump_pc := ex1_pipe_rf.src0(PcWidth-1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth))
+  jump_pc := Mux(!op(0).asBool,ex1_pipe_pcfifo_read.pc + SignExt(ex1_pipe_rf.offset,(PcWidth)),
+    ex1_pipe_rf.src0(PcWidth-1,0) +  SignExt(ex1_pipe_rf.offset,(PcWidth))
+  )
   val branch_pc = Wire(UInt((PcWidth).W))
   branch_pc := Mux(is_br&&bj_taken, ex1_pipe_pcfifo_read.pc(PcWidth-1,0) + SignExt(ex1_pipe_rf.offset(20,0),(PcWidth)) ,
     ex1_pipe_pcfifo_read.pc(PcWidth-1,0)  + 4.U)// TODO ZeroExt(Cat(ex1_pipe_rf.length.asUInt,~ex1_pipe_rf.length.asUInt),PcWidth)) // otherwise PC+4 TODO pc + pclengh
